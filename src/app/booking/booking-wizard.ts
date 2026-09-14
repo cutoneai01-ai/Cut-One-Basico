@@ -17,7 +17,13 @@ import type {
   PublicBarber,
   PublicService,
 } from '../data/public-api.models';
-import { bookingWindow, flattenSlots, slotsState, type FlatSlot } from './availability';
+import {
+  bookingWindow,
+  flattenSlots,
+  slotsState,
+  type BookingWindow,
+  type FlatSlot,
+} from './availability';
 import { planForBookingError } from './booking-errors';
 
 /**
@@ -103,8 +109,18 @@ export class BookingWizard {
   protected readonly submitting = signal(false);
   protected readonly created = signal<AppointmentCreatedResponse | null>(null);
 
-  /** La ventana se calcula al abrir, no en cada render: es la misma durante toda la sesión. */
-  protected readonly days = signal(bookingWindow());
+  /**
+   * Los días seleccionables. **Vacíos hasta que el backend diga cuáles son** (RF-RA03 §3, serie 042).
+   *
+   * Antes esto arrancaba con 30 días calculados aquí. Ahora la ventana es de cada barbería —el
+   * horizonte lo fija ella y el plazo mínimo puede empujar el primer día más allá de hoy—, así que se
+   * pide al abrir el wizard. Se arranca vacío a propósito y no con una ventana provisional: pintar 30
+   * días y quitarlos 200 ms después haría desaparecer chips bajo el dedo del cliente.
+   */
+  protected readonly days = signal<string[]>([]);
+
+  /** `true` mientras se resuelve la ventana, para que el paso 3 muestre su esqueleto en vez de nada. */
+  protected readonly windowLoading = signal(false);
 
   protected readonly slotsState = computed(() => slotsState(this.slots()));
 
@@ -162,8 +178,39 @@ export class BookingWizard {
     this.step.set(this.firstIncompleteStep());
     this.visible.set(true);
 
+    // RF-RA03 §3: la ventana se resuelve en cada apertura, no una vez por sesión. Es barata (el
+    // backend la sirve desde su cache, sin tocar Postgres) y el plazo mínimo la mueve con el reloj:
+    // una pestaña abierta desde ayer tendría la de ayer.
+    void this.loadBookingWindow();
+
     if (service && barber) {
       void this.loadAvailability();
+    }
+  }
+
+  /**
+   * Pide la ventana de reserva del tenant y siembra la tira de días.
+   *
+   * Si falla, la tira queda vacía y el paso 3 lo dice: es preferible a inventar 30 días que el
+   * servidor podría rechazar uno a uno. Es el mismo criterio que `slotsFailed`.
+   */
+  private async loadBookingWindow(): Promise<void> {
+    this.windowLoading.set(true);
+
+    try {
+      const window: BookingWindow = await this.booking.getBookingWindow();
+      this.days.set(bookingWindow(window));
+
+      // El día preseleccionado tiene que estar DENTRO de la ventana. Con un plazo mínimo de un día,
+      // "hoy" ya no es reservable y dejarlo seleccionado pediría slots que el backend rechaza.
+      const days = this.days();
+      if (days.length > 0 && !days.includes(this.date())) {
+        this.date.set(days[0]);
+      }
+    } catch {
+      this.days.set([]);
+    } finally {
+      this.windowLoading.set(false);
     }
   }
 
@@ -365,7 +412,8 @@ export class BookingWizard {
     this.barber.set(null);
     this.anyBarber.set(false);
     this.date.set(todayInBusinessZone());
-    this.days.set(bookingWindow());
+    // La tira se repuebla en `loadBookingWindow()`, que `open()` dispara justo después del reset.
+    this.days.set([]);
     this.time.set(null);
     this.slots.set([]);
     this.slotsFailed.set(false);

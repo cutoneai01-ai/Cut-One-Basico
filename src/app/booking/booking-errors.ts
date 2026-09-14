@@ -55,11 +55,26 @@ export function planForBookingError(error: unknown): BookingErrorPlan {
         reaction: 'reload-availability',
       };
 
+    // El detalle sale del SERVIDOR desde la serie 042: el horizonte ya no son "30 días" para todas
+    // las barberías, es el que configuró cada una, y el mensaje del backend nombra las dos fechas
+    // exactas de la ventana. Un texto quemado aquí sería una quinta copia del 30 y mentiría en cuanto
+    // un tenant lo cambiara.
     case 'DATE_OUT_OF_RANGE':
       return {
         summary: 'Fecha fuera de rango',
-        detail: 'Solo se puede reservar en los próximos 30 días.',
+        detail: error.message,
         reaction: 'back-to-schedule',
+      };
+
+    // RF-RA01 §5.4 (serie 042). Se emite cuando la barbería exige antelación mínima y la hora elegida
+    // ya no la alcanza. En la práctica es raro —la rejilla ya no ofrece esas horas—, y aparece cuando
+    // la pestaña lleva un rato abierta y el hueco entra en el plazo mientras tanto. El detalle viene
+    // redactado por el servidor, que es quien conoce el número.
+    case 'BOOKING_TOO_SOON':
+      return {
+        summary: 'Falta muy poco para esa hora',
+        detail: error.message,
+        reaction: 'reload-availability',
       };
 
     case 'RATE_LIMIT_EMAIL':

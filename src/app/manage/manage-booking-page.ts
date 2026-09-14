@@ -18,8 +18,15 @@ import { Skeleton } from 'primeng/skeleton';
 import { ApiError } from '../core/api-error';
 import { resolveImage } from '../core/images';
 import { dayLabels, formatCOP, formatLongDate, toTimeLabel } from '../core/locale';
-import { bookingWindow, flattenSlots, slotsState, type FlatSlot } from '../booking/availability';
+import {
+  bookingWindow,
+  flattenSlots,
+  slotsState,
+  type BookingWindow,
+  type FlatSlot,
+} from '../booking/availability';
 import { CatalogService } from '../data/catalog.service';
+import { BookingService } from '../data/booking.service';
 import { ManageBookingService } from '../data/manage-booking.service';
 import type { ManageAppointment, PublicBarber, PublicService } from '../data/public-api.models';
 
@@ -46,6 +53,9 @@ type PageState = 'loading' | 'ready' | 'saved' | 'error';
 })
 export class ManageBookingPage {
   private readonly manage = inject(ManageBookingService);
+  // Solo para la ventana de reserva: es la MISMA que la del wizard (decisión 5 de la serie 020) y sale
+  // del mismo endpoint público, así que se reusa su servicio en vez de duplicar el método aquí.
+  private readonly booking = inject(BookingService);
   private readonly catalog = inject(CatalogService);
   private readonly messages = inject(MessageService);
 
@@ -105,8 +115,15 @@ export class ManageBookingPage {
   protected readonly justCancelled = signal(false);
   protected readonly cancelAttempted = signal(false);
 
-  /** La ventana se calcula una vez: es la misma durante toda la sesión. */
-  protected readonly days = signal(bookingWindow());
+  /**
+   * Los días seleccionables para reprogramar. Vacíos hasta que el backend diga cuáles son
+   * (RF-RA03 §3, serie 042).
+   *
+   * La ventana es **la misma que la de reservar** — decisión 5 de la serie 020, que la serie 042
+   * conserva: el horizonte pasó a ser por barbería, pero sigue habiendo una sola regla y un solo
+   * endpoint que la sirve.
+   */
+  protected readonly days = signal<string[]>([]);
 
   protected readonly slotsState = computed(() => slotsState(this.slots()));
 
@@ -497,8 +514,10 @@ export class ManageBookingPage {
       this.state.set('ready');
 
       // Una cita no editable no necesita rejilla: el GET ya dijo por qué, y pedir disponibilidad
-      // sería gastar un viaje para pintar algo que no se puede usar.
+      // sería gastar un viaje para pintar algo que no se puede usar. Lo mismo vale para la ventana:
+      // sin formulario de reprogramación no hay tira de días que dibujar (RF-RA03 §3).
       if (appointment.editable) {
+        void this.loadBookingWindow();
         void this.loadAvailability();
       }
 
@@ -540,6 +559,56 @@ export class ManageBookingPage {
     this.barberId.set(appointment.barberId);
     this.date.set(appointment.date);
     this.time.set(toTimeLabel(appointment.startTime));
+  }
+
+  /**
+   * Pide la ventana de reserva del tenant y siembra la tira de días (RF-RA03 §3, serie 042).
+   *
+   * A diferencia del wizard, aquí **no** se mueve la fecha seleccionada cuando cae fuera de la
+   * ventana: la fecha de partida es la de la cita que el cliente ya tiene, y moverla en silencio le
+   * cambiaría lo que está mirando. Si su cita es de hoy y el plazo mínimo ya no permite hoy, verá su
+   * día sin horas libres y tendrá que elegir otro, que es la verdad.
+   */
+  /**
+   * Enlace de contacto de la barbería, o `null` si no publicó ninguno (RF-RA03 §4, serie 042).
+   *
+   * WhatsApp gana sobre el teléfono: es el canal por el que una barbería contesta fuera del mostrador,
+   * y en móvil —que es donde se abre un correo— abre la conversación directamente.
+   *
+   * Devolver `null` es una respuesta legítima y frecuente: los dos campos son opcionales en el
+   * branding. La plantilla lo usa con `@if (...; as href)`, así que sin contacto no se pinta nada en
+   * vez de un botón muerto.
+   */
+  protected contactHref(booking: ManageAppointment): string | null {
+    const whatsapp = booking.whatsappNumber.replace(/[^0-9]/g, '');
+    if (whatsapp) {
+      return `https://wa.me/${whatsapp}`;
+    }
+
+    const phone = booking.publicPhone.replace(/[^0-9+]/g, '');
+    return phone ? `tel:${phone}` : null;
+  }
+
+  /** Etiqueta del botón de contacto, que nombra el canal para que el cliente sepa qué se le abre. */
+  protected contactLabel(booking: ManageAppointment): string {
+    return booking.whatsappNumber ? 'Escribir por WhatsApp' : 'Llamar a la barbería';
+  }
+
+  /**
+   * Abre el contacto. Se hace por código y no con un `<a href>` porque el botón es un `p-button`, y
+   * `_blank` con `noopener` evita que la pestaña nueva conserve una referencia a ésta.
+   */
+  protected openContact(href: string): void {
+    window.open(href, '_blank', 'noopener');
+  }
+
+  private async loadBookingWindow(): Promise<void> {
+    try {
+      const window: BookingWindow = await this.booking.getBookingWindow();
+      this.days.set(bookingWindow(window));
+    } catch {
+      this.days.set([]);
+    }
   }
 
   private async loadAvailability(): Promise<void> {

@@ -23,5 +23,5 @@ export const environment: AppEnvironment = {
   apiUrl: 'https://api-gateway.cutoneai.com',
   themeKey: 'clasico',
   devSubdomain: '',
-  version: '2026-09-12.3',
+  version: '2026-09-14.1',
 };

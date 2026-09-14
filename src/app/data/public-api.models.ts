@@ -147,6 +147,14 @@ export interface SubmitSurveyInput {
 export interface ManageAppointment {
   shopName: string;
   logoUrl: string;
+  /**
+   * Teléfono público del tenant, o cadena vacía (RF-RA01 §6, serie 042). Se ofrece cuando una acción
+   * queda fuera del plazo que configuró la barbería: el cliente lee por qué no puede y a quién
+   * llamar. Los dos pueden venir vacíos — son opcionales en el branding.
+   */
+  publicPhone: string;
+  /** WhatsApp público del tenant, o cadena vacía. Tiene preferencia sobre `publicPhone` al pintar. */
+  whatsappNumber: string;
   appointmentId: string;
   confirmationCode: string;
   status: string;

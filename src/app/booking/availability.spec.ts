@@ -1,5 +1,5 @@
 import type { AvailabilityResponse } from '../data/public-api.models';
-import { BOOKING_WINDOW_DAYS, bookingWindow, flattenSlots, slotsState } from './availability';
+import { bookingWindow, flattenSlots, slotsState } from './availability';
 
 function response(periods: AvailabilityResponse['periods']): AvailabilityResponse {
   return { date: '2026-08-13', periods };
@@ -89,19 +89,67 @@ describe('slotsState', () => {
   });
 });
 
+// RF-RA03 §3 (serie 042): `bookingWindow` dejó de calcular 30 días y pasa a expandir la ventana que
+// sirve el backend. Los dos extremos son INCLUSIVOS, que es la parte que un off-by-one rompería en
+// silencio — y de hecho ya había uno vivo: el servidor aceptaba `hoy+30` y esta landing solo pintaba
+// hasta `hoy+29`, así que el último día reservable no se ofrecía nunca.
 describe('bookingWindow', () => {
-  it('devuelve 30 días contando hoy', () => {
-    const window = bookingWindow('2026-08-13');
+  it('incluye los dos extremos de la ventana', () => {
+    const window = bookingWindow({
+      firstBookableDate: '2026-08-13',
+      lastBookableDate: '2026-09-12',
+      minLeadMinutes: 30,
+    });
 
-    expect(window).toHaveLength(BOOKING_WINDOW_DAYS);
+    expect(window).toHaveLength(31);
     expect(window[0]).toBe('2026-08-13');
-    expect(window[BOOKING_WINDOW_DAYS - 1]).toBe('2026-09-11');
+    expect(window[window.length - 1]).toBe('2026-09-12');
   });
 
   it('no repite ni salta días al cruzar mes', () => {
-    const window = bookingWindow('2026-01-20');
+    const window = bookingWindow({
+      firstBookableDate: '2026-01-20',
+      lastBookableDate: '2026-02-19',
+      minLeadMinutes: 0,
+    });
 
-    expect(new Set(window).size).toBe(BOOKING_WINDOW_DAYS);
+    expect(new Set(window).size).toBe(window.length);
     expect(window).toContain('2026-02-01');
+    expect(window).toContain('2026-01-31');
+  });
+
+  it('arranca en el primer día reservable, no en hoy', () => {
+    // Con un plazo mínimo de un día el backend devuelve mañana como primer día; la tira tiene que
+    // empezar ahí y no en hoy, o el cliente elegiría un día que el servidor rechaza.
+    const window = bookingWindow({
+      firstBookableDate: '2026-08-14',
+      lastBookableDate: '2026-09-12',
+      minLeadMinutes: 1440,
+    });
+
+    expect(window[0]).toBe('2026-08-14');
+    expect(window).not.toContain('2026-08-13');
+  });
+
+  it('devuelve un solo día cuando la ventana es de uno', () => {
+    const window = bookingWindow({
+      firstBookableDate: '2026-08-13',
+      lastBookableDate: '2026-08-13',
+      minLeadMinutes: 0,
+    });
+
+    expect(window).toEqual(['2026-08-13']);
+  });
+
+  it('devuelve vacío si la ventana viene invertida', () => {
+    // El backend no puede producir esto —su validador rechaza el mínimo que no cabe en el horizonte—,
+    // pero un bucle que extrapolara desde aquí no terminaría nunca.
+    const window = bookingWindow({
+      firstBookableDate: '2026-08-14',
+      lastBookableDate: '2026-08-13',
+      minLeadMinutes: 0,
+    });
+
+    expect(window).toEqual([]);
   });
 });

@@ -13,11 +13,27 @@ describe('planForBookingError', () => {
     }
   });
 
-  it('vuelve al paso de horario con la fecha fuera de rango', () => {
-    const plan = planForBookingError(apiError('DATE_OUT_OF_RANGE', 'x', 400));
+  it('vuelve al paso de horario con la fecha fuera de rango, con el mensaje del servidor', () => {
+    // RF-RA03 §5 (serie 042): el detalle DEJÓ de ser "solo se puede reservar en los próximos 30 días".
+    // El horizonte es ahora de cada barbería, y el backend nombra las dos fechas exactas de la
+    // ventana; un texto quemado aquí sería una copia del 30 que mentiría en cuanto un tenant lo
+    // cambiara. El test fija ese contrato: lo que se pinta es lo que manda el servidor.
+    const server = 'Solo puedes reservar entre el 15/09/2026 y el 14/10/2026.';
+    const plan = planForBookingError(apiError('DATE_OUT_OF_RANGE', server, 400));
 
     expect(plan.reaction).toBe('back-to-schedule');
-    expect(plan.detail).toContain('30 días');
+    expect(plan.detail).toBe(server);
+  });
+
+  it('recarga disponibilidad cuando falta muy poco para la hora elegida', () => {
+    // RF-RA01 §5.4: BOOKING_TOO_SOON solo aparece si la barbería exige antelación mínima y el hueco
+    // entró en el plazo con la pestaña ya abierta. Recargar es lo correcto: la rejilla nueva ya no
+    // lo trae.
+    const server = 'Necesitas reservar con al menos 30 minutos de antelación.';
+    const plan = planForBookingError(apiError('BOOKING_TOO_SOON', server, 400));
+
+    expect(plan.reaction).toBe('reload-availability');
+    expect(plan.detail).toBe(server);
   });
 
   it('muestra el mensaje del servidor tal cual en los tres límites de frecuencia', () => {

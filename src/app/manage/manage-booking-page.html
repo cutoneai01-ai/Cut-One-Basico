@@ -159,6 +159,17 @@
       ) {
         <section class="card card--center">
           <p-message severity="info" [text]="booking.notCancelableReason" />
+          <!-- RF-RA03 §4 (serie 042): fuera de plazo, el motivo solo no basta — el cliente necesita a
+               quién llamar. Se pinta si el tenant tiene algún dato de contacto; si no tiene ninguno,
+               no se inventa un "comunícate con la barbería" que no dice cómo. -->
+          @if (contactHref(booking); as href) {
+            <p-button
+              [label]="contactLabel(booking)"
+              [icon]="booking.whatsappNumber ? 'pi pi-whatsapp' : 'pi pi-phone'"
+              [outlined]="true"
+              (onClick)="openContact(href)"
+            />
+          }
         </section>
       }
     }
@@ -180,6 +191,17 @@
         <section class="card card--center">
           <i class="pi pi-info-circle card__icon" aria-hidden="true"></i>
           <p-message severity="info" [text]="booking.notEditableReason || 'Esta cita ya no se puede modificar.'" />
+          <!-- RF-RA03 §4 (serie 042): fuera de plazo, el motivo solo no basta — el cliente necesita a
+               quién llamar. Se pinta si el tenant tiene algún dato de contacto; si no tiene ninguno,
+               no se inventa un "comunícate con la barbería" que no dice cómo. -->
+          @if (contactHref(booking); as href) {
+            <p-button
+              [label]="contactLabel(booking)"
+              [icon]="booking.whatsappNumber ? 'pi pi-whatsapp' : 'pi pi-phone'"
+              [outlined]="true"
+              (onClick)="openContact(href)"
+            />
+          }
         </section>
       }
     } @else {

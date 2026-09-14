@@ -1,8 +1,27 @@
-import { addDays, toTimeLabel, todayInBusinessZone } from '../core/locale';
+import { addDays, toTimeLabel } from '../core/locale';
 import type { AvailabilityResponse, SlotPeriod } from '../data/public-api.models';
 
-/** Ventana de reserva: hoy más 29 días, es decir 30 contando hoy. La impone el backend (RF-07 RN-01). */
-export const BOOKING_WINDOW_DAYS = 30;
+/**
+ * Ventana de reserva de un tenant, tal y como la sirve el backend.
+ *
+ * Hasta la serie 042 aquí había `BOOKING_WINDOW_DAYS = 30`, una copia cliente del
+ * `BookingConstants.MaxAdvanceBookingDays` del servidor. Eran dos de las **cuatro** copias del mismo
+ * 30 que había en el sistema, y ya habían divergido: el backend aceptaba `hoy+30` y esta landing solo
+ * pintaba `hoy…hoy+29`, así que el último día reservable no se ofrecía nunca.
+ *
+ * Ahora el horizonte es de cada barbería (`CompanySetting.MaxAdvanceDays`) y el plazo mínimo puede
+ * empujar el primer día más allá de hoy, así que **la ventana no se calcula aquí**: se pide resuelta a
+ * `GET /api/v1/public/booking-policy` y se pinta. Calcularla en el navegador sería reimplementar la
+ * regla contra el reloj del visitante, que es justo lo que PLAN-SLOTS §19.5 obligó a borrar del panel.
+ */
+export interface BookingWindow {
+  /** Primer día reservable (`YYYY-MM-DD`), en hora de negocio. Ya incluye el plazo mínimo. */
+  readonly firstBookableDate: string;
+  /** Último día reservable, inclusive. Se cuenta desde hoy, no desde el primero. */
+  readonly lastBookableDate: string;
+  /** Plazo mínimo en minutos. Solo para redactar texto de ayuda; no se calcula nada con él. */
+  readonly minLeadMinutes: number;
+}
 
 /** El orden en que se concatenan los períodos en la rejilla plana (decisión 8 de la serie). */
 const PERIOD_ORDER: readonly SlotPeriod[] = ['Morning', 'Afternoon', 'Evening'];
@@ -61,11 +80,23 @@ export function slotsState(slots: readonly FlatSlot[]): SlotsState {
 }
 
 /**
- * Los 30 días seleccionables, arrancando en "hoy en hora de negocio".
+ * Expande la ventana que sirvió el backend en la lista de días seleccionables, ambos extremos
+ * incluidos (RF-RA03 §3, serie 042).
  *
- * Arrancar en `new Date()` daría el día del visitante: alguien en otra zona horaria vería un primer día
- * que el backend rechaza con `DATE_OUT_OF_RANGE`.
+ * Recibe la ventana en vez de calcularla: los dos extremos ya vienen resueltos en hora de negocio.
+ * Arrancar en `new Date()` daría el día del visitante, y alguien en otra zona horaria vería un primer
+ * día que el backend rechaza con `DATE_OUT_OF_RANGE`.
+ *
+ * Devuelve `[]` si la ventana está invertida, que es una configuración que el backend no puede
+ * producir —su validador rechaza el mínimo que no cabe en el horizonte— pero que aquí no se
+ * extrapola a un bucle infinito por si acaso.
  */
-export function bookingWindow(today: string = todayInBusinessZone()): string[] {
-  return Array.from({ length: BOOKING_WINDOW_DAYS }, (_, index) => addDays(today, index));
+export function bookingWindow(window: BookingWindow): string[] {
+  const days: string[] = [];
+
+  for (let day = window.firstBookableDate; day <= window.lastBookableDate; day = addDays(day, 1)) {
+    days.push(day);
+  }
+
+  return days;
 }
