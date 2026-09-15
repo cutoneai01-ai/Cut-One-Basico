@@ -8,7 +8,13 @@ Su hermano `projects/pz-personalizado` es lo contrario: un build a la medida de 
 contenido de marketing quemado en el código. **Un tenant recibe uno de los dos, nunca los dos** —
 compiten por la misma ruta `/`.
 
-Diseño y plan de trabajo: [008-rfs-landing-generico](../../makesoft/barbershop/development/008-rfs-landing-generico/README.md).
+**Esta landing queda fuera del alcance de la documentación de `makesoft/barbershop/`**, que cubre el
+backend y el panel. Lo que sí está documentado y este repo necesita: los endpoints
+[`/api/v1/public/**`](../../makesoft/barbershop/docs/60-referencia/api-endpoints.md) que consume, el
+[motor de disponibilidad](../../makesoft/barbershop/docs/20-modulos/M08-disponibilidad-y-reserva-publica.md)
+detrás de ellos, y el
+[reparto por ruta](../../makesoft/barbershop/docs/10-arquitectura/c4-02-contenedores.md) que decide qué
+tenant recibe esta landing.
 
 ## Stack
 
