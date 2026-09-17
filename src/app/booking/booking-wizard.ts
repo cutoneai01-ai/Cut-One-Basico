@@ -12,6 +12,7 @@ import { Textarea } from 'primeng/textarea';
 import { resolveImage } from '../core/images';
 import { dayLabels, formatCOP, formatLongDate, todayInBusinessZone } from '../core/locale';
 import { BookingService } from '../data/booking.service';
+import { CatalogService } from '../data/catalog.service';
 import type {
   AppointmentCreatedResponse,
   PublicBarber,
@@ -64,6 +65,7 @@ import { planForBookingError } from './booking-errors';
 })
 export class BookingWizard {
   private readonly booking = inject(BookingService);
+  private readonly catalog = inject(CatalogService);
   private readonly messages = inject(MessageService);
   private readonly formBuilder = inject(FormBuilder);
 
@@ -182,6 +184,12 @@ export class BookingWizard {
     // backend la sirve desde su cache, sin tocar Postgres) y el plazo mínimo la mueve con el reloj:
     // una pestaña abierta desde ayer tendría la de ayer.
     void this.loadBookingWindow();
+
+    // RF-HD04 RN-09, y por el mismo motivo que la línea de arriba. `CatalogService.ensureLoaded()` se
+    // ejecuta una vez por carga de página, así que una pestaña abierta desde la mañana seguiría
+    // ofreciendo a un barbero al que el admin acaba de dejar sin turnos — y desde el horario por día
+    // de la semana eso es una operación normal, no una rareza.
+    void this.catalog.revalidate();
 
     if (service && barber) {
       void this.loadAvailability();

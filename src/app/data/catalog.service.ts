@@ -39,6 +39,40 @@ export class CatalogService {
     void this.load();
   }
 
+  /**
+   * Vuelve a pedir el catálogo aunque ya esté cargado (RF-HD04 RN-09).
+   *
+   * `ensureLoaded()` es idempotente **por carga de página**, y eso bastaba mientras el catálogo solo
+   * cambiaba cuando el admin daba de alta un barbero. Con el horario por día de la semana
+   * ([ADR-0026](../../../../makesoft/barbershop/docs/30-decisiones/ADR-0026-horario-de-atencion-por-dia-de-la-semana.md))
+   * deja de bastar: un barbero **desaparece del catálogo** en cuanto se queda sin ningún turno activo,
+   * y una pestaña abierta desde la mañana seguiría ofreciéndolo toda la tarde.
+   *
+   * Se llama al **abrir el asistente de reserva**, no en un intervalo: es el único momento en que el
+   * dato va a usarse para algo irreversible, y son dos peticiones que el backend sirve de su cache sin
+   * tocar Postgres (R-04).
+   *
+   * No toca `loading`: la pantalla ya está pintada y volver a poner el esqueleto sería un parpadeo por
+   * una petición que casi siempre devuelve lo mismo. Si falla, se conserva lo que ya había — un
+   * catálogo de hace un minuto es mejor que ninguno.
+   */
+  async revalidate(): Promise<void> {
+    this.started = true;
+
+    try {
+      const [services, barbers] = await Promise.all([
+        firstValueFrom(this.http.get<PublicService[]>('/api/v1/public/services')),
+        firstValueFrom(this.http.get<PublicBarber[]>('/api/v1/public/barbers')),
+      ]);
+
+      this.servicesState.set(services);
+      this.barbersState.set(barbers);
+      this.failedState.set(false);
+    } catch {
+      // Silencio deliberado: ver arriba.
+    }
+  }
+
   private async load(): Promise<void> {
     try {
       // En paralelo, y esta vez sí: son dos filas de tablas distintas, no dos columnas de la misma
