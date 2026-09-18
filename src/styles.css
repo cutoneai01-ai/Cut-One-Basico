@@ -1,5 +1,66 @@
 @import 'primeicons/primeicons.css';
 
+/* Seis emparejamientos auto-hospedados, declarados aquí y NUNCA importados desde TS — Angular no deja
+   importar assets desde TypeScript como sí hace Vite (mismo motivo que documenta `core/images.ts:6-7`
+   para las imágenes semilla). Los `.woff2` viven en `public/fonts/`; el estado real de cada archivo
+   (cuáles existen hoy y cuáles faltan) está en `public/fonts/README.md`.
+
+   `font-display: swap` es obligatorio: no hay forma de adelantar la descarga con un
+   `<link rel="preload">` porque la familia del tenant no se conoce hasta que llega el tema, que es
+   después de parsear `index.html`. El fallback de cada declaración es de métrica parecida para que
+   el intercambio de `swap` no descuadre el layout al llegar el `.woff2` real.
+
+   Declarar los seis y usar solo uno (`--p-font-family` / `--cob-font-display`, ver `apply-theme.ts`)
+   cuesta seis declaraciones y UNA descarga: `@font-face` solo trae bytes cuando la familia declarada
+   se usa de verdad en la página. */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('/fonts/playfair-display-variable.woff2') format('woff2');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Archivo Black';
+  src: url('/fonts/archivo-black-regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Oswald';
+  src: url('/fonts/oswald-variable.woff2') format('woff2');
+  font-weight: 200 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fraunces';
+  src: url('/fonts/fraunces-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Poppins';
+  src: url('/fonts/poppins-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* RF-G01 §5 RN-03: cero color literal. Todo sale de los tokens que PrimeNG inyecta como variables CSS
    a partir del tema activo, así que cambiar `themeKey` cambia también esta hoja.
 
@@ -57,6 +118,12 @@ h4 {
   margin: 0;
   line-height: 1.2;
   font-weight: 600;
+  /* La variable de titulares. `apply-theme.ts` la escribe junto a `--p-font-family` (cuerpo) a partir
+     de la misma clave `fontKey` — un emparejamiento, dos variables. El fallback `inherit` es lo que
+     hace que un valor de tema que esta build no conoce no deje el título sin tipografía: si `fontKey`
+     no llegó a resolverse (nadie llamó a `applyThemeVars` todavía, o corre fuera de esta app) el
+     título simplemente hereda de `body`. */
+  font-family: var(--cob-font-display, inherit);
 }
 
 p {

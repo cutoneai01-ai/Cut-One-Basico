@@ -18,8 +18,16 @@ export interface AppEnvironment {
   readonly apiUrl: string;
 
   /**
-   * La variable de la decisión 2 de la serie. Tipada contra el catálogo de temas, **no `string`**:
-   * un valor mal escrito rompe el build en vez de caer en silencio en un tema por defecto.
+   * La variable de la decisión 2 de la serie 005. Tipada contra el catálogo de temas, **no
+   * `string`**: un valor mal escrito rompe el build en vez de caer en silencio en un tema por defecto.
+   *
+   * **Desde que el tema pasó a venir del API, ya NO decide el tema de un build desplegado.**
+   * `resolveTheme()` solo la lee
+   * cuando se llama sin argumento, y eso ahora solo ocurre en desarrollo local sin API (`npm start`,
+   * `start:clasico`, `start:minimal`) o si un snapshot llegara sin campo `theme` (no debería, desde
+   * que `STORAGE_VERSION` es `v2`). En `staging` y `production` el tema lo trae el API cada carga
+   * (`resolveStartupTheme()`, `main.ts`), así que este valor es cosmético para esos dos entornos —
+   * se conserva por uniformidad del tipo, no porque algo lo lea en producción.
    */
   readonly themeKey: ThemeKey;
 
@@ -28,6 +36,20 @@ export interface AppEnvironment {
    * decide el hostname (RF-G02 §4).
    */
   readonly devSubdomain: string;
+
+  /**
+   * Origen exacto de GestionCutOne, el único embebedor legítimo de `/__preview` (RF-TT03 §4 y §6.2).
+   *
+   * Constante de build, **nunca derivada** de `location` ni de `document.referrer`: el propio RF
+   * advierte que los orígenes tienen que salir de aquí para que la comprobación sea una igualdad de
+   * cadena completa contra un valor que el mensaje entrante no puede influir.
+   *
+   * En local vale `http://localhost:4200` (el puerto de `ng serve` de GestionCutOne) porque ese repo
+   * no tiene despliegues de vista previa — no está enlazado a git (ver `CLAUDE.md` raíz, "Desplegar
+   * desde `projects/`") — así que la igualdad estricta contra su origen de producción solo puede
+   * cumplirse ahí o en el propio `gestioncutone.netlify.app`.
+   */
+  readonly gestionOrigin: string;
 
   /**
    * Marca del build, `YYYY-MM-DD.N`, que `main.ts` imprime en consola al arrancar.

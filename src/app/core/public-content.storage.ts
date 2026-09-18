@@ -13,17 +13,28 @@ import { getCompanySubdomain } from './tenant';
 // avisar a nadie. Si el panel reconstruyera `public-settings:v1:{subdomain}`, subir la versión aquí lo
 // dejaría borrando una key que nadie lee: branding viejo hasta 24 horas, sin un solo error en consola
 // y sin forma de atar la causa al efecto meses después.
+//
+// Desde `v2` este snapshot decide algo más que el contenido — decide el **primer pintado**.
+// `startup-theme.ts` lo lee ANTES del bootstrap para resolver el tema sin esperar red
+// (`resolveStartupTheme()`), y solo si no hay snapshot vigente se pide algo por HTTP en el camino
+// crítico. Eso cambia lo que se rompe si alguien lo toca: antes, un `STORAGE_VERSION` desalineado
+// daba branding viejo; ahora, además, da el tema equivocado y un parpadeo de color en la primera
+// visita del dispositivo tras el desalineamiento — sin ningún error en consola, porque
+// `mergeBrandingSnapshot` fusiona sobre `DEFAULTS` y un campo de tema ausente simplemente cae a
+// "hereda" (`resolveTheme()`). Es la razón por la que `v1 → v2` no es opcional en este cambio: un
+// snapshot `v1` no tiene el campo `theme` en absoluto.
 export const PUBLIC_SETTINGS_KEY = 'public-settings';
 
 /**
- * La versión forma parte de la clave a propósito: el snapshot guarda la *forma* del branding de la
- * build que lo escribió. Al añadir o renombrar un campo, subirla hace que las entradas viejas dejen de
- * leerse, en vez de fusionarse a medias sobre `DEFAULTS`.
+ * La versión forma parte de la clave a propósito: el snapshot guarda la *forma* del branding (y,
+ * desde `v2`, del tema) de la build que lo escribió. Al añadir o renombrar un campo, subirla hace que
+ * las entradas viejas dejen de leerse, en vez de fusionarse a medias sobre `DEFAULTS`.
  *
- * Arranca en v1 porque es la primera forma de este repo; no tiene por qué coincidir con la de
+ * `v2` desde que el snapshot gana el campo `theme` (ver cabecera de este archivo). Antes de eso,
+ * arrancaba en v1 porque era la primera forma de este repo; no tiene por qué coincidir con la de
  * `pz-personalizado` (que va por v3) — son dos esquemas independientes bajo el mismo prefijo.
  */
-const STORAGE_VERSION = 'v1';
+const STORAGE_VERSION = 'v2';
 
 /**
  * Pasado este tiempo el snapshot se descarta aunque siga en localStorage, y no es negociable: sin él,

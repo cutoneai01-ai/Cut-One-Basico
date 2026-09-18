@@ -25,6 +25,24 @@ type BrandingSetting = Partial<Omit<Branding, 'hero_image_url' | 'hero_title' | 
 type HeroSetting = Partial<Pick<Branding, 'hero_image_url' | 'hero_title' | 'hero_subtitle'>>;
 
 /**
+ * El tema tal y como lo manda el backend: siete campos ya resueltos contra el preset (nunca viaja el
+ * nombre del preset en sí — la landing no conoce el catálogo de presets, solo el resultado), en
+ * snake_case como `branding` y `hero`. **Ningún archivo de esta app que no sea `resolve-theme.ts` lee
+ * estos campos** — es la forma cruda, y "cruda" incluye la posibilidad de que traiga un valor que
+ * esta build todavía no conozca: por eso son `string`, no un tipo cerrado — el tipo cerrado
+ * (`ThemeDescriptor`) es lo que `resolveTheme()` devuelve, nunca lo que entra.
+ */
+export interface RawTheme {
+  primary: string;
+  surface: string;
+  color_scheme: string;
+  font_key: string;
+  radius: string;
+  density: string;
+  button_style: string;
+}
+
+/**
  * `branding` y `hero` son dos keys separadas de `CompanySetting` (RF-13 §3, RF-F01) que se piden juntas
  * y se combinan en un único objeto: los consumidores no tienen por qué saber en qué key vive cada campo.
  */
@@ -37,6 +55,23 @@ export interface PublicSettingsBundle {
    * bundle y no anidado — tiparlo dentro de `branding` lo dejaría siempre `undefined`.
    */
   rating_score?: number;
+  /**
+   * Tercera clave del bundle público, junto a `branding` y `hero` (`keys=branding,hero,theme`).
+   * Ausente solo si se pidió sin esa key (`startup-theme.ts` y `settings.service.ts` siempre la
+   * piden) o si el backend todavía no sirve el tema — de ahí que `resolveTheme()` tenga que tolerar
+   * `undefined` y no solo valores de catálogo desconocidos.
+   */
+  theme?: RawTheme;
+}
+
+/**
+ * Lo que efectivamente vive en el snapshot de `localStorage` (`public-content.storage.ts`): el
+ * branding ya aplanado sobre `DEFAULTS`, más el tema crudo tal cual llegó — sin resolver, porque
+ * resolverlo es trabajo exclusivo de `resolveTheme()`, el único punto del código que decide qué tema
+ * está activo; resolverlo aquí también sería un segundo punto de decisión.
+ */
+export interface StoredPublicSnapshot extends Branding {
+  theme?: RawTheme;
 }
 
 /**

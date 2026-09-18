@@ -12,6 +12,10 @@ export const environment: AppEnvironment = {
   apiUrl: 'https://api-gateway.cutoneai.com',
   themeKey: 'noche',
   devSubdomain: '',
+  // GestionCutOne no tiene ambientes separados (vive en `gestioncutone.netlify.app`, sin dominio
+  // propio y sin despliegues de vista previa), así que aquí no hay un "gestionOrigin de staging"
+  // distinto del de producción.
+  gestionOrigin: 'https://gestioncutone.netlify.app',
   // Nadie despliega esta configuración: Netlify observa `master` y construye con `production`. La
   // marca dice de dónde salió el bundle, que es lo único que se le puede preguntar a un build que no
   // tiene un sitio donde vivir. Si algún día se despliega de verdad, aquí empieza a llevar fecha.

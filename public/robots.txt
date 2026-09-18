@@ -1,0 +1,5 @@
+# RF-TT03 §4. Tercera capa (la que menos protege, y la única dirigida a rastreadores que la respetan
+# por buena fe: no es una barrera de seguridad, es higiene). La landing pública sigue siendo indexable
+# — este archivo no toca eso, solo excluye la ruta de previsualización.
+User-agent: *
+Disallow: /__preview

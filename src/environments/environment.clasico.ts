@@ -15,5 +15,6 @@ export const environment: AppEnvironment = {
   apiUrl: '',
   themeKey: 'clasico',
   devSubdomain: 'cut-test',
+  gestionOrigin: 'http://localhost:4200',
   version: 'dev',
 };
