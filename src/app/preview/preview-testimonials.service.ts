@@ -3,7 +3,7 @@ import type { TestimonialsService } from '../data/testimonials.service';
 import type { PublicTestimonial } from '../data/public-api.models';
 import { PREVIEW_TESTIMONIALS } from './preview-fixtures';
 
-/** Doble de `TestimonialsService` para `/__preview` (RF-TT03 §5). `exhausted` arranca en `true`: la
+/** Doble de `TestimonialsService` para `/__preview` (M-20 RN-CFG-41). `exhausted` arranca en `true`: la
  * fixture trae "toda" la página de una vez, no hay una segunda página real que fingir paginando. Ver
  * `PreviewSettingsService` para por qué no inyecta `HttpClient`. */
 @Injectable()

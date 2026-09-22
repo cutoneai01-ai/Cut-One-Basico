@@ -4,15 +4,15 @@ import type { PublicBarber, PublicService } from '../data/public-api.models';
 import { PREVIEW_BARBERS, PREVIEW_SERVICES } from './preview-fixtures';
 
 /**
- * Doble de `CatalogService` para `/__preview` (RF-TT03 §5). Sin `HttpClient`: ver el docblock de
+ * Doble de `CatalogService` para `/__preview` (M-20 RN-CFG-41). Sin `HttpClient`: ver el docblock de
  * `PreviewSettingsService` para por qué eso es lo que hace la garantía "cero peticiones" una propiedad
  * del código y no una promesa.
  *
  * `revalidate()` también está en el `Pick` porque `BookingWizard` (`booking/booking-wizard.ts`) la
- * llama a cada apertura del wizard (RF-HD04 RN-09) — inyecta `CatalogService` directamente, no a
+ * llama a cada apertura del wizard (M-08 RN-DISPO-31) — inyecta `CatalogService` directamente, no a
  * través de `LandingPage`, así que si esta clase no cubriera también ese método el wizard dispararía
  * una petición real en cuanto el operador lo abriera dentro del iframe. Es la razón por la que este
- * archivo existe con ese método aunque el snippet de providers de RF-TT03 §5 no lo mencione aparte.
+ * archivo existe con ese método aunque el snippet de providers del diseño original no lo mencionara aparte.
  */
 @Injectable()
 export class PreviewCatalogService

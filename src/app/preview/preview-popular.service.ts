@@ -3,7 +3,7 @@ import type { PopularServicesService } from '../data/popular.service';
 import type { PopularService } from '../data/public-api.models';
 import { PREVIEW_POPULAR_SERVICES } from './preview-fixtures';
 
-/** Doble de `PopularServicesService` para `/__preview` (RF-TT03 §5). Ver `PreviewSettingsService` para
+/** Doble de `PopularServicesService` para `/__preview` (M-20 RN-CFG-41). Ver `PreviewSettingsService` para
  * por qué no inyecta `HttpClient`. */
 @Injectable()
 export class PreviewPopularService implements Pick<PopularServicesService, 'items' | 'ensureLoaded'> {

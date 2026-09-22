@@ -40,7 +40,7 @@ export class CatalogService {
   }
 
   /**
-   * Vuelve a pedir el catálogo aunque ya esté cargado (RF-HD04 RN-09).
+   * Vuelve a pedir el catálogo aunque ya esté cargado (M-08 RN-DISPO-31).
    *
    * `ensureLoaded()` es idempotente **por carga de página**, y eso bastaba mientras el catálogo solo
    * cambiaba cuando el admin daba de alta un barbero. Con el horario por día de la semana

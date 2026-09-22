@@ -2,8 +2,8 @@ import { BUTTON_STYLE_KEYS, DENSITY_KEYS, FONT_KEYS, RADIUS_KEYS } from '../them
 import { PALETTES, type ThemeDescriptor } from '../theme/themes';
 import type { PreviewThemePayload } from './preview-theme-resolver';
 
-/** RF-TT03 §6. Namespace `cob-preview:` a propósito, igual que `cob-` en los selectores del proyecto:
- * un `postMessage` sin ese prefijo no es nuestro y se ignora sin responder nada (§6.4, y ver
+/** ADR-0033. Namespace `cob-preview:` a propósito, igual que `cob-` en los selectores del proyecto:
+ * un `postMessage` sin ese prefijo no es nuestro y se ignora sin responder nada (M-20 RN-CFG-44, y ver
  * `PreviewPage` para dónde se aplica ese filtro). */
 export const PREVIEW_MESSAGE_TYPE = {
   ready: 'cob-preview:ready',
@@ -13,7 +13,7 @@ export const PREVIEW_MESSAGE_TYPE = {
 } as const;
 
 /**
- * Entero, no semver (RF-TT03 §8). Sube solo ante un cambio incompatible del sobre — renombrar
+ * Entero, no semver (M-20 RN-CFG-46). Sube solo ante un cambio incompatible del sobre — renombrar
  * `theme.fontKey`, cambiar la forma de un mensaje. Añadir un campo opcional o un valor nuevo de
  * catálogo NO es un bump: eso lo cubre el eco `applied`, que compara valor a valor.
  */
@@ -55,7 +55,7 @@ export interface PreviewAppliedTheme {
 export interface PreviewAppliedMessage {
   readonly type: typeof PREVIEW_MESSAGE_TYPE.applied;
   readonly protocol: number;
-  /** Lo que REALMENTE se aplicó, no lo que llegó (RN-06, §8.3): es lo que convierte el desfase de
+  /** Lo que REALMENTE se aplicó, no lo que llegó (M-20 RN-CFG-45): es lo que convierte el desfase de
    * catálogo entre landing y consola en algo visible en vez de silencioso. */
   readonly theme: PreviewAppliedTheme;
 }

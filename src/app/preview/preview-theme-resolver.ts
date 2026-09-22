@@ -12,10 +12,10 @@ import { PALETTES, THEMES, type PaletteName, type ThemeDescriptor } from '../the
 import { PREVIEW_PRESETS, isPreviewPresetKey } from './preview-presets';
 
 /**
- * Forma cruda del objeto `theme` dentro de `cob-preview:theme` (RF-TT03 §6): las mismas siete claves
+ * Forma cruda del objeto `theme` dentro de `cob-preview:theme` (ADR-0033): las mismas siete claves
  * que `RawTheme` (`data/branding.ts`) pero en camelCase, porque este mensaje no cruza el bundle
- * público del API — lo arma GestionCutOne a mano — y `branding` opcional (RF-TT03 §7). Todo `unknown`
- * a propósito: es exactamente el punto en que RN-05 exige no confiar en nada todavía.
+ * público del API — lo arma GestionCutOne a mano — y `branding` opcional (M-20 RN-CFG-47). Todo `unknown`
+ * a propósito: es exactamente el punto en que M-20 RN-CFG-44 exige no confiar en nada todavía.
  */
 export interface PreviewThemePayload {
   readonly preset?: unknown;
@@ -57,9 +57,9 @@ function isButtonStyleKey(value: unknown): value is ButtonStyleKey {
  * Convierte el `theme` crudo de `cob-preview:theme` en un `ThemeDescriptor` limpio.
  *
  * **Por qué esto no es una llamada a `resolveTheme()` de `theme/resolve-theme.ts`.** Ese es —y sigue
- * siendo— el único punto de decisión para la landing real (RF-TT02 §5 RN-02), pero su tolerancia cae
+ * siendo— el único punto de decisión para la landing real (M-20 RN-CFG-38), pero su tolerancia cae
  * SIEMPRE a `THEMES.clasico`: no hay forma de parametrizar ese fallback sin tocar el archivo, y tocarlo
- * no es uno de los dos puntos que este trabajo tiene autorizado a corregir del de RF-TT02. Aquí el
+ * no era uno de los dos puntos que este trabajo tenía autorizado a corregir de la landing real. Aquí el
  * fallback correcto no es "clasico a secas": es el preset que el operador eligió en el desplegable
  * (`PREVIEW_PRESETS`, ver su docblock para la trampa que acota). Por eso esta función repite —a
  * propósito, y en cinco líneas cada una— el mismo patrón de validación por catálogo que
@@ -67,7 +67,7 @@ function isButtonStyleKey(value: unknown): value is ButtonStyleKey {
  *
  * Cada eje se resuelve por separado y por *lookup* contra el catálogo compartido con la landing real
  * (`theme-catalog.ts`, `themes.ts`) — nunca el string crudo del mensaje entra en un `setProperty`
- * (RN-05, §6.4): un eje ausente o fuera de catálogo cae al valor de la base (el preset elegido, o
+ * (M-20 RN-CFG-44): un eje ausente o fuera de catálogo cae al valor de la base (el preset elegido, o
  * `THEMES.clasico` si el preset no vino o no se reconoce), nunca a un token vacío ni a una excepción.
  */
 export function resolvePreviewTheme(payload: PreviewThemePayload): ThemeDescriptor {
@@ -84,8 +84,8 @@ export function resolvePreviewTheme(payload: PreviewThemePayload): ThemeDescript
   };
 }
 
-/** Lo que `theme.branding` puede traer (RF-TT03 §7): solo lectura, solo nombre y logo — mostrar no es
- * editar (decisión 2 de la serie 002). */
+/** Lo que `theme.branding` puede traer (M-20 RN-CFG-47): solo lectura, solo nombre y logo — mostrar no
+ * es editar (ADR-0033). */
 export interface PreviewBrandingOverride {
   readonly shopName?: string;
   readonly logoUrl?: string;

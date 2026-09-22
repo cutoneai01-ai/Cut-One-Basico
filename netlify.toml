@@ -36,7 +36,7 @@
   [headers.values]
     Cache-Control = "public, max-age=86400"
 
-# RF-TT03 §4. Segunda capa de las tres que protegen `/__preview` de renderizar una barbería inventada
+# M-20 RN-CFG-42 (ADR-0033). Segunda capa de las tres que protegen `/__preview` de renderizar una barbería inventada
 # bajo el host de un tenant real (Cloudflare fronte el mismo deploy en `{subdominio}.cutoneai.com`, así
 # que esta ruta resuelve ahí también). Defensa en profundidad y la única que impone el NAVEGADOR — la
 # primera capa, y la que de verdad protege, es la comprobación de ancestro en `PreviewPage`
@@ -50,8 +50,9 @@
 # desplegó nada): que `for = "/__preview"` siga aplicando aunque `public/_redirects` reescriba esa
 # petición a `/index.html` con `200`. El precedente en este mismo archivo es la regla de
 # `for = "/index.html"` de arriba, que solo tiene sentido si Netlify empareja `[[headers]]` contra el
-# PATH SOLICITADO por el navegador y no contra el archivo que termina sirviendo — pero el propio RF-TT03
-# lo marca como "a verificar, no asumir" y así queda.
+# PATH SOLICITADO por el navegador y no contra el archivo que termina sirviendo — pero el diseño lo
+# marcaba como "a verificar, no asumir". Medido el 2026-09-22 con `curl -I`: aplica, también bajo el host
+# de un tenant enrutado (ADR-0033, «Evidencia medida»).
 [[headers]]
   for = "/__preview"
   [headers.values]

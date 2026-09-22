@@ -1,10 +1,10 @@
 import type { ThemeDescriptor } from '../theme/themes';
 
-// RF-TT03 §6 y encargo del orquestador tras leer los cuatro RF de la serie juntos (2026-09-17).
+// ADR-0033 y R-25 («La cuarta copia que el diseño no previó»); añadida al implementar (2026-09-17).
 //
 // El mensaje `cob-preview:theme` puede llegar con un `preset` SIN RESOLVER: el operador de
 // GestionCutOne eligió un preset de fábrica en el desplegable y todavía no ha guardado nada, así que
-// no hay ningún `CompanySetting` que el backend pudiera haber resuelto (RF-TT01 RN-02 solo resuelve
+// no hay ningún `CompanySetting` que el backend pudiera haber resuelto (M-20 RN-CFG-27 solo resuelve
 // contra lo guardado). La landing real nunca tiene este problema: recibe el tema YA resuelto por el
 // backend, con el nombre del preset descartado a propósito (`branding.ts` — `RawTheme` no lleva
 // `preset`, y el docblock de `PublicSettingsBundle.theme` lo dice explícito: "nunca viaja el nombre
@@ -16,7 +16,7 @@ import type { ThemeDescriptor } from '../theme/themes';
 // Consecuencias, para que nadie las redescubra por accidente:
 //
 // - **Solo la usa el modo previsualización.** `resolveTheme()` (`theme/resolve-theme.ts`) —el único
-//   punto de decisión para la landing real (RF-TT02 §5 RN-02)— no importa nada de este archivo, y no
+//   punto de decisión para la landing real (M-20 RN-CFG-38)— no importa nada de este archivo, y no
 //   debería: la landing real no resuelve presets, los recibe resueltos.
 // - **Esta copia se puede desincronizar de `ThemeCatalog.cs`, y nada te avisa cuando pase.** Si
 //   alguien retoca un preset en el backend (p. ej. cambia `noche` de `slate` a `gray`), la landing
@@ -26,7 +26,7 @@ import type { ThemeDescriptor } from '../theme/themes';
 // - **La señal de que ya pasó**: la previsualización y la landing real DEL MISMO TENANT se ven
 //   distintas para el mismo preset elegido. Si alguien lo nota, la corrección es traer los siete campos
 //   otra vez de `ThemeCatalog.cs` y pegarlos aquí — no hay atajo automático posible mientras el preset
-//   viaje sin resolver en el protocolo de preview (§6).
+//   viaje sin resolver en el protocolo de preview (ADR-0033).
 export const PREVIEW_PRESET_KEYS = ['noche', 'clasico', 'minimal', 'arena', 'urbano', 'rubi'] as const;
 export type PreviewPresetKey = (typeof PREVIEW_PRESET_KEYS)[number];
 

@@ -9,7 +9,7 @@ import { THEMES } from './app/theme/themes';
 import { environment } from './environments/environment';
 
 /**
- * RF-TT03 §3. Repetido a mano (no importado de `app.routes.ts`) porque `main.ts` corre antes de que el
+ * M-20 RN-CFG-41. Repetido a mano (no importado de `app.routes.ts`) porque `main.ts` corre antes de que el
  * router exista — necesita saber si está en `/__preview` sin poder preguntarle a nadie más que a
  * `window.location`.
  */
@@ -35,8 +35,8 @@ installLightDarkFallback();
 async function main(): Promise<void> {
   const isPreview = window.location.pathname === PREVIEW_PATH;
 
-  // RF-TT03 RN-02 ("cero peticiones al API"), y un punto que el RF no cubre en su tabla de "Cambios en
-  // el código" (§10) porque no toca `main.ts`: sin este corte, `resolveStartupTheme()` dispararía la
+  // M-20 RN-CFG-41 ("cero peticiones al API"), y un punto que el diseño original no cubría en su lista
+  // de cambios porque no tocaba `main.ts`: sin este corte, `resolveStartupTheme()` dispararía la
   // petición previa al bootstrap a `/api/v1/public/settings` en CUALQUIER ruta, incluida `/__preview`,
   // cada vez que no hubiera snapshot — que es el caso común ahí, porque el iframe vive en el origen del
   // TENANT (`{subdominio}.cutoneai.com`), no en el de GestionCutOne, así que casi nunca hay un snapshot
@@ -44,7 +44,7 @@ async function main(): Promise<void> {
   // el navegador, así que no hay forma de evitarla solo desde dentro de `PreviewPage` — para cuando ese
   // componente existe, ya habría salido.
   //
-  // El tema real de `/__preview` llega por `postMessage` en cuanto `PreviewPage` manda `ready` (§6.1);
+  // El tema real de `/__preview` llega por `postMessage` en cuanto `PreviewPage` manda `ready` (ADR-0033);
   // hasta entonces arranca con el preset de tolerancia de siempre, igual que cualquier arranque sin
   // datos (`startup-theme.ts`).
   const { theme, startupBundle } = isPreview

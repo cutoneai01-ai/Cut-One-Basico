@@ -1,7 +1,7 @@
 import type { Branding } from '../data/branding';
 import type { PopularService, PublicBarber, PublicService, PublicTestimonial } from '../data/public-api.models';
 
-// RF-TT03 §5. Datos de ejemplo, tipados contra los contratos reales — nunca contra un tipo paralelo —
+// M-20 RN-CFG-47 (ADR-0033). Datos de ejemplo, tipados contra los contratos reales — nunca contra un tipo paralelo —
 // para que un cambio en `PublicService`/`PublicBarber`/`PublicTestimonial`/`Branding` rompa este
 // archivo en vez de dejarlo desactualizado en silencio.
 //
@@ -11,7 +11,7 @@ import type { PopularService, PublicBarber, PublicService, PublicTestimonial } f
 // `cut-test` filtraría el negocio de un tenant real a cualquiera que abra el iframe, y GestionCutOne
 // sirve a la cuenta de plataforma, no a un tenant — nadie ahí tiene por qué ver los datos de otro.
 //
-// **Riesgo de que envejezcan** (§12): si la landing gana una sección que estas fixtures no alimentan,
+// **Riesgo de que envejezcan** (M-20 RN-CFG-47, ADR-0033): si la landing gana una sección que estas fixtures no alimentan,
 // el preview la enseñará vacía y el operador creerá que así se verá en producción. Por eso las
 // fixtures llenan TODAS las secciones de `landing-page.html` — hero, popular, servicios, barberos,
 // nosotros, testimonios — y añadir una sección a la landing obliga a tocar este archivo también.
@@ -157,7 +157,7 @@ export const PREVIEW_TESTIMONIALS: readonly PublicTestimonial[] = [
 
 /**
  * Branding de fixture. `shop_name` y `logo_url` pueden sobreescribirse en runtime con los reales del
- * tenant si `cob-preview:theme` los trae en `theme.branding` (RF-TT03 §7) — ver
+ * tenant si `cob-preview:theme` los trae en `theme.branding` (M-20 RN-CFG-47) — ver
  * `PreviewSettingsService.applyBrandingOverride`. El resto de campos se queda siempre en el valor de
  * aquí abajo: mostrar el nombre y el logo reales ayuda a evaluar el tema sobre la marca real, pero el
  * resto del contenido (`about_us_text`, testimonios, catálogo…) sigue siendo de mentira a propósito —

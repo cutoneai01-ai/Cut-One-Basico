@@ -185,7 +185,7 @@ export class BookingWizard {
     // una pestaña abierta desde ayer tendría la de ayer.
     void this.loadBookingWindow();
 
-    // RF-HD04 RN-09, y por el mismo motivo que la línea de arriba. `CatalogService.ensureLoaded()` se
+    // M-08 RN-DISPO-31, y por el mismo motivo que la línea de arriba. `CatalogService.ensureLoaded()` se
     // ejecuta una vez por carga de página, así que una pestaña abierta desde la mañana seguiría
     // ofreciendo a un barbero al que el admin acaba de dejar sin turnos — y desde el horario por día
     // de la semana eso es una operación normal, no una rareza.

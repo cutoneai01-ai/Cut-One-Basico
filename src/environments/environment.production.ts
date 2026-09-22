@@ -23,8 +23,8 @@ export const environment: AppEnvironment = {
   apiUrl: 'https://api-gateway.cutoneai.com',
   themeKey: 'clasico',
   devSubdomain: '',
-  // RF-TT03 §4 y §6.2: único origen que `/__preview` acepta como embebedor. Constante de build, nunca
+  // M-20 RN-CFG-42 y RN-CFG-43: único origen que `/__preview` acepta como embebedor. Constante de build, nunca
   // derivada de `location` ni del `referrer` entrante.
   gestionOrigin: 'https://gestioncutone.netlify.app',
-  version: '2026-09-18.1',
+  version: '2026-09-22.1',
 };

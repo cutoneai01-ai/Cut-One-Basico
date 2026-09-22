@@ -9,18 +9,18 @@ import type {
 } from '../data/public-api.models';
 
 /**
- * Doble de `BookingService` para `/__preview`. **No es uno de los cuatro servicios que RF-TT03 §5
- * enumera** — el RF solo lista `SettingsService`, `CatalogService`, `PopularServicesService` y
+ * Doble de `BookingService` para `/__preview`. **No es uno de los cuatro servicios que el diseño
+ * original enumeraba** — solo listaba `SettingsService`, `CatalogService`, `PopularServicesService` y
  * `TestimonialsService` — pero `cob-booking-wizard.ts` (`booking/booking-wizard.ts:67-68`) inyecta
  * `BookingService` directamente, y `LandingPage` monta el wizard entero dentro de `/__preview` porque
- * RN-01 exige reutilizar la landing real sin recortarla.
+ * M-20 RN-CFG-40 exige reutilizar la landing real sin recortarla.
  *
- * Sin este doble, RN-02 ("cero peticiones al API", garantizado "por construcción" según el propio RF)
+ * Sin este doble, M-20 RN-CFG-41 ("cero peticiones al API", garantizado "por construcción")
  * quedaría roto en cuanto el operador abriera el wizard dentro del iframe: `getBookingWindow()`,
  * `getAvailability()` y —peor— `createAppointment()` seguirían apuntando al backend real del tenant, y
  * un clic de "curiosidad" en un iframe de solo-tema crearía una cita real. Se documenta aquí en vez de
  * añadirlo en silencio porque es la clase de brecha que "dilo, no lo arregles en silencio" pide
- * señalar — ver el reporte de cierre de este desarrollo.
+ * señalar — y RN-CFG-41 ya lo cuenta entre los dobles obligatorios.
  *
  * Todos los datos son de mentira y ninguno sale de este archivo por red.
  */

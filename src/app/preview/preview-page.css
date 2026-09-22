@@ -1,4 +1,4 @@
-/* RF-TT03 §4 RN-03. Deliberadamente ajeno al tema del tenant: si algo del catálogo de tema fallara,
+/* M-20 RN-CFG-42. Deliberadamente ajeno al tema del tenant: si algo del catálogo de tema fallara,
    este mensaje tiene que seguir siendo legible de todas formas — es la última línea antes de "no
    renderizar nada". Colores literales a propósito, no tokens de PrimeNG. */
 .cob-preview-blocked {

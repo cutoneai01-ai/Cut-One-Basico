@@ -6,7 +6,7 @@ describe('resolvePreviewTheme', () => {
     expect(resolvePreviewTheme({ preset: 'urbano' })).toEqual(PREVIEW_PRESETS.urbano);
   });
 
-  it('cae a THEMES.clasico cuando el preset no viene o no se reconoce (RN-05, tolerancia)', () => {
+  it('cae a THEMES.clasico cuando el preset no viene o no se reconoce (M-20 RN-CFG-44, tolerancia)', () => {
     expect(resolvePreviewTheme({})).toEqual({
       primary: 'gold',
       surface: 'stone',
@@ -26,7 +26,7 @@ describe('resolvePreviewTheme', () => {
     expect(resolved.surface).toBe(PREVIEW_PRESETS.noche.surface);
   });
 
-  it('un override fuera de catálogo NUNCA llega crudo: cae al valor del preset base (RN-05, §6.4)', () => {
+  it('un override fuera de catálogo NUNCA llega crudo: cae al valor del preset base (M-20 RN-CFG-44)', () => {
     const resolved = resolvePreviewTheme({ preset: 'noche', primary: 'inyeccion-css' });
     expect(resolved.primary).toBe(PREVIEW_PRESETS.noche.primary);
   });

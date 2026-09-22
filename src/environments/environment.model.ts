@@ -38,7 +38,7 @@ export interface AppEnvironment {
   readonly devSubdomain: string;
 
   /**
-   * Origen exacto de GestionCutOne, el único embebedor legítimo de `/__preview` (RF-TT03 §4 y §6.2).
+   * Origen exacto de GestionCutOne, el único embebedor legítimo de `/__preview` (M-20 RN-CFG-42 y RN-CFG-43).
    *
    * Constante de build, **nunca derivada** de `location` ni de `document.referrer`: el propio RF
    * advierte que los orígenes tienen que salir de aquí para que la comprobación sea una igualdad de

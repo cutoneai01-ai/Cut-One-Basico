@@ -6,7 +6,7 @@ import {
   PREVIEW_TESTIMONIALS,
 } from './preview-fixtures';
 
-// RF-TT03 §5 RN-08: "el contenido tiene que ser obviamente falso — nunca una copia del contenido de
+// M-20 RN-CFG-47: "el contenido tiene que ser obviamente falso — nunca una copia del contenido de
 // pzbarbershop". Mismo espíritu que el test de `DEFAULTS` en `data/branding.spec.ts` (RF-F02): es la
 // red que impide que alguien "rellene con lo que tenga a mano para ver algo" y deje ahí datos reales.
 const REAL_TENANT_HINTS = ['pzbarbershop', 'pz barbershop', 'cut-test', 'cutoneai'];

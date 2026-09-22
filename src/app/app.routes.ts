@@ -20,10 +20,10 @@ export const routes: Routes = [
     loadComponent: () => import('./landing/landing-page').then((m) => m.LandingPage),
   },
   {
-    // RF-TT03 §3: ruta propia y perezosa, no `?preview=1` sobre `/`. Con ruta perezosa, el componente,
+    // M-20 RN-CFG-41 (ADR-0033): ruta propia y perezosa, no `?preview=1` sobre `/`. Con ruta perezosa, el componente,
     // las fixtures y el listener de mensajes viven en un chunk que un visitante normal no descarga
     // nunca — la protección primaria no es el guard de ancestro de `PreviewPage`, es que no hay nada
-    // en lo que caer (CA-12 lo comprueba en la pestaña de red).
+    // en lo que caer (se comprueba en la pestaña de red: visitar `/` no descarga ese chunk).
     //
     // Doble guion bajo porque no puede colisionar con nada que signifique algo para un tenant, y en un
     // log se lee como "esto no es una página". Va ANTES del comodín `**` de abajo.
@@ -36,7 +36,7 @@ export const routes: Routes = [
       //
       // `PreviewSettingsService` se declara aparte y se alía al token real con `useExisting` — no
       // `useClass` a secas — porque `PreviewPage` necesita la MISMA instancia para poder aplicarle el
-      // override opcional de `theme.branding` (RF-TT03 §7) que `LandingPage` termina leyendo por el
+      // override opcional de `theme.branding` (M-20 RN-CFG-47) que `LandingPage` termina leyendo por el
       // token `SettingsService`. Con dos `useClass` independientes serían dos instancias distintas y
       // el override nunca llegaría a la que pinta la pantalla.
       PreviewSettingsService,
@@ -44,10 +44,10 @@ export const routes: Routes = [
       { provide: CatalogService, useClass: PreviewCatalogService },
       { provide: PopularServicesService, useClass: PreviewPopularService },
       { provide: TestimonialsService, useClass: PreviewTestimonialsService },
-      // No está en la lista de RF-TT03 §5, y es un vacío que ese RF deja: `BookingWizard` monta dentro
-      // de `LandingPage` y por tanto dentro de `/__preview` también (RN-01 exige reutilizarla entera),
-      // e inyecta `BookingService` para pedir disponibilidad y crear la cita. Sin este override, RN-02
-      // ("cero peticiones al API") se rompería en cuanto el operador abriera el wizard dentro del
+      // No estaba en la lista de dobles del diseño original, y era un vacío: `BookingWizard` monta dentro
+      // de `LandingPage` y por tanto dentro de `/__preview` también (M-20 RN-CFG-40 exige reutilizarla
+      // entera), e inyecta `BookingService` para pedir disponibilidad y crear la cita. Sin este override,
+      // M-20 RN-CFG-41 ("cero peticiones al API") se rompería en cuanto el operador abriera el wizard dentro del
       // iframe — y `createAppointment` escribiría una cita real. Ver el docblock de
       // `PreviewBookingService`.
       { provide: BookingService, useClass: PreviewBookingService },

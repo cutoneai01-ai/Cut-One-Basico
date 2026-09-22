@@ -26,7 +26,7 @@ describe('buildReadyMessage', () => {
 });
 
 describe('buildAppliedMessage', () => {
-  it('refleja el tema REALMENTE aplicado, no un eco del mensaje recibido (RN-06)', () => {
+  it('refleja el tema REALMENTE aplicado, no un eco del mensaje recibido (M-20 RN-CFG-45)', () => {
     const message = buildAppliedMessage(THEMES.urbano);
 
     expect(message.type).toBe(PREVIEW_MESSAGE_TYPE.applied);

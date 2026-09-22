@@ -3,9 +3,9 @@ import { isTrustedPreviewAncestor, isTrustedPreviewMessage } from './preview-gua
 const GESTION_ORIGIN = 'https://gestioncutone.netlify.app';
 
 describe('isTrustedPreviewAncestor', () => {
-  // RF-TT03 §12: "merece un test y merece que nadie la simplifique quitando la comprobación de
-  // window.self === window.top". Es la única de las tres capas de §4 que cubre el caso no obvio del
-  // RF: `/__preview` resolviendo en `{tenant}.cutoneai.com`.
+  // ADR-0033 («Consecuencias asumidas»): "merece un test y merece que nadie la simplifique quitando la
+  // comprobación de window.self === window.top". Es la capa de M-20 RN-CFG-42 que cubre el caso no
+  // obvio del diseño: `/__preview` resolviendo en `{tenant}.cutoneai.com`.
   it('bloquea una visita directa (no embebida)', () => {
     expect(
       isTrustedPreviewAncestor({ isTopWindow: true, referrer: GESTION_ORIGIN + '/', gestionOrigin: GESTION_ORIGIN }),
@@ -13,7 +13,7 @@ describe('isTrustedPreviewAncestor', () => {
   });
 
   it('bloquea cuando no hay referrer, aunque esté embebido', () => {
-    // §12: Referrer-Policy: no-referrer en el padre, o cualquier otra causa de referrer vacío. El lado
+    // ADR-0033: Referrer-Policy: no-referrer en el padre, o cualquier otra causa de referrer vacío. El lado
     // correcto del fallo es no renderizar.
     expect(isTrustedPreviewAncestor({ isTopWindow: false, referrer: '', gestionOrigin: GESTION_ORIGIN })).toBe(
       false,
@@ -30,8 +30,8 @@ describe('isTrustedPreviewAncestor', () => {
     ).toBe(true);
   });
 
-  it('bloquea un origen que EMPIEZA por el de GestionCutOne pero no lo es (RN-04, §6.2)', () => {
-    // El ejemplo explotable citado por el RF: un `startsWith` habría dejado pasar esto.
+  it('bloquea un origen que EMPIEZA por el de GestionCutOne pero no lo es (M-20 RN-CFG-43)', () => {
+    // El ejemplo explotable citado en ADR-0033: un `startsWith` habría dejado pasar esto.
     expect(
       isTrustedPreviewAncestor({
         isTopWindow: false,
