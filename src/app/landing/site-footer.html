@@ -25,8 +25,20 @@
     <div class="footer__contact">
       <h3 class="footer__heading">Contacto y horarios</h3>
 
+      <!-- M-20 RN-CFG-51 y RN-CFG-52: mismo criterio que el teléfono y el WhatsApp de abajo —sin dato
+           no hay enlace—, pero aquí la dirección se sigue pintando como texto: lo que falta es el
+           enlace, no la información. Con `maps_url` es un `<a>` de verdad, en pestaña nueva y con
+           `noopener noreferrer`, y el texto visible es el mismo en las dos ramas. La URL nunca se
+           compone a partir de la dirección (ADR-0034). -->
       @if (branding().location) {
-        <p><i class="pi pi-map-marker" aria-hidden="true"></i> {{ branding().location }}</p>
+        @if (branding().maps_url; as mapsUrl) {
+          <p>
+            <i class="pi pi-map-marker" aria-hidden="true"></i>
+            <a [href]="mapsUrl" target="_blank" rel="noopener noreferrer">{{ branding().location }}</a>
+          </p>
+        } @else {
+          <p><i class="pi pi-map-marker" aria-hidden="true"></i> {{ branding().location }}</p>
+        }
       }
       @if (branding().schedule) {
         <p><i class="pi pi-clock" aria-hidden="true"></i> {{ branding().schedule }}</p>

@@ -11,6 +11,13 @@ export interface Branding {
   hero_subtitle: string;
   est_year: string;
   location: string;
+  /**
+   * Enlace al mapa del negocio. Puede llegar vacío o **ausente** —una build de esta landing puede
+   * salir antes de que el backend sirva el campo, o durante el TTL de la caché de settings—, y en los
+   * dos casos la dirección se pinta como texto plano, exactamente igual que antes de que existiera
+   * (M-20 RN-CFG-51). **Nunca se deriva de `location`** (ADR-0034).
+   */
+  maps_url: string;
   schedule: string;
   about_us_title: string;
   about_us_text: string;
@@ -88,6 +95,7 @@ export const DEFAULTS: Branding = {
   hero_subtitle: '',
   est_year: '',
   location: '',
+  maps_url: '',
   schedule: '',
   about_us_title: '',
   about_us_text: '',

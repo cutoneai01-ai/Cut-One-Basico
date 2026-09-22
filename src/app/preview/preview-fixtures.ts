@@ -172,6 +172,10 @@ export const PREVIEW_BRANDING: Branding = {
   hero_subtitle: 'Agenda en minutos — esto es una vista previa, no una barbería real.',
   est_year: '2020',
   location: 'Ciudad Ejemplo',
+  // Vacío a propósito: la dirección de la vista previa es de mentira, así que un enlace de mapa
+  // llevaría a cualquier parte. La vista previa es de TEMA, no de contenido, y además así ejercita la
+  // rama de degradación sin enlace (M-20 RN-CFG-51).
+  maps_url: '',
   schedule: 'Lun a sáb, 9:00 a.m. – 7:00 p.m.',
   about_us_title: 'Sobre nosotros (ejemplo)',
   about_us_text:

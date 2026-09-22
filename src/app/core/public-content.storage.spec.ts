@@ -9,9 +9,11 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 describe('brandingStorageKey', () => {
   it('lleva el prefijo del contrato con el panel', () => {
-    // Si esta cadena cambia, el panel deja de invalidar este caché y el fallo es silencioso
-    // (RF-G02 §6 RN-08.3). `v2` desde que el snapshot gana el campo `theme`.
-    expect(brandingStorageKey('cut-test')).toBe(`${PUBLIC_SETTINGS_KEY}:v2:cut-test`);
+    // Si el PREFIJO cambia, el panel deja de invalidar este caché y el fallo es silencioso
+    // (M-20 RN-CFG-48). La VERSIÓN, en cambio, sube a propósito cada vez que cambia la forma del
+    // snapshot (M-20 RN-CFG-53): `v2` cuando ganó el campo `theme`, `v3` desde que `Branding` gana
+    // `maps_url`. Este test se actualiza con ella — lo que vigila es que el salto sea deliberado.
+    expect(brandingStorageKey('cut-test')).toBe(`${PUBLIC_SETTINGS_KEY}:v3:cut-test`);
   });
 
   it('separa por subdominio', () => {

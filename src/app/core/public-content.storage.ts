@@ -32,9 +32,15 @@ export const PUBLIC_SETTINGS_KEY = 'public-settings';
  *
  * `v2` desde que el snapshot gana el campo `theme` (ver cabecera de este archivo). Antes de eso,
  * arrancaba en v1 porque era la primera forma de este repo; no tiene por qué coincidir con la de
- * `pz-personalizado` (que va por v3) — son dos esquemas independientes bajo el mismo prefijo.
+ * `pz-personalizado` — son dos esquemas independientes bajo el mismo prefijo.
+ *
+ * `v3` desde que `Branding` gana `maps_url` (M-20 RN-CFG-53). Sin este salto, un visitante con
+ * snapshot guardado seguiría viendo la dirección sin enlace **hasta 24 h** y sin ningún error:
+ * `mergeBrandingSnapshot()` fusiona sobre `DEFAULTS` y el campo ausente cae a `''`, que es
+ * exactamente la rama de degradación (`RN-CFG-51`) — indistinguible de un tenant que no configuró el
+ * enlace. Las tres aplicaciones siguen con versiones distintas a propósito.
  */
-const STORAGE_VERSION = 'v2';
+const STORAGE_VERSION = 'v3';
 
 /**
  * Pasado este tiempo el snapshot se descarta aunque siga en localStorage, y no es negociable: sin él,

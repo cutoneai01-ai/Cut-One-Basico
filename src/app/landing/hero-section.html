@@ -32,10 +32,18 @@
 
     @if (branding().location || branding().schedule || branding().est_year) {
       <dl class="hero__facts">
+        <!-- M-20 RN-CFG-51 y RN-CFG-52: con `maps_url`, la dirección de esta ficha abre el mapa en
+             pestaña nueva con `noopener noreferrer`; sin él, el mismo `<dd>` de texto plano de
+             siempre. El texto visible no cambia en ninguna de las dos ramas, y la URL no se deriva de
+             la dirección (ADR-0034). El «Ubicación física» de «Sobre nosotros» sigue siendo texto. -->
         @if (branding().location) {
           <div class="hero__fact">
             <dt><i class="pi pi-map-marker" aria-hidden="true"></i> Ubicación</dt>
-            <dd>{{ branding().location }}</dd>
+            @if (branding().maps_url; as mapsUrl) {
+              <dd><a [href]="mapsUrl" target="_blank" rel="noopener noreferrer">{{ branding().location }}</a></dd>
+            } @else {
+              <dd>{{ branding().location }}</dd>
+            }
           </div>
         }
         @if (branding().schedule) {
