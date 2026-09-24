@@ -9,10 +9,11 @@ import type { ButtonStyleKey, DensityKey, FontKey, RadiusKey } from './theme-cat
 // una propiedad personalizada, no una hoja de estilos por tenant, así que sigue sin ser un rediseño.
 
 /**
- * Paletas primitivas disponibles como acento o superficie. Todas menos `gold` son las que Aura trae
- * de fábrica; `gold` es el dorado de marca de Cut One Basic (`#c8a96d`), una
- * rampa propia que `buildPreset` inyecta como valores literales en el acento. Se
- * listan a mano para que `PaletteName` sea un tipo cerrado: una paleta mal escrita en un descriptor
+ * Paletas primitivas disponibles como acento o superficie. Todas menos `gold`, `oro-antiguo` y
+ * `ebano` son las que Aura trae de fábrica. Esas tres son rampas propias —`gold` el dorado de marca de
+ * Cut One Basic (`#c8a96d`); `oro-antiguo` y `ebano` las del preset `barberia` (M-20 RN-CFG-64)— que
+ * `buildPreset` inyecta como valores literales vía `LITERAL_RAMPS`, tanto en acento como en superficie.
+ * Se listan a mano para que `PaletteName` sea un tipo cerrado: una paleta mal escrita en un descriptor
  * tiene que romper el build, no resolverse a `undefined` y pintar tokens vacíos.
  */
 export const PALETTES = [
@@ -39,6 +40,10 @@ export const PALETTES = [
   'neutral',
   'stone',
   'gold',
+  // M-20 RN-CFG-64: rampas literales del preset `barberia`, no primitivas de Aura. `oro-antiguo` es
+  // acento, `ebano` es superficie.
+  'oro-antiguo',
+  'ebano',
 ] as const;
 
 export type PaletteName = (typeof PALETTES)[number];
@@ -66,11 +71,13 @@ export interface ThemeDescriptor {
 /**
  * Catálogo cerrado de temas de DESARROLLO LOCAL (`npm run start:clasico` / `start:minimal`): no es el
  * catálogo de presets del producto — ese vive en el backend, y esta landing no lo conoce ni falta que
- * le haga, porque el API siempre manda el tema ya resuelto. Los seis nombres son, a propósito, los
- * mismos seis presets del backend — dos vocabularios de temas en el mismo producto serían una
- * migración de datos innecesaria — pero los cuatro campos de forma de cada entrada de aquí abajo son
- * una elección de esta landing para tener algo razonable que mostrar sin API, no una copia de lo que
- * el backend resolvería para ese preset en producción.
+ * le haga, porque el API siempre manda el tema ya resuelto. Los siete nombres son, a propósito, los
+ * mismos siete presets del backend (M-20 RN-CFG-63) — dos vocabularios de temas en el mismo producto
+ * serían una migración de datos innecesaria — pero los cuatro campos de forma de cada entrada de aquí
+ * abajo son una elección de esta landing para tener algo razonable que mostrar sin API, no una copia
+ * de lo que el backend resolvería para ese preset en producción. `barberia` es la excepción exacta
+ * (M-20 RN-CFG-63, RN-CFG-64): sus siete campos sí reproducen el correo transaccional de antes del
+ * 2026-09-23, byte a byte.
  *
  * `clasico` es además el tema por defecto de tolerancia: al que cae `resolveTheme()` cuando el
  * backend manda un valor fuera de catálogo, y al que arranca la landing si la petición previa al
@@ -137,6 +144,17 @@ export const THEMES = {
     density: 'normal',
     buttonStyle: 'soft',
   },
+  /** M-20 RN-CFG-63: reproduce el correo transaccional de antes del 2026-09-23. PZ Barbershop se
+   * mueve a este preset por migración; cualquier otra barbería lo puede elegir igual. */
+  barberia: {
+    primary: 'oro-antiguo',
+    surface: 'ebano',
+    colorScheme: 'dark',
+    fontKey: 'tradicional',
+    radius: 'lg',
+    density: 'normal',
+    buttonStyle: 'solid',
+  },
 } as const satisfies Record<string, ThemeDescriptor>;
 
 export type ThemeKey = keyof typeof THEMES;
@@ -182,6 +200,64 @@ const GOLD = {
 } as const satisfies Record<(typeof SHADES)[number], string>;
 
 /**
+ * Rampa literal del acento del preset `barberia` (M-20 RN-CFG-64). Las posiciones en negrita en la
+ * tabla de origen —aquí, `400: '#d4af37'`— fijan el color exacto del botón principal del correo
+ * transaccional tal y como se veía antes del 2026-09-23; el resto son gradaciones del mismo tono para
+ * hover, estados y el esquema claro. El backend guarda **esta misma rampa** para pintar el correo
+ * (M-24 `RN-MAIL-20`): si se cambia un valor aquí, hay que cambiarlo también allí, o la web y el
+ * correo de una barbería en `barberia` dejan de coincidir (R-25).
+ */
+const ORO_ANTIGUO = {
+  50: '#fbf7e9',
+  100: '#f6ecc9',
+  200: '#eddb96',
+  300: '#e2c762',
+  400: '#d4af37',
+  500: '#b8962a',
+  600: '#957820',
+  700: '#735c1a',
+  800: '#5a4817',
+  900: '#4a3c16',
+  950: '#2a210a',
+} as const satisfies Record<(typeof SHADES)[number], string>;
+
+/**
+ * Rampa literal de la superficie del preset `barberia` (M-20 RN-CFG-64), la quinta superficie neutra
+ * del catálogo. Las posiciones en negrita en la tabla de origen —`50`, `400`, `500`, `700`, `800`,
+ * `900` y `950`— son los literales del correo transaccional de antes del 2026-09-23 (incluidas sus
+ * formas cortas `#fff`/`#000`/`#111` en el catálogo de tokens de correo); las demás son gradaciones
+ * del mismo tono cálido casi negro. El backend guarda **esta misma rampa** para el correo
+ * (M-24 `RN-MAIL-20`): si se cambia un valor aquí, hay que cambiarlo también allí, o la web y el
+ * correo de una barbería en `barberia` dejan de coincidir (R-25). `surface.0` no vive en esta rampa:
+ * como en el resto de superficies, la pone `buildPreset()` aparte, en `#ffffff`.
+ */
+const EBANO = {
+  50: '#f5f0e8',
+  100: '#e9e3d8',
+  200: '#d3ccbe',
+  300: '#bdb7a9',
+  400: '#a8a395',
+  500: '#6b6759',
+  600: '#4f4b41',
+  700: '#3a3527',
+  800: '#222222',
+  900: '#0d0d0d',
+  950: '#0a0a0a',
+} as const satisfies Record<(typeof SHADES)[number], string>;
+
+/**
+ * Paletas cuya rampa es literal en vez de referencia a una primitiva de Aura (M-20 RN-CFG-64):
+ * `gold` no es una primitiva de Aura, y `oro-antiguo`/`ebano` tampoco. `buildPreset` mira aquí antes
+ * de generar referencias `{palette.N}`, tanto para `primary` como para `surface` — sin esto, una
+ * superficie `ebano` generaría `{ebano.500}`, una primitiva que Aura no tiene, y tokens vacíos.
+ */
+const LITERAL_RAMPS: Partial<Record<PaletteName, Record<(typeof SHADES)[number], string>>> = {
+  gold: GOLD,
+  'oro-antiguo': ORO_ANTIGUO,
+  ebano: EBANO,
+};
+
+/**
  * Convierte un nombre de paleta en el mapa de referencias a tokens primitivos que espera el preset
  * (`{ 50: "{amber.50}", … }`).
  */
@@ -200,16 +276,19 @@ function paletteTokens(palette: PaletteName): Record<string, string> {
 export function buildPreset(theme: ThemeDescriptor) {
   return definePreset(Aura, {
     semantic: {
-      // `gold` no es una primitiva de Aura, así que no se puede referenciar como `{gold.N}`; en su
-      // lugar se dan sus valores literales aquí. El resto de paletas sí existen en Aura y van por
-      // referencia. Ambas formas son válidas para `semantic.primary`: los tokens derivados de Aura
-      // apuntan a `{primary.N}`, que resuelve igual sea literal o referencia.
-      primary: theme.primary === 'gold' ? { ...GOLD } : paletteTokens(theme.primary),
+      // `LITERAL_RAMPS` cubre las paletas que no son primitivas de Aura (`gold`, `oro-antiguo`,
+      // `ebano`): para esas no se puede referenciar `{palette.N}`, así que se dan sus valores
+      // literales aquí. El resto de paletas sí existen en Aura y van por referencia. Ambas formas son
+      // válidas para `semantic.primary`: los tokens derivados de Aura apuntan a `{primary.N}`, que
+      // resuelve igual sea literal o referencia.
+      primary: LITERAL_RAMPS[theme.primary] ? { ...LITERAL_RAMPS[theme.primary] } : paletteTokens(theme.primary),
       // `surface.0` es el extremo del que Aura tira para el fondo de contenido en claro y para el
-      // color de texto en oscuro; el catálogo de paletas empieza en 50, así que hay que darlo. Es el
-      // mismo valor que trae Aura y el único color literal del proyecto (RN-03: literal aquí dentro,
-      // en ninguna otra parte).
-      surface: { 0: '#ffffff', ...paletteTokens(theme.surface) },
+      // color de texto en oscuro; el catálogo de paletas empieza en 50, así que hay que darlo. Es
+      // `#ffffff` para todas, incluida `ebano` (M-20 RN-CFG-64): el mismo valor que trae Aura y el
+      // único color literal común a las 25 paletas. Igual que `primary`, `LITERAL_RAMPS` se consulta
+      // también para `surface` — sin ella, `ebano` generaría `{ebano.500}`, una primitiva que Aura no
+      // tiene, y tokens vacíos.
+      surface: { 0: '#ffffff', ...(LITERAL_RAMPS[theme.surface] ?? paletteTokens(theme.surface)) },
     },
   });
 }

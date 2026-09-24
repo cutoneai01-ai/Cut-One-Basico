@@ -27,11 +27,11 @@ import type { ThemeDescriptor } from '../theme/themes';
 //   distintas para el mismo preset elegido. Si alguien lo nota, la corrección es traer los siete campos
 //   otra vez de `ThemeCatalog.cs` y pegarlos aquí — no hay atajo automático posible mientras el preset
 //   viaje sin resolver en el protocolo de preview (ADR-0033).
-export const PREVIEW_PRESET_KEYS = ['noche', 'clasico', 'minimal', 'arena', 'urbano', 'rubi'] as const;
+export const PREVIEW_PRESET_KEYS = ['noche', 'clasico', 'minimal', 'arena', 'urbano', 'rubi', 'barberia'] as const;
 export type PreviewPresetKey = (typeof PREVIEW_PRESET_KEYS)[number];
 
-/** Copia de `ThemeCatalog.cs` a fecha 2026-09-17. Ver el docblock de cabecera para qué significa esa
- * fecha y qué hacer si deja de ser cierto. */
+/** Copia de `ThemeCatalog.cs` a fecha 2026-09-17, con `barberia` añadido (M-20 RN-CFG-63). Ver el
+ * docblock de cabecera para qué significa esa fecha y qué hacer si deja de ser cierto. */
 export const PREVIEW_PRESETS: Record<PreviewPresetKey, ThemeDescriptor> = {
   noche: {
     primary: 'slate',
@@ -86,6 +86,15 @@ export const PREVIEW_PRESETS: Record<PreviewPresetKey, ThemeDescriptor> = {
     radius: 'lg',
     density: 'normal',
     buttonStyle: 'soft',
+  },
+  barberia: {
+    primary: 'oro-antiguo',
+    surface: 'ebano',
+    colorScheme: 'dark',
+    fontKey: 'tradicional',
+    radius: 'lg',
+    density: 'normal',
+    buttonStyle: 'solid',
   },
 };
 

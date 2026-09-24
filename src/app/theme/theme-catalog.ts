@@ -10,9 +10,10 @@
 // `setProperty`: siempre resuelve por lookup contra los `Record` de este archivo, y una clave ausente
 // cae al valor del preset por defecto en vez de dejar un token vacío o una pantalla en blanco.
 
-/** Las seis claves de tipografía del catálogo. `sistema` es la única sin descarga: no declara
- * ningún `@font-face` propio. */
-export const FONT_KEYS = ['sistema', 'clasica', 'moderna', 'condensada', 'suave', 'geometrica'] as const;
+/** Las siete claves de tipografía del catálogo. `sistema` y `tradicional` son las únicas sin
+ * descarga: ninguna declara `@font-face` propio — `tradicional` usa Georgia (fuente del sistema) y el
+ * Inter que ya viene empaquetado (M-20 RN-CFG-65). */
+export const FONT_KEYS = ['sistema', 'clasica', 'moderna', 'condensada', 'suave', 'geometrica', 'tradicional'] as const;
 export type FontKey = (typeof FONT_KEYS)[number];
 
 /** El juego de radios que expone Aura, de menos a más redondeado. */
@@ -102,6 +103,14 @@ export const FONT_CATALOG: Record<FontKey, FontPairing> = {
     headingFallback: '"Century Gothic", "Segoe UI", sans-serif',
     body: 'Poppins',
     bodyFallback: '"Century Gothic", "Segoe UI", sans-serif',
+  },
+  // Georgia en titulares y el Inter empaquetado en el cuerpo, sin fuente web propia: la única
+  // pareja que se ve igual en la web y en cualquier cliente de correo (M-20 RN-CFG-65).
+  tradicional: {
+    heading: 'Georgia',
+    headingFallback: '"Times New Roman", serif',
+    body: 'Inter',
+    bodyFallback: '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
   },
 };
 
