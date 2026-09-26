@@ -39,7 +39,7 @@
         <div><dt class="cob-muted">Fecha</dt><dd>{{ booking.dateEs }}</dd></div>
         <div>
           <dt class="cob-muted">Hora</dt>
-          <dd>{{ booking.startTime.slice(0, 5) }} · {{ booking.durationMin }} min</dd>
+          <dd>{{ zoned(booking.startAtUtc).time }} · {{ booking.durationMin }} min</dd>
         </div>
         <div><dt class="cob-muted">Código</dt><dd>{{ booking.confirmationCode }}</dd></div>
       </dl>
@@ -292,11 +292,11 @@
           <p-message severity="info" text="Ese día está completo. Prueba con otra fecha." />
         } @else {
           <div class="slots">
-            @for (slot of slots(); track slot.startTime) {
+            @for (slot of slots(); track slot.startAtUtc) {
               <button
                 type="button"
                 class="slot"
-                [class.slot--active]="time() === slot.label"
+                [class.slot--active]="isChosen(slot)"
                 [class.slot--taken]="!slot.available"
                 [disabled]="!slot.available"
                 (click)="chooseTime(slot)"
@@ -323,7 +323,7 @@
             <dt class="cob-muted">Fecha</dt>
             <dd>{{ date() ? formatDate(date()!) : '—' }}</dd>
           </div>
-          <div><dt class="cob-muted">Hora</dt><dd>{{ time() || '—' }}</dd></div>
+          <div><dt class="cob-muted">Hora</dt><dd>{{ time() ? zoned(time()!).time : '—' }}</dd></div>
         </dl>
 
         <p class="total">

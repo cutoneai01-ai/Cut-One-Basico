@@ -1,5 +1,21 @@
+import type { TenantLocale } from '../core/locale';
 import type { AvailabilityResponse } from '../data/public-api.models';
 import { bookingWindow, flattenSlots, slotsState } from './availability';
+
+const BOGOTA: TenantLocale = {
+  time_zone: 'America/Bogota',
+  currency: 'COP',
+  currency_decimals: 0,
+  locale: 'es-CO',
+  place: 'Bogotá, Colombia',
+  offset_label: 'UTC-5',
+};
+
+/** Hora local de Bogotá (UTC-5, sin horario de verano) del 13-08-2026 → instante UTC del API. */
+function at(localTime: string): string {
+  const [hours, minutes] = localTime.split(':').map(Number);
+  return new Date(Date.UTC(2026, 7, 13, hours + 5, minutes)).toISOString();
+}
 
 function response(periods: AvailabilityResponse['periods']): AvailabilityResponse {
   return { date: '2026-08-13', periods };
@@ -10,10 +26,11 @@ describe('flattenSlots', () => {
     // El backend devuelve los tres siempre; el orden del array no está garantizado, así que se impone.
     const slots = flattenSlots(
       response([
-        { period: 'Evening', slots: [{ startTime: '19:00:00', available: true }] },
-        { period: 'Morning', slots: [{ startTime: '09:00:00', available: true }] },
-        { period: 'Afternoon', slots: [{ startTime: '14:00:00', available: true }] },
+        { period: 'Evening', slots: [{ startAtUtc: at('19:00'), available: true }] },
+        { period: 'Morning', slots: [{ startAtUtc: at('09:00'), available: true }] },
+        { period: 'Afternoon', slots: [{ startAtUtc: at('14:00'), available: true }] },
       ]),
+      BOGOTA,
     );
 
     expect(slots.map((slot) => slot.label)).toEqual(['09:00', '14:00', '19:00']);
@@ -25,11 +42,12 @@ describe('flattenSlots', () => {
         {
           period: 'Morning',
           slots: [
-            { startTime: '10:30:00', available: true },
-            { startTime: '09:00:00', available: true },
+            { startAtUtc: at('10:30'), available: true },
+            { startAtUtc: at('09:00'), available: true },
           ],
         },
       ]),
+      BOGOTA,
     );
 
     expect(slots.map((slot) => slot.label)).toEqual(['09:00', '10:30']);
@@ -42,11 +60,12 @@ describe('flattenSlots', () => {
         {
           period: 'Morning',
           slots: [
-            { startTime: '09:00:00', available: false },
-            { startTime: '09:30:00', available: true },
+            { startAtUtc: at('09:00'), available: false },
+            { startAtUtc: at('09:30'), available: true },
           ],
         },
       ]),
+      BOGOTA,
     );
 
     expect(slots).toHaveLength(2);
@@ -57,20 +76,23 @@ describe('flattenSlots', () => {
     const slots = flattenSlots(
       response([
         { period: 'Morning', slots: [] },
-        { period: 'Afternoon', slots: [{ startTime: '14:00:00', available: true }] },
+        { period: 'Afternoon', slots: [{ startAtUtc: at('14:00'), available: true }] },
         { period: 'Evening', slots: [] },
       ]),
+      BOGOTA,
     );
 
     expect(slots.map((slot) => slot.label)).toEqual(['14:00']);
   });
 
-  it('conserva startTime completo para mandarlo al backend', () => {
+  it('conserva el instante tal cual para reenviarlo y etiqueta en la zona de la barbería', () => {
+    // M-08 RN-DISPO-33: el hueco se reenvía sin recomponer; la etiqueta es hora de reloj de la barbería.
     const slots = flattenSlots(
-      response([{ period: 'Morning', slots: [{ startTime: '09:00:00', available: true }] }]),
+      response([{ period: 'Morning', slots: [{ startAtUtc: '2026-08-13T14:00:00Z', available: true }] }]),
+      BOGOTA,
     );
 
-    expect(slots[0].startTime).toBe('09:00:00');
+    expect(slots[0].startAtUtc).toBe('2026-08-13T14:00:00Z');
     expect(slots[0].label).toBe('09:00');
   });
 });
@@ -80,11 +102,11 @@ describe('slotsState', () => {
     expect(slotsState([])).toBe('no-shift');
 
     expect(
-      slotsState([{ startTime: '09:00:00', label: '09:00', available: false, period: 'Morning' }]),
+      slotsState([{ startAtUtc: at('09:00'), label: '09:00', available: false, period: 'Morning' }]),
     ).toBe('full');
 
     expect(
-      slotsState([{ startTime: '09:00:00', label: '09:00', available: true, period: 'Morning' }]),
+      slotsState([{ startAtUtc: at('09:00'), label: '09:00', available: true, period: 'Morning' }]),
     ).toBe('ready');
   });
 });

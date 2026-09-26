@@ -12,8 +12,10 @@ describe('brandingStorageKey', () => {
     // Si el PREFIJO cambia, el panel deja de invalidar este caché y el fallo es silencioso
     // (M-20 RN-CFG-48). La VERSIÓN, en cambio, sube a propósito cada vez que cambia la forma del
     // snapshot (M-20 RN-CFG-53): `v2` cuando ganó el campo `theme`, `v3` desde que `Branding` gana
-    // `maps_url`. Este test se actualiza con ella — lo que vigila es que el salto sea deliberado.
-    expect(brandingStorageKey('cut-test')).toBe(`${PUBLIC_SETTINGS_KEY}:v3:cut-test`);
+    // `maps_url`, `v4` desde que guarda la clave `locale` (M-02 RN-TEN-20). Este test se actualiza con
+    // ella — lo que vigila es que el salto sea deliberado.
+    expect(brandingStorageKey('cut-test')).toBe(`${PUBLIC_SETTINGS_KEY}:v4:cut-test`);
+    expect(PUBLIC_SETTINGS_KEY).toBe('public-settings');
   });
 
   it('separa por subdominio', () => {

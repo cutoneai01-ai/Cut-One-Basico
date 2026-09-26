@@ -75,8 +75,11 @@ export interface PublicTestimonial {
 export type SlotPeriod = 'Morning' | 'Afternoon' | 'Evening';
 
 export interface AvailableSlot {
-  /** `"HH:mm:ss"`: serialización de `TimeOnly` en el backend. */
-  startTime: string;
+  /**
+   * Instante UTC, ISO 8601 con `Z` (M-08 RN-DISPO-33). Se pinta con `utcToZoned` en la zona de la
+   * barbería y se reenvía tal cual al reservar.
+   */
+  startAtUtc: string;
   available: boolean;
 }
 
@@ -103,10 +106,11 @@ export interface CreateAppointmentInput {
    */
   barberId: string | null;
   serviceId: string;
-  /** `"yyyy-MM-dd"`. */
-  date: string;
-  /** El backend acepta `"HH:mm"` y `"HH:mm:ss"`. */
-  startTime: string;
+  /**
+   * El `startAtUtc` del hueco elegido, reenviado sin tocar (M-09 RN-AG-47). El backend rechaza un
+   * instante sin `Z` ni desplazamiento: no adivina su zona.
+   */
+  startAtUtc: string;
   customer: {
     fullName: string;
     email: string | null;
@@ -123,8 +127,8 @@ export interface AppointmentCreatedResponse {
   status: string;
   barberName: string;
   serviceName: string;
-  date: string;
-  startTime: string;
+  /** Instante UTC de inicio (M-09 RN-AG-47). */
+  startAtUtc: string;
   durationMin: number;
 }
 
@@ -173,10 +177,12 @@ export interface ManageAppointment {
   serviceName: string;
   price: number;
   durationMin: number;
-  /** `"yyyy-MM-dd"`. */
-  date: string;
-  /** `"HH:mm:ss"`. */
-  startTime: string;
+  /**
+   * Instante UTC de inicio (M-09 RN-AG-47). El día y la hora que se muestran salen de aquí con
+   * `utcToZoned`, en la zona de la barbería.
+   */
+  startAtUtc: string;
+  /** Ya formateada por el backend con la zona y el locale de la barbería: se muestra tal cual. */
   dateEs: string;
   customerName: string;
   editable: boolean;
@@ -201,8 +207,6 @@ export interface ManageAppointment {
 export interface RescheduleInput {
   barberId: string;
   serviceId: string;
-  /** `"yyyy-MM-dd"`. */
-  date: string;
-  /** El backend acepta `"HH:mm"` y `"HH:mm:ss"`. */
-  startTime: string;
+  /** El `startAtUtc` del hueco elegido, reenviado sin tocar (M-09 RN-AG-47). */
+  startAtUtc: string;
 }

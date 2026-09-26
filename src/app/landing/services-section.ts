@@ -7,7 +7,7 @@ import { SelectButton } from 'primeng/selectbutton';
 import { Skeleton } from 'primeng/skeleton';
 import { Tag } from 'primeng/tag';
 import { resolveImage } from '../core/images';
-import { formatCOP } from '../core/locale';
+import { formatMoney } from '../core/locale';
 import type { PublicService } from '../data/public-api.models';
 import { ALL_CHIP_KEY, deriveCategoryChips, filterServices } from './service-filters';
 
@@ -35,7 +35,7 @@ export class ServicesSection {
   /** Geometría de los esqueletos: tres tarjetas, que es lo que ocupa una fila en escritorio. */
   protected readonly placeholders = [0, 1, 2];
 
-  protected readonly formatPrice = formatCOP;
+  protected readonly formatPrice = formatMoney;
 
   protected image(service: PublicService): string | undefined {
     return resolveImage(service.imageUrl);

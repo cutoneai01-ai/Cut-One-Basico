@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
 import { Button } from 'primeng/button';
 import { Card } from 'primeng/card';
 import { resolveImage } from '../core/images';
-import { formatCOP } from '../core/locale';
+import { formatMoney } from '../core/locale';
 import type { PopularService } from '../data/public-api.models';
 
 /**
@@ -36,7 +36,7 @@ export class PopularSection {
   /** Mismo nombre y mismo motivo que en `ServicesSection`: `select` colisiona con el evento nativo. */
   readonly serviceSelected = output<PopularService>();
 
-  protected readonly formatPrice = formatCOP;
+  protected readonly formatPrice = formatMoney;
 
   protected image(service: PopularService): string | undefined {
     return resolveImage(service.imageUrl);

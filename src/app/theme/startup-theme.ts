@@ -55,7 +55,7 @@ export const STARTUP_SETTINGS_BUNDLE = new InjectionToken<
  */
 async function fetchStartupBundle(): Promise<PublicSettingsBundle> {
   const subdomain = encodeURIComponent(getCompanySubdomain());
-  const url = `${environment.apiUrl}/api/v1/public/settings?keys=branding,hero,theme&subdomain=${subdomain}`;
+  const url = `${environment.apiUrl}/api/v1/public/settings?keys=branding,hero,theme,locale&subdomain=${subdomain}`;
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -70,7 +70,7 @@ async function fetchStartupBundle(): Promise<PublicSettingsBundle> {
  * | Caso | Qué hace | Coste |
  * |---|---|---|
  * | Hay snapshot válido | Lo usa, sin esperar red | 0 ms — toda visita repetida |
- * | No hay snapshot | Pide `keys=branding,hero,theme`, tope 2.500 ms | Un RTT |
+ * | No hay snapshot | Pide `keys=branding,hero,theme,locale`, tope 2.500 ms | Un RTT |
  * | Falla o vence el tope | `clasico`, y reaplica cuando la petición llegue | 0 ms + una reaplicación |
  *
  * El tercer caso es el único en que `theme` no es todavía el definitivo: `startupBundle` sigue vivo y

@@ -39,8 +39,13 @@ export const PUBLIC_SETTINGS_KEY = 'public-settings';
  * `mergeBrandingSnapshot()` fusiona sobre `DEFAULTS` y el campo ausente cae a `''`, que es
  * exactamente la rama de degradación (`RN-CFG-51`) — indistinguible de un tenant que no configuró el
  * enlace. Las tres aplicaciones siguen con versiones distintas a propósito.
+ *
+ * `v4` desde que el snapshot guarda también la clave `locale` —zona y moneda de la barbería, M-02
+ * RN-TEN-20 y RN-TEN-21—. Un snapshot `v3` no la tiene, y sin el salto se leería y la landing no
+ * sabría en qué zona pintar las horas. El prefijo `public-settings:` no cambia: es lo que borra el
+ * panel.
  */
-const STORAGE_VERSION = 'v3';
+const STORAGE_VERSION = 'v4';
 
 /**
  * Pasado este tiempo el snapshot se descarta aunque siga en localStorage, y no es negociable: sin él,

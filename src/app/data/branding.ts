@@ -69,6 +69,13 @@ export interface PublicSettingsBundle {
    * `undefined` y no solo valores de catálogo desconocidos.
    */
   theme?: RawTheme;
+  /**
+   * Zona y moneda de la barbería (M-02 RN-TEN-20, RN-TEN-21). No es una `CompanySetting`: el backend
+   * la sirve ya resuelta de la compañía. Se tipa `unknown` porque solo `isTenantLocale()` decide si
+   * lo que llegó es usable — un objeto a medias no se acepta, y su ausencia no cae a ningún valor por
+   * defecto (ADR-0040): se vuelve a pedir.
+   */
+  locale?: unknown;
 }
 
 /**
@@ -79,6 +86,8 @@ export interface PublicSettingsBundle {
  */
 export interface StoredPublicSnapshot extends Branding {
   theme?: RawTheme;
+  /** La clave `locale` cruda, validada al leer con `isTenantLocale()`. */
+  locale?: unknown;
 }
 
 /**

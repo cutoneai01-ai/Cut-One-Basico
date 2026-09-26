@@ -1,4 +1,4 @@
-import { addDays, toTimeLabel } from '../core/locale';
+import { addDays, utcToZoned, type TenantLocale } from '../core/locale';
 import type { AvailabilityResponse, SlotPeriod } from '../data/public-api.models';
 
 /**
@@ -27,9 +27,12 @@ export interface BookingWindow {
 const PERIOD_ORDER: readonly SlotPeriod[] = ['Morning', 'Afternoon', 'Evening'];
 
 export interface FlatSlot {
-  /** `"HH:mm:ss"` tal cual lo devuelve el backend: es lo que se manda al crear la cita. */
-  readonly startTime: string;
-  /** `"HH:mm"`, que es lo que se muestra. */
+  /**
+   * Instante UTC tal cual lo devuelve el backend: es lo que se reenvía al crear o reprogramar la cita
+   * (M-08 RN-DISPO-33, M-09 RN-AG-47). Nunca se recompone desde la etiqueta.
+   */
+  readonly startAtUtc: string;
+  /** `"HH:mm"` en la zona de la barbería, que es lo que se muestra (M-02 RN-TEN-20). */
   readonly label: string;
   readonly available: boolean;
   readonly period: SlotPeriod;
@@ -46,7 +49,7 @@ export interface FlatSlot {
  * (RF-G04 §4 RN-01). Ocultarlos haría que la rejilla cambiara de alto al cambiar de día y esconde
  * información que la respuesta ya trae: cuán lleno está ese día.
  */
-export function flattenSlots(response: AvailabilityResponse): FlatSlot[] {
+export function flattenSlots(response: AvailabilityResponse, locale: TenantLocale): FlatSlot[] {
   return PERIOD_ORDER.flatMap((period) => {
     const match = response.periods.find((candidate) => candidate.period === period);
     if (!match) {
@@ -54,10 +57,10 @@ export function flattenSlots(response: AvailabilityResponse): FlatSlot[] {
     }
 
     return [...match.slots]
-      .sort((a, b) => a.startTime.localeCompare(b.startTime))
+      .sort((a, b) => new Date(a.startAtUtc).getTime() - new Date(b.startAtUtc).getTime())
       .map((slot) => ({
-        startTime: slot.startTime,
-        label: toTimeLabel(slot.startTime),
+        startAtUtc: slot.startAtUtc,
+        label: utcToZoned(slot.startAtUtc, locale).time,
         available: slot.available,
         period,
       }));

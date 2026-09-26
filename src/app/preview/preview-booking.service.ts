@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import type { BookingWindow } from '../booking/availability';
 import { addDays, todayInBusinessZone } from '../core/locale';
+import { PREVIEW_LOCALE } from './preview-fixtures';
 import type { BookingService } from '../data/booking.service';
 import type {
   AppointmentCreatedResponse,
@@ -29,7 +30,7 @@ export class PreviewBookingService
   implements Pick<BookingService, 'getAvailability' | 'getBookingWindow' | 'createAppointment'>
 {
   async getBookingWindow(): Promise<BookingWindow> {
-    const today = todayInBusinessZone();
+    const today = todayInBusinessZone(new Date(), PREVIEW_LOCALE);
     return {
       firstBookableDate: addDays(today, 1),
       lastBookableDate: addDays(today, 14),
@@ -38,28 +39,31 @@ export class PreviewBookingService
   }
 
   async getAvailability(): Promise<AvailabilityResponse> {
-    const today = todayInBusinessZone();
+    const day = addDays(todayInBusinessZone(new Date(), PREVIEW_LOCALE), 1);
+    // Instantes UTC como los del API (M-08 RN-DISPO-33). La zona de fixture es UTC-5 sin horario de
+    // verano, así que las 09:00 locales son las 14:00Z: se pinta 09:00, 09:30…
+    const at = (utcTime: string): string => `${day}T${utcTime}:00Z`;
     return {
-      date: addDays(today, 1),
+      date: day,
       periods: [
         {
           period: 'Morning',
           slots: [
-            { startTime: '09:00:00', available: true },
-            { startTime: '09:30:00', available: false },
-            { startTime: '10:00:00', available: true },
+            { startAtUtc: at('14:00'), available: true },
+            { startAtUtc: at('14:30'), available: false },
+            { startAtUtc: at('15:00'), available: true },
           ],
         },
         {
           period: 'Afternoon',
           slots: [
-            { startTime: '14:00:00', available: true },
-            { startTime: '14:30:00', available: true },
+            { startAtUtc: at('19:00'), available: true },
+            { startAtUtc: at('19:30'), available: true },
           ],
         },
         {
           period: 'Evening',
-          slots: [{ startTime: '18:00:00', available: false }],
+          slots: [{ startAtUtc: at('23:00'), available: false }],
         },
       ],
     };
@@ -75,8 +79,7 @@ export class PreviewBookingService
       status: 'Confirmed',
       barberName: 'Barbero Ejemplo',
       serviceName: 'Servicio de ejemplo',
-      date: input.date,
-      startTime: input.startTime,
+      startAtUtc: input.startAtUtc,
       durationMin: 30,
     };
   }

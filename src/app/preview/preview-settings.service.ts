@@ -1,7 +1,8 @@
 import { Injectable, signal } from '@angular/core';
+import { setTenantLocale, tenantLocale, type TenantLocale } from '../core/locale';
 import type { Branding } from '../data/branding';
 import type { SettingsService } from '../data/settings.service';
-import { PREVIEW_BRANDING } from './preview-fixtures';
+import { PREVIEW_BRANDING, PREVIEW_LOCALE } from './preview-fixtures';
 import type { PreviewBrandingOverride } from './preview-theme-resolver';
 
 /**
@@ -19,11 +20,23 @@ import type { PreviewBrandingOverride } from './preview-theme-resolver';
  * `SettingsService` rompa la COMPILACIÓN de este archivo en vez de quedar en silencio hasta producción.
  */
 @Injectable()
-export class PreviewSettingsService implements Pick<SettingsService, 'branding' | 'loading' | 'ensureLoaded'> {
+export class PreviewSettingsService
+  implements Pick<SettingsService, 'branding' | 'loading' | 'ensureLoaded' | 'locale' | 'requireLocale'>
+{
   private readonly state = signal<Branding>(PREVIEW_BRANDING);
 
   readonly branding = this.state.asReadonly();
   readonly loading = signal(false).asReadonly();
+  readonly locale = tenantLocale;
+
+  constructor() {
+    // Zona y moneda de fixture, sin red (M-20 RN-CFG-41): ver el docblock de `PREVIEW_LOCALE`.
+    setTenantLocale(PREVIEW_LOCALE);
+  }
+
+  requireLocale(): Promise<TenantLocale> {
+    return Promise.resolve(PREVIEW_LOCALE);
+  }
 
   ensureLoaded(): void {
     // No-op a propósito: el estado inicial YA es el definitivo para este modo — no hay red que esperar

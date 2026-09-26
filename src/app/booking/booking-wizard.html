@@ -19,10 +19,10 @@
       <dl class="summary">
         <div><dt class="cob-muted">Servicio</dt><dd>{{ appointment.serviceName }}</dd></div>
         <div><dt class="cob-muted">Profesional</dt><dd>{{ appointment.barberName }}</dd></div>
-        <div><dt class="cob-muted">Fecha</dt><dd>{{ formatDate(appointment.date) }}</dd></div>
+        <div><dt class="cob-muted">Fecha</dt><dd>{{ formatDate(zoned(appointment.startAtUtc).date) }}</dd></div>
         <div>
           <dt class="cob-muted">Hora</dt>
-          <dd>{{ appointment.startTime.slice(0, 5) }} · {{ appointment.durationMin }} min</dd>
+          <dd>{{ zoned(appointment.startAtUtc).time }} · {{ appointment.durationMin }} min</dd>
         </div>
       </dl>
 
@@ -158,7 +158,7 @@
               <p-message severity="info" text="Ese día está completo. Prueba con otra fecha." />
             } @else {
               <div class="slots">
-                @for (slot of slots(); track slot.startTime) {
+                @for (slot of slots(); track slot.startAtUtc) {
                   <button
                     type="button"
                     class="slot"
@@ -237,9 +237,9 @@
                   } @else if (anyBarber()) {
                     <div><dt class="cob-muted">Profesional</dt><dd>Cualquier profesional</dd></div>
                   }
-                  <div><dt class="cob-muted">Fecha</dt><dd>{{ formatDate(date()) }}</dd></div>
+                  <div><dt class="cob-muted">Fecha</dt><dd>{{ date() ? formatDate(date()) : '—' }}</dd></div>
                   @if (time(); as chosen) {
-                    <div><dt class="cob-muted">Hora</dt><dd>{{ chosen.slice(0, 5) }}</dd></div>
+                    <div><dt class="cob-muted">Hora</dt><dd>{{ zoned(chosen).time }}</dd></div>
                   }
                 </dl>
 

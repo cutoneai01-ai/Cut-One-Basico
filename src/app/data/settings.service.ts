@@ -2,6 +2,12 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import {
+  isTenantLocale,
+  setTenantLocale,
+  tenantLocale,
+  type TenantLocale,
+} from '../core/locale';
+import {
   readBrandingSnapshot,
   writeBrandingSnapshot,
 } from '../core/public-content.storage';
@@ -52,6 +58,15 @@ export class SettingsService {
   readonly loading = computed(() => this.loadingState());
 
   /**
+   * Zona y moneda de la barbería, o `null` mientras no hayan llegado (M-02 RN-TEN-20, RN-TEN-21). Es
+   * la misma señal que leen las funciones de `core/locale.ts`.
+   */
+  readonly locale = tenantLocale;
+
+  /** La petición de solo `keys=locale` en vuelo, para que dos llamadores no disparen dos. */
+  private localeRequest: Promise<TenantLocale> | null = null;
+
+  /**
    * Carga el branding una sola vez por vida de la aplicación.
    *
    * Si hay snapshot vigente se pinta de inmediato y la revalidación sale igual, en segundo plano: el
@@ -66,6 +81,11 @@ export class SettingsService {
     const cached = readBrandingSnapshot<Partial<StoredPublicSnapshot>>();
     if (cached) {
       this.state.set(mergeBrandingSnapshot(cached));
+      // Un snapshot sin `locale` válido no siembra nada: la revalidación de abajo lo trae, y si
+      // tampoco llega ahí, `applyBundle` lo vuelve a pedir. Nunca se cae a una zona por defecto.
+      if (isTenantLocale(cached.locale)) {
+        setTenantLocale(cached.locale);
+      }
     } else {
       this.loadingState.set(true);
     }
@@ -87,7 +107,7 @@ export class SettingsService {
       // comodidad de tipado.
       const bundle = await firstValueFrom(
         this.http.get<PublicSettingsBundle>('/api/v1/public/settings', {
-          params: { keys: 'branding,hero,theme' },
+          params: { keys: 'branding,hero,theme,locale' },
         }),
       );
 
@@ -95,7 +115,8 @@ export class SettingsService {
     } catch {
       // Un fallo aquí deja lo que hubiera: snapshot vigente o `DEFAULTS`, y el tema que ya se aplicó
       // al arrancar. La landing tiene que cargar igual — sin branding se pinta vacía y coherente, no
-      // rota.
+      // rota. La zona y la moneda, en cambio, no tienen versión "vacía y coherente": si faltan, se
+      // vuelven a pedir cuando algo las necesite (`requireLocale()`).
     } finally {
       this.loadingState.set(false);
     }
@@ -111,6 +132,10 @@ export class SettingsService {
       const bundle = await pending;
       if (bundle) {
         this.applyBundle(bundle);
+      } else if (!tenantLocale()) {
+        // La petición previa al bootstrap falló y no había snapshot: sin zona ni moneda no se puede
+        // pintar un precio, así que se reintenta ya en vez de esperar a que el cliente abra la reserva.
+        void this.requireLocale().catch(() => undefined);
       }
     } finally {
       this.loadingState.set(false);
@@ -129,7 +154,65 @@ export class SettingsService {
   private applyBundle(bundle: PublicSettingsBundle): void {
     const fresh = mergeBrandingBundle(bundle);
     this.state.set(fresh);
-    writeBrandingSnapshot<StoredPublicSnapshot>({ ...fresh, theme: bundle.theme });
+
+    const locale = isTenantLocale(bundle.locale) ? bundle.locale : undefined;
+    if (locale) {
+      setTenantLocale(locale);
+    }
+
+    writeBrandingSnapshot<StoredPublicSnapshot>({ ...fresh, theme: bundle.theme, locale });
     applyTheme(resolveTheme(bundle.theme));
+
+    if (!locale) {
+      // Llegó el bundle pero sin `locale` usable (backend a medio desplegar, respuesta rara): se vuelve
+      // a pedir sola, sin caer a Bogotá (ADR-0040).
+      void this.requireLocale().catch(() => undefined);
+    }
+  }
+
+  /**
+   * La zona y la moneda de la barbería, esperándolas si todavía no llegaron (M-02 RN-TEN-20).
+   *
+   * Si no hay ninguna vigente se piden **otra vez**, con `keys=locale` a secas. Es lo que llaman el
+   * asistente de reserva y `/reserva/:id` antes de pintar una hora: sin zona no hay forma correcta de
+   * pintarla, y la incorrecta —la del navegador o la de Bogotá— es exactamente el defecto que ADR-0040
+   * elimina. Rechaza si la petición falla o vuelve sin `locale`; el llamador lo trata como un fallo de
+   * carga y el siguiente intento vuelve a pedir.
+   */
+  requireLocale(): Promise<TenantLocale> {
+    const known = tenantLocale();
+    if (known) {
+      return Promise.resolve(known);
+    }
+
+    // `/reserva/:id` y `/encuesta/:id` no pasan por `ensureLoaded()`: el snapshot de una visita previa
+    // a la landing puede traerla ya, sin red.
+    const cached = readBrandingSnapshot<Partial<StoredPublicSnapshot>>();
+    if (cached && isTenantLocale(cached.locale)) {
+      setTenantLocale(cached.locale);
+      return Promise.resolve(cached.locale);
+    }
+
+    if (!this.localeRequest) {
+      this.localeRequest = this.fetchLocale().finally(() => {
+        this.localeRequest = null;
+      });
+    }
+    return this.localeRequest;
+  }
+
+  private async fetchLocale(): Promise<TenantLocale> {
+    const bundle = await firstValueFrom(
+      this.http.get<PublicSettingsBundle>('/api/v1/public/settings', {
+        params: { keys: 'locale' },
+      }),
+    );
+
+    if (!isTenantLocale(bundle.locale)) {
+      throw new Error('El API no devolvió la zona y la moneda del tenant');
+    }
+
+    setTenantLocale(bundle.locale);
+    return bundle.locale;
   }
 }

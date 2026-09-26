@@ -10,9 +10,10 @@ import { ProgressSpinner } from 'primeng/progressspinner';
 import { Step, StepList, StepPanel, StepPanels, Stepper } from 'primeng/stepper';
 import { Textarea } from 'primeng/textarea';
 import { resolveImage } from '../core/images';
-import { dayLabels, formatCOP, formatLongDate, todayInBusinessZone } from '../core/locale';
+import { dayLabels, formatLongDate, formatMoney, utcToZoned } from '../core/locale';
 import { BookingService } from '../data/booking.service';
 import { CatalogService } from '../data/catalog.service';
+import { SettingsService } from '../data/settings.service';
 import type {
   AppointmentCreatedResponse,
   PublicBarber,
@@ -66,6 +67,7 @@ import { planForBookingError } from './booking-errors';
 export class BookingWizard {
   private readonly booking = inject(BookingService);
   private readonly catalog = inject(CatalogService);
+  private readonly settings = inject(SettingsService);
   private readonly messages = inject(MessageService);
   private readonly formBuilder = inject(FormBuilder);
 
@@ -101,7 +103,15 @@ export class BookingWizard {
    * veces, y quien elige "cualquiera" pierde gratis el dato de con quién va.
    */
   protected readonly showAnyBarberOption = computed(() => this.visibleBarbers().length > 1);
-  protected readonly date = signal(todayInBusinessZone());
+  /**
+   * Día elegido, `yyyy-MM-dd` **de la barbería**. Arranca vacío y lo siembra `loadBookingWindow()` con
+   * el primer día reservable, que el backend ya calcula en la zona de la barbería y que es «hoy»
+   * siempre que hoy se pueda reservar (M-02 RN-TEN-20). Sembrarlo aquí con un «hoy» propio exigiría
+   * la zona antes de que haya llegado, y el del navegador sería el día equivocado.
+   */
+  protected readonly date = signal('');
+
+  /** El `startAtUtc` del hueco elegido, tal cual llegó del API (M-09 RN-AG-47). */
   protected readonly time = signal<string | null>(null);
 
   protected readonly slots = signal<FlatSlot[]>([]);
@@ -168,7 +178,7 @@ export class BookingWizard {
     notes: ['', [Validators.maxLength(500)]],
   });
 
-  protected readonly formatPrice = formatCOP;
+  protected readonly formatPrice = (value: number): string => formatMoney(value);
   protected readonly formatDate = formatLongDate;
   protected readonly labelsFor = dayLabels;
 
@@ -183,7 +193,8 @@ export class BookingWizard {
     // RF-RA03 §3: la ventana se resuelve en cada apertura, no una vez por sesión. Es barata (el
     // backend la sirve desde su cache, sin tocar Postgres) y el plazo mínimo la mueve con el reloj:
     // una pestaña abierta desde ayer tendría la de ayer.
-    void this.loadBookingWindow();
+    // La disponibilidad espera a la ventana: es la que fija el día preseleccionado.
+    const windowLoaded = this.loadBookingWindow();
 
     // M-08 RN-DISPO-31, y por el mismo motivo que la línea de arriba. `CatalogService.ensureLoaded()` se
     // ejecuta una vez por carga de página, así que una pestaña abierta desde la mañana seguiría
@@ -192,7 +203,7 @@ export class BookingWizard {
     void this.catalog.revalidate();
 
     if (service && barber) {
-      void this.loadAvailability();
+      void windowLoaded.then(() => this.loadAvailability());
     }
   }
 
@@ -228,6 +239,11 @@ export class BookingWizard {
 
   protected barberName(barber: PublicBarber | null): string {
     return barber?.displayName ?? 'Profesional';
+  }
+
+  /** Día (`yyyy-MM-dd`) y hora de reloj de un instante, en la zona de la barbería (M-02 RN-TEN-20). */
+  protected zoned(iso: string): { date: string; time: string } {
+    return utcToZoned(iso);
   }
 
   protected chooseService(service: PublicService): void {
@@ -286,7 +302,7 @@ export class BookingWizard {
       return;
     }
 
-    this.time.set(slot.startTime);
+    this.time.set(slot.startAtUtc);
     this.step.set(4);
   }
 
@@ -322,8 +338,8 @@ export class BookingWizard {
         // `created.barberName`, que es lo que pinta la pantalla de éxito.
         barberId: barber?.id ?? null,
         serviceId: service.id,
-        date: this.date(),
-        startTime: time,
+        // El instante del hueco, sin recomponerlo desde día y hora (M-08 RN-DISPO-33).
+        startAtUtc: time,
         customer: {
           fullName: values.fullName.trim(),
           email: values.email.trim(),
@@ -382,7 +398,7 @@ export class BookingWizard {
     const service = this.service();
     const barber = this.barber();
 
-    if (!service || !this.barberChosen()) {
+    if (!service || !this.barberChosen() || !this.date()) {
       return;
     }
 
@@ -390,8 +406,13 @@ export class BookingWizard {
     this.slotsFailed.set(false);
 
     try {
-      const response = await this.booking.getAvailability(barber?.id ?? null, service.id, this.date());
-      this.slots.set(flattenSlots(response));
+      // Sin la zona de la barbería no se puede pintar un hueco (M-02 RN-TEN-20): si todavía no llegó,
+      // `requireLocale()` la vuelve a pedir, y si falla cuenta como fallo de disponibilidad.
+      const [response, locale] = await Promise.all([
+        this.booking.getAvailability(barber?.id ?? null, service.id, this.date()),
+        this.settings.requireLocale(),
+      ]);
+      this.slots.set(flattenSlots(response, locale));
     } catch {
       this.slots.set([]);
       this.slotsFailed.set(true);
@@ -419,7 +440,7 @@ export class BookingWizard {
     this.service.set(null);
     this.barber.set(null);
     this.anyBarber.set(false);
-    this.date.set(todayInBusinessZone());
+    this.date.set('');
     // La tira se repuebla en `loadBookingWindow()`, que `open()` dispara justo después del reset.
     this.days.set([]);
     this.time.set(null);

@@ -1,3 +1,4 @@
+import type { TenantLocale } from '../core/locale';
 import type { Branding } from '../data/branding';
 import type { PopularService, PublicBarber, PublicService, PublicTestimonial } from '../data/public-api.models';
 
@@ -188,4 +189,19 @@ export const PREVIEW_BRANDING: Branding = {
   instagram_url: '',
   whatsapp_number: '3000000000',
   rating_score: 4.8,
+};
+
+/**
+ * Zona y moneda de fixture (M-02 RN-TEN-21). La vista previa no pide nada al API (M-20 RN-CFG-41), así
+ * que no puede conocer la del tenant: esta es **dato de ejemplo**, igual que el catálogo, no un valor
+ * por defecto de la landing real — que nunca cae a ninguna zona (ADR-0040). Se toma la del catálogo
+ * cerrado con la moneda de más uso, para que los precios de ejemplo se lean como precios.
+ */
+export const PREVIEW_LOCALE: TenantLocale = {
+  time_zone: 'America/Bogota',
+  currency: 'COP',
+  currency_decimals: 0,
+  locale: 'es-CO',
+  place: 'Ciudad Ejemplo',
+  offset_label: 'UTC-5',
 };

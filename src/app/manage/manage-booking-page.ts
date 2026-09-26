@@ -17,7 +17,14 @@ import { ProgressSpinner } from 'primeng/progressspinner';
 import { Skeleton } from 'primeng/skeleton';
 import { ApiError } from '../core/api-error';
 import { resolveImage } from '../core/images';
-import { dayLabels, formatCOP, formatLongDate, toTimeLabel } from '../core/locale';
+import {
+  dayLabels,
+  formatLongDate,
+  formatMoney,
+  sameInstant,
+  utcToZoned,
+  type ZonedDateTime,
+} from '../core/locale';
 import {
   bookingWindow,
   flattenSlots,
@@ -28,6 +35,7 @@ import {
 import { CatalogService } from '../data/catalog.service';
 import { BookingService } from '../data/booking.service';
 import { ManageBookingService } from '../data/manage-booking.service';
+import { SettingsService } from '../data/settings.service';
 import type { ManageAppointment, PublicBarber, PublicService } from '../data/public-api.models';
 
 type PageState = 'loading' | 'ready' | 'saved' | 'error';
@@ -57,6 +65,7 @@ export class ManageBookingPage {
   // del mismo endpoint público, así que se reusa su servicio en vez de duplicar el método aquí.
   private readonly booking = inject(BookingService);
   private readonly catalog = inject(CatalogService);
+  private readonly settings = inject(SettingsService);
   private readonly messages = inject(MessageService);
 
   /** Llega por `withComponentInputBinding()`, sin inyectar `ActivatedRoute`. */
@@ -87,7 +96,9 @@ export class ManageBookingPage {
    */
   protected readonly serviceId = signal<string | null>(null);
   protected readonly barberId = signal<string | null>(null);
+  /** Día elegido, `yyyy-MM-dd` de la barbería (M-02 RN-TEN-20). */
   protected readonly date = signal<string | null>(null);
+  /** El `startAtUtc` elegido: el de la cita al cargar, o el de un hueco (M-09 RN-AG-47). */
   protected readonly time = signal<string | null>(null);
 
   protected readonly slots = signal<FlatSlot[]>([]);
@@ -182,12 +193,12 @@ export class ManageBookingPage {
     return (
       this.serviceId() !== current.serviceId ||
       this.barberId() !== current.barberId ||
-      this.date() !== current.date ||
-      this.time() !== toTimeLabel(current.startTime)
+      this.date() !== utcToZoned(current.startAtUtc).date ||
+      !sameInstant(this.time(), current.startAtUtc)
     );
   });
 
-  protected readonly formatPrice = formatCOP;
+  protected readonly formatPrice = formatMoney;
   protected readonly formatDate = formatLongDate;
   protected readonly labelsFor = dayLabels;
 
@@ -245,6 +256,16 @@ export class ManageBookingPage {
     return barber?.displayName ?? 'Profesional';
   }
 
+  /** Día y hora de reloj de un instante, en la zona de la barbería (M-02 RN-TEN-20). */
+  protected zoned(iso: string): ZonedDateTime {
+    return utcToZoned(iso);
+  }
+
+  /** El hueco es la hora elegida. Se compara el instante, no la etiqueta ni la cadena ISO. */
+  protected isChosen(slot: FlatSlot): boolean {
+    return sameInstant(this.time(), slot.startAtUtc);
+  }
+
   protected chooseService(service: PublicService): void {
     if (service.id === this.serviceId()) {
       return;
@@ -291,7 +312,7 @@ export class ManageBookingPage {
       return;
     }
 
-    this.time.set(slot.label);
+    this.time.set(slot.startAtUtc);
   }
 
   protected async save(): Promise<void> {
@@ -310,8 +331,9 @@ export class ManageBookingPage {
       const updated = await this.manage.reschedule(this.appointmentId(), {
         barberId,
         serviceId,
-        date,
-        startTime: time,
+        // El instante del hueco (o el de la cita, si solo cambió el servicio), sin recomponerlo desde
+        // día y hora (M-09 RN-AG-47).
+        startAtUtc: time,
       });
 
       this.appointment.set(updated);
@@ -503,7 +525,13 @@ export class ManageBookingPage {
 
   private async load(): Promise<void> {
     try {
-      const appointment = await this.manage.getAppointment(this.appointmentId());
+      // La zona de la barbería se pide a la vez: sin ella no se puede pintar la hora de la cita
+      // (M-02 RN-TEN-20), y si no llega la pantalla muestra el error de carga en vez de una hora
+      // en la zona del navegador.
+      const [appointment] = await Promise.all([
+        this.manage.getAppointment(this.appointmentId()),
+        this.settings.requireLocale(),
+      ]);
       this.appointment.set(appointment);
       this.syncSelectionFromAppointment();
 
@@ -557,8 +585,8 @@ export class ManageBookingPage {
 
     this.serviceId.set(appointment.serviceId);
     this.barberId.set(appointment.barberId);
-    this.date.set(appointment.date);
-    this.time.set(toTimeLabel(appointment.startTime));
+    this.date.set(utcToZoned(appointment.startAtUtc).date);
+    this.time.set(appointment.startAtUtc);
   }
 
   /**
@@ -624,13 +652,11 @@ export class ManageBookingPage {
     this.slotsFailed.set(false);
 
     try {
-      const response = await this.manage.getAvailability(
-        this.appointmentId(),
-        barberId,
-        serviceId,
-        date,
-      );
-      this.slots.set(flattenSlots(response));
+      const [response, locale] = await Promise.all([
+        this.manage.getAvailability(this.appointmentId(), barberId, serviceId, date),
+        this.settings.requireLocale(),
+      ]);
+      this.slots.set(flattenSlots(response, locale));
     } catch {
       this.slots.set([]);
       this.slotsFailed.set(true);
