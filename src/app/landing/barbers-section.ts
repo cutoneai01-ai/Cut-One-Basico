@@ -5,12 +5,13 @@ import { Card } from 'primeng/card';
 import { Message } from 'primeng/message';
 import { Rating } from 'primeng/rating';
 import { Skeleton } from 'primeng/skeleton';
+import { Tag } from 'primeng/tag';
 import { resolveImage } from '../core/images';
 import type { PublicBarber } from '../data/public-api.models';
 
 @Component({
   selector: 'cob-barbers-section',
-  imports: [Button, Card, FormsModule, Message, Rating, Skeleton],
+  imports: [Button, Card, FormsModule, Message, Rating, Skeleton, Tag],
   templateUrl: './barbers-section.html',
   styleUrl: './barbers-section.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

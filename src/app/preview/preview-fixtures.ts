@@ -53,7 +53,10 @@ export const PREVIEW_BARBERS: readonly PublicBarber[] = [
     displayName: 'Barbero Ejemplo Cinco',
     specialty: 'Cortes infantiles',
     photoUrl: 'barber-5.webp',
-    rating: 4.5,
+    // M-04 RN-EQ-23: un barbero «Nuevo», para que la previsualización del tema enseñe el tag y la tarjeta
+    // sin estrellas (M-23 RN-CAL-11).
+    rating: null,
+    isNew: true,
   },
 ];
 

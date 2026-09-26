@@ -35,10 +35,17 @@
 
               <h3 class="barber-card__name">{{ name(barber) }}</h3>
 
+              <!-- M-04 RN-EQ-23 y RN-EQ-30: el tag y la nota son independientes. El tag no oculta la nota: sin
+                   reseñas no hay nota que pintar, y desde la primera la tarjeta enseña las dos cosas. -->
+              @if (barber.isNew) {
+                <p-tag value="Nuevo" icon="pi pi-sparkles" severity="info" />
+              }
+
               @if (barber.specialty) {
                 <span class="barber-card__specialty">{{ barber.specialty }}</span>
               }
 
+              <!-- M-23 RN-CAL-11: una nota nula no se pinta, ni como cinco ni como cero estrellas. -->
               @if (barber.rating !== null) {
                 <p-rating [ngModel]="barber.rating" [readonly]="true" [stars]="5" />
               }

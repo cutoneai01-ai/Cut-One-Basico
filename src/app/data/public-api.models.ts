@@ -52,7 +52,16 @@ export interface PublicBarber {
   displayName: string | null;
   specialty: string | null;
   photoUrl: string | null;
+  /**
+   * M-23 RN-CAL-11: **nulo significa «nuevo y sin reseñas»**, no cero ni cinco. La tarjeta no pinta
+   * estrellas.
+   */
   rating: number | null;
+  /**
+   * M-04 RN-EQ-23 (ADR-0039): la tarjeta muestra el tag «Nuevo». Opcional porque un backend anterior no
+   * lo manda: ausente equivale a sin tag.
+   */
+  isNew?: boolean;
 }
 
 /** RF-F05: testimonios reales y paginados. **Sin fecha** — no existe en el contrato (decisión 9). */
