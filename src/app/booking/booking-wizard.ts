@@ -14,10 +14,11 @@ import { dayLabels, formatLongDate, formatMoney, utcToZoned } from '../core/loca
 import { BookingService } from '../data/booking.service';
 import { CatalogService } from '../data/catalog.service';
 import { SettingsService } from '../data/settings.service';
-import type {
-  AppointmentCreatedResponse,
-  PublicBarber,
-  PublicService,
+import {
+  durationFor,
+  type AppointmentCreatedResponse,
+  type PublicBarber,
+  type PublicService,
 } from '../data/public-api.models';
 import {
   bookingWindow,
@@ -160,6 +161,51 @@ export class BookingWizard {
     }
 
     return this.barbers().filter((b) => chosenService.barberIds.includes(b.id));
+  });
+
+  /**
+   * Barbero cuyo tiempo se muestra (M-08 RN-DISPO-35): el elegido o el fijado por `?barbero=`, y nulo
+   * con «cualquier profesional» o sin barbero todavía — entonces se muestra el base del servicio.
+   */
+  private readonly durationBarberId = computed(() =>
+    this.anyBarber() ? null : (this.barber()?.id ?? null),
+  );
+
+  /**
+   * Paso 1 con su duración ya resuelta. Con un barbero fijado (link `?barbero=`, o de vuelta desde el
+   * paso 2) cada servicio enseña el tiempo de **ese** barbero, que es el que durará la cita (ADR-0044).
+   */
+  protected readonly serviceOptions = computed(() => {
+    const barberId = this.durationBarberId();
+    return this.visibleServices().map((service) => ({
+      service,
+      durationMin: durationFor(service, barberId),
+    }));
+  });
+
+  /**
+   * Paso 2 con el tiempo de cada barbero para el servicio elegido (M-08 RN-DISPO-35). Sin servicio
+   * todavía no hay tiempo que mostrar: `null` y la tarjeta no pinta la línea.
+   */
+  protected readonly barberOptions = computed(() => {
+    const chosenService = this.service();
+    return this.visibleBarbers().map((barber) => ({
+      barber,
+      durationMin: chosenService ? durationFor(chosenService, barber.id) : null,
+    }));
+  });
+
+  /** «Cualquier profesional» muestra el base: el asignado puede tardar otra cosa (ADR-0044). */
+  protected readonly baseDurationMin = computed(() => this.service()?.durationMin ?? null);
+
+  /**
+   * Duración del servicio elegido con el barbero elegido, para el resumen (M-08 RN-DISPO-35). Cambia al
+   * cambiar de barbero. Con «cualquier profesional» es el base y el resumen lo marca como aproximado:
+   * la duración real llega con la confirmación (`AppointmentCreatedResponse.durationMin`).
+   */
+  protected readonly selectedDurationMin = computed(() => {
+    const chosenService = this.service();
+    return chosenService ? durationFor(chosenService, this.durationBarberId()) : null;
   });
 
   /**

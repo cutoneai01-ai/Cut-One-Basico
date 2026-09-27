@@ -26,6 +26,41 @@ export interface PublicService {
    * esta lista nunca llega vacía.
    */
   barberIds: string[];
+  /**
+   * Tiempo propio de cada barbero para este servicio (M-08 RN-DISPO-35, ADR-0044). Solo trae a los que
+   * tienen uno distinto del base; el que no aparece tarda `durationMin`.
+   *
+   * **Opcional** porque un backend anterior no lo manda: ausente equivale a lista vacía, y todo se
+   * pinta con el base. Se lee siempre a través de `durationFor`, nunca a mano.
+   */
+  barberDurations?: PublicBarberDuration[];
+}
+
+/** Minutos que tarda un barbero concreto en un servicio (M-08 RN-DISPO-35). */
+export interface PublicBarberDuration {
+  barberId: string;
+  durationMin: number;
+}
+
+/**
+ * Duración que se **muestra** para un servicio con un barbero dado (M-08 RN-DISPO-35, ADR-0044): su
+ * tiempo propio si lo tiene, y si no el base del servicio.
+ *
+ * `barberId` nulo es «cualquier profesional» o «todavía sin barbero»: se muestra el base, porque el
+ * asignado puede tener otro tiempo y solo el servidor sabe cuál (la confirmación trae el real).
+ *
+ * Es solo para pintar. Las horas libres y la duración de la cita las calcula el servidor con el mismo
+ * criterio; el cliente no deriva de aquí ningún hueco.
+ */
+export function durationFor(service: PublicService, barberId: string | null): number {
+  if (barberId === null) {
+    return service.durationMin;
+  }
+
+  return (
+    service.barberDurations?.find((entry) => entry.barberId === barberId)?.durationMin ??
+    service.durationMin
+  );
 }
 
 /**

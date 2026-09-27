@@ -51,7 +51,8 @@
               <p-message severity="info" [text]="barber() ? barberName(barber()) + ' no tiene servicios configurados. Elige otro profesional.' : 'Este negocio todavía no publicó servicios.'" />
             } @else {
               <div class="options">
-                @for (option of visibleServices(); track option.id) {
+                @for (entry of serviceOptions(); track entry.service.id) {
+                  @let option = entry.service;
                   <button
                     type="button"
                     class="option"
@@ -63,7 +64,8 @@
                     }
                     <span class="option__text">
                       <strong>{{ option.name }}</strong>
-                      <span class="cob-muted">{{ option.durationMin }} min</span>
+                      <!-- M-08 RN-DISPO-35: con barbero fijado, su tiempo; si no, el base. -->
+                      <span class="cob-muted option__duration">{{ entry.durationMin }} min</span>
                     </span>
                     <strong class="option__price">{{ formatPrice(option.price) }}</strong>
                   </button>
@@ -97,10 +99,14 @@
                     <span class="option__text">
                       <strong>Cualquier profesional</strong>
                       <span class="cob-muted">Te asignamos uno de los disponibles</span>
+                      @if (baseDurationMin(); as minutes) {
+                        <span class="cob-muted option__duration">{{ minutes }} min</span>
+                      }
                     </span>
                   </button>
                 }
-                @for (option of visibleBarbers(); track option.id) {
+                @for (entry of barberOptions(); track entry.barber.id) {
+                  @let option = entry.barber;
                   <button
                     type="button"
                     class="option"
@@ -112,6 +118,10 @@
                     }
                     <span class="option__text">
                       <strong>{{ barberName(option) }}</strong>
+                      <!-- M-08 RN-DISPO-35: lo que tarda este barbero en el servicio elegido. -->
+                      @if (entry.durationMin; as minutes) {
+                        <span class="cob-muted option__duration">{{ minutes }} min</span>
+                      }
                       @if (option.specialty) {
                         <span class="cob-muted">{{ option.specialty }}</span>
                       }
@@ -231,6 +241,16 @@
                 <dl class="summary">
                   @if (service(); as chosen) {
                     <div><dt class="cob-muted">Servicio</dt><dd>{{ chosen.name }}</dd></div>
+                  }
+                  <!--
+                    M-08 RN-DISPO-35: con «cualquier profesional» es el base y se marca aproximado, porque
+                    el asignado puede tener otro tiempo. La confirmación trae la duración real.
+                  -->
+                  @if (selectedDurationMin(); as minutes) {
+                    <div class="summary__duration">
+                      <dt class="cob-muted">Duración</dt>
+                      <dd>{{ minutes }} min{{ anyBarber() ? ' (aprox.)' : '' }}</dd>
+                    </div>
                   }
                   @if (barber(); as chosen) {
                     <div><dt class="cob-muted">Profesional</dt><dd>{{ barberName(chosen) }}</dd></div>
