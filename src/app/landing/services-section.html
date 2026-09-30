@@ -7,16 +7,30 @@
     </div>
 
     @if (chips().length > 0) {
-      <div class="filters">
-        <p-selectButton
-          [options]="chips()"
-          optionLabel="label"
-          optionValue="key"
-          [allowEmpty]="false"
-          [ngModel]="activeChip()"
-          (ngModelChange)="activeChip.set($event)"
-          ariaLabelledBy="filtros-servicios"
-        />
+      <div class="filters" role="group" aria-labelledby="filtros-servicios">
+        @for (chip of allChip(); track chip.key) {
+          <button
+            type="button"
+            class="filter-pill filters__all"
+            [class.filter-pill--active]="activeChip() === chip.key"
+            [attr.aria-pressed]="activeChip() === chip.key"
+            (click)="activeChip.set(chip.key)"
+          >{{ chip.label }}</button>
+        }
+        <div class="filters__divider" aria-hidden="true"></div>
+        <div class="filters__scroll">
+          <div class="filters__scroll-track">
+            @for (chip of categoryChips(); track chip.key) {
+              <button
+                type="button"
+                class="filter-pill"
+                [class.filter-pill--active]="activeChip() === chip.key"
+                [attr.aria-pressed]="activeChip() === chip.key"
+                (click)="activeChip.set(chip.key)"
+              >{{ chip.label }}</button>
+            }
+          </div>
+        </div>
         <span class="cob-visually-hidden" id="filtros-servicios">Filtrar servicios</span>
       </div>
     }

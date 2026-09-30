@@ -1,16 +1,85 @@
-/* La fila de chips hace scroll horizontal: `category` es texto libre por tenant y no hay límite de
-   cuántas puede haber (RF-G03 §5 RN-03.5). */
+/* Solo la fila de categorías hace scroll horizontal: `category` es texto libre por tenant
+   (`service-filters.ts`), así que no hay tope de cuántas puede haber. "Todos" queda fijo fuera
+   de esa fila: si viviera dentro, quitar el filtro después de scrollear exigía volver a buscarlo.
+   Los chips son pills sin la barra de scroll del sistema, con un desvanecido en los bordes que
+   insinúa que hay más categorías a los lados. */
 .filters {
   display: flex;
-  justify-content: center;
+  align-items: center;
+  gap: clamp(0.5rem, 2vw, 1rem);
   margin-bottom: 2rem;
-  overflow-x: auto;
-  padding-bottom: 0.25rem;
-  scrollbar-width: thin;
 }
 
-.filters :is(p-selectbutton) {
+.filters__all {
   flex: none;
+}
+
+.filters__divider {
+  flex: none;
+  align-self: stretch;
+  width: 1px;
+  background: var(--cob-border);
+}
+
+.filters__scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 0.625rem;
+  /* Barra propia en vez de la del sistema: fina, del color de acento, y solo pista cuando hace falta
+     ("thin" + fondo transparente en Firefox; el trío de pseudo-elementos en WebKit). */
+  scrollbar-width: thin;
+  scrollbar-color: var(--cob-accent) transparent;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 1.5rem, #000 calc(100% - 1.5rem), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 1.5rem, #000 calc(100% - 1.5rem), transparent 100%);
+}
+
+.filters__scroll::-webkit-scrollbar {
+  height: 0.375rem;
+}
+
+.filters__scroll::-webkit-scrollbar-track {
+  background: var(--cob-border);
+  border-radius: 999px;
+}
+
+.filters__scroll::-webkit-scrollbar-thumb {
+  background: var(--cob-accent);
+  border-radius: 999px;
+}
+
+.filters__scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--cob-text);
+}
+
+.filters__scroll-track {
+  display: flex;
+  /* Menos separación en pantallas chicas: caben más categorías por "ventana" sin achicar la pista
+     de scroll. */
+  gap: clamp(0.375rem, 1.5vw, 0.75rem);
+  width: max-content;
+  padding: 0.25rem 1.5rem;
+}
+
+.filter-pill {
+  flex: none;
+  /* El tamaño baja con el viewport (no con la cantidad de categorías): coherente en un teléfono
+     angosto en vez de conservar el tamaño de escritorio. */
+  padding: clamp(0.5rem, 1.5vw, 0.625rem) clamp(0.75rem, 3vw, 1.25rem);
+  border-radius: 999px;
+  border: 1px solid var(--cob-border);
+  background: none;
+  color: var(--cob-text-muted);
+  font-size: clamp(0.75rem, 2.5vw, 0.875rem);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.filter-pill--active {
+  border-color: var(--cob-accent);
+  background: var(--cob-accent);
+  color: var(--p-primary-contrast-color);
 }
 
 /* El grid ya estira cada `p-card` a la altura de la fila (`align-items: stretch` por defecto de
