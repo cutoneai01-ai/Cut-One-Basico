@@ -44,8 +44,14 @@ export const PUBLIC_SETTINGS_KEY = 'public-settings';
  * RN-TEN-20 y RN-TEN-21—. Un snapshot `v3` no la tiene, y sin el salto se leería y la landing no
  * sabría en qué zona pintar las horas. El prefijo `public-settings:` no cambia: es lo que borra el
  * panel.
+ *
+ * `v5` el 2026-09-30, sin cambio de forma: es la forma de vaciar desde nuestro lado el snapshot que
+ * cada visitante tiene guardado, sin pedirle que borre la caché. Con las tarjetas de servicio sin estilo
+ * en Chrome, el síntoma solo aparecía en navegadores con snapshot (en incógnito cargaba bien), porque
+ * el snapshot adelanta el arranque. La causa se corrigió en `services-section.html`; el salto garantiza
+ * que nadie arranque con un snapshot escrito por la build anterior.
  */
-const STORAGE_VERSION = 'v4';
+const STORAGE_VERSION = 'v5';
 
 /**
  * Pasado este tiempo el snapshot se descarta aunque siga en localStorage, y no es negociable: sin él,

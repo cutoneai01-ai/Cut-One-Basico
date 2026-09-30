@@ -1,5 +1,12 @@
 <section class="cob-section" id="servicios">
   <div class="cob-container">
+    <!-- Precarga del tema de `p-tag` ANTES de pintar las tarjetas. PrimeNG inyecta el <style> de un
+         componente la primera vez que se crea uno; si ese primer `p-tag` es el badge «Popular» de una
+         tarjeta, la inyección cae en mitad del @for y Chrome deja sin estilo a TODAS las tarjetas
+         creadas después (sin fondo, sin radio, `display: block`, botones desalineados). Medido el
+         2026-09-30 en manu3blendzz: 5 tarjetas bien y 3 rotas, reproducible en cada carga; con esta
+         precarga, 8 de 8. No quitar aunque parezca que no hace nada. -->
+    <p-tag class="cob-visually-hidden" value="" aria-hidden="true" />
     <div class="cob-section__head">
       <span class="cob-eyebrow">Nuestros servicios</span>
       <h2 class="cob-title">Catálogo de servicios</h2>

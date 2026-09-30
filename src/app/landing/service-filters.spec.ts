@@ -179,6 +179,26 @@ describe('filterServices', () => {
     expect(filterServices(services, ALL_CHIP_KEY)).toHaveLength(3);
   });
 
+  it('Todos pone primero los populares y conserva el orden del API dentro de cada grupo', () => {
+    const catalog = [
+      service({ id: 'a', category: 'Color' }),
+      service({ id: 'b', category: 'Corte', isPopular: true }),
+      service({ id: 'c', category: 'Corte' }),
+      service({ id: 'd', category: 'Extra', isPopular: true }),
+    ];
+
+    expect(filterServices(catalog, ALL_CHIP_KEY).map((s) => s.id)).toEqual(['b', 'd', 'a', 'c']);
+  });
+
+  it('una categoría no se reordena por el flag de popular', () => {
+    const catalog = [
+      service({ id: 'a', category: 'Corte' }),
+      service({ id: 'b', category: 'Corte', isPopular: true }),
+    ];
+
+    expect(filterServices(catalog, 'Corte').map((s) => s.id)).toEqual(['a', 'b']);
+  });
+
   it('Populares filtra por el flag, no por categoría', () => {
     expect(filterServices(services, POPULAR_CHIP_KEY).map((s) => s.id)).toEqual(['1', '3']);
   });

@@ -1,9 +1,15 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
+import {
+  provideRouter,
+  withComponentInputBinding,
+  withInMemoryScrolling,
+  withNavigationErrorHandler,
+} from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { providePrimeNG } from 'primeng/config';
 import { apiErrorInterceptor } from './core/api-error';
+import { recoverFromStaleChunk } from './core/stale-chunk';
 import { subdomainInterceptor } from './core/subdomain.interceptor';
 import type { PublicSettingsBundle } from './data/branding';
 import { DARK_MODE_SELECTOR, buildPreset, type ThemeDescriptor } from './theme/themes';
@@ -38,6 +44,11 @@ export function createAppConfig(
         withComponentInputBinding(),
         // Las anclas del landing (#servicios, #barberos, …) son links del propio header.
         withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }),
+        // Una pestaña abierta durante un despliegue pide chunks que ya no existen: se recarga sola
+        // en vez de obligar al visitante a borrar la caché (`core/stale-chunk.ts`).
+        withNavigationErrorHandler((error) => {
+          recoverFromStaleChunk(error.error, error.url);
+        }),
       ),
 
       // Los dos interceptores son todo lo que hay entre la app y el API. Ninguno toca cabeceras de
