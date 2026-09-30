@@ -23,7 +23,7 @@ function service(overrides: Partial<PublicService> = {}): PublicService {
 
 describe('deriveCategoryChips', () => {
   it('no pinta la fila con una sola categoría y ningún popular', () => {
-    // Un filtro con un solo destino posible no filtra nada (RF-G03 §5 RN-03.4).
+    // Un filtro con un solo destino posible no filtra nada (M-08 RN-DISPO-50).
     const chips = deriveCategoryChips([
       service({ id: '1', category: 'Cortes' }),
       service({ id: '2', category: 'Cortes' }),
@@ -45,7 +45,7 @@ describe('deriveCategoryChips', () => {
     expect(chips.map((chip) => chip.key)).toEqual([ALL_CHIP_KEY, POPULAR_CHIP_KEY]);
   });
 
-  it('con un popular y tres categorías salen cinco chips, en orden', () => {
+  it('con un popular y tres categorías salen cinco chips, en el orden de la API', () => {
     const chips = deriveCategoryChips([
       service({ id: '1', category: 'Cortes', isPopular: true }),
       service({ id: '2', category: 'Barba' }),
@@ -55,10 +55,88 @@ describe('deriveCategoryChips', () => {
     expect(chips.map((chip) => chip.label)).toEqual([
       'Todos',
       'Populares',
-      'Adicionales',
-      'Barba',
       'Cortes',
+      'Barba',
+      'Adicionales',
     ]);
+  });
+
+  it('las categorías salen en el orden de su primera aparición, no alfabético', () => {
+    // M-08 RN-DISPO-50: el orden lo decide el admin y llega en el array; la landing no reordena.
+    const chips = deriveCategoryChips([
+      service({ id: '1', category: 'CORTES' }),
+      service({ id: '2', category: 'BARBA' }),
+      service({ id: '3', category: 'CORTES' }),
+      service({ id: '4', category: 'COMBOS' }),
+      service({ id: '5', category: 'BARBA' }),
+      service({ id: '6', category: 'ADICIONALES' }),
+    ]);
+
+    expect(chips.map((chip) => chip.label)).toEqual([
+      'Todos',
+      'CORTES',
+      'BARBA',
+      'COMBOS',
+      'ADICIONALES',
+    ]);
+  });
+
+  it('con la categoría POPULARES no sale un segundo chip Populares', () => {
+    const chips = deriveCategoryChips([
+      service({ id: '1', category: 'POPULARES' }),
+      service({ id: '2', category: 'CORTES', isPopular: true }),
+      service({ id: '3', category: 'BARBA' }),
+      service({ id: '4', category: 'COMBOS', isPopular: true }),
+    ]);
+
+    expect(chips.map((chip) => chip.label)).toEqual([
+      'Todos',
+      'POPULARES',
+      'CORTES',
+      'BARBA',
+      'COMBOS',
+    ]);
+    expect(chips.map((chip) => chip.kind)).not.toContain('popular');
+  });
+
+  it.each(['POPULARES', 'Populares ', 'populares', '  pOpUlArEs  '])(
+    'la categoría "%s" cuenta como Populares sin distinguir mayúsculas ni espacios',
+    (name) => {
+      const chips = deriveCategoryChips([
+        service({ id: '1', category: 'Cortes', isPopular: true }),
+        service({ id: '2', category: name }),
+      ]);
+
+      expect(chips.map((chip) => chip.kind)).toEqual(['all', 'category', 'category']);
+      expect(chips.map((chip) => chip.key)).not.toContain(POPULAR_CHIP_KEY);
+    },
+  );
+
+  it('sin la categoría Populares, el chip sintético sigue en segunda posición', () => {
+    const chips = deriveCategoryChips([
+      service({ id: '1', category: 'Cortes' }),
+      service({ id: '2', category: 'Barba', isPopular: true }),
+      service({ id: '3', category: 'Populares Plus' }),
+    ]);
+
+    expect(chips.map((chip) => chip.key)).toEqual([
+      ALL_CHIP_KEY,
+      POPULAR_CHIP_KEY,
+      'Cortes',
+      'Barba',
+      'Populares Plus',
+    ]);
+  });
+
+  it('la regla de ningún chip se evalúa después de omitir el sintético', () => {
+    // Una sola categoría (POPULARES) con servicios isPopular: sin el sintético solo queda un destino,
+    // y un filtro con un solo destino no filtra nada.
+    const chips = deriveCategoryChips([
+      service({ id: '1', category: 'Populares', isPopular: true }),
+      service({ id: '2', category: 'Populares' }),
+    ]);
+
+    expect(chips).toEqual([]);
   });
 
   it('Populares no es una categoría: lo declara en kind', () => {
@@ -78,7 +156,7 @@ describe('deriveCategoryChips', () => {
       service({ id: '4', category: 'Barba' }),
     ]);
 
-    expect(chips.map((chip) => chip.label)).toEqual(['Todos', 'Barba', 'Cortes']);
+    expect(chips.map((chip) => chip.label)).toEqual(['Todos', 'Cortes', 'Barba']);
   });
 
   it('no colapsa categorías cuando hay muchas', () => {
