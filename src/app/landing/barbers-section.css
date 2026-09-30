@@ -1,3 +1,17 @@
+/* A diferencia de `.popular-grid` (auto-fit, se estira para llenar la fila), aquí NUNCA queremos que
+   la tarjeta crezca: con un solo barbero, `auto-fit`/`1fr` la dejaría ocupando toda la sección. Se
+   fuerza flexbox con `justify-content: center` para que 1, 2 o N tarjetas queden centradas manteniendo
+   su ancho natural (~17rem), igual que la pista mínima de `.cob-grid`. */
+.barbers-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.barbers-grid > * {
+  flex: 0 1 min(100%, 17rem);
+}
+
 .barber-card__body {
   display: flex;
   flex-direction: column;

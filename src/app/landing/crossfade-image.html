@@ -1,0 +1,10 @@
+@for (layer of layers; track layer.key) {
+  <img
+    class="crossfade-image"
+    [class.crossfade-image--out]="layer.fadingOut"
+    [src]="layer.src"
+    [alt]="layer.alt"
+    loading="lazy"
+    (animationend)="layer.fadingOut && onFadeOutEnd(layer.key)"
+  />
+}

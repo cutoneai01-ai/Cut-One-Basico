@@ -9,11 +9,12 @@ import { Tag } from 'primeng/tag';
 import { resolveImage } from '../core/images';
 import { formatMoney } from '../core/locale';
 import type { PublicService } from '../data/public-api.models';
+import { ClampedText } from './clamped-text';
 import { ALL_CHIP_KEY, deriveCategoryChips, filterServices } from './service-filters';
 
 @Component({
   selector: 'cob-services-section',
-  imports: [Button, Card, FormsModule, Message, SelectButton, Skeleton, Tag],
+  imports: [Button, Card, ClampedText, FormsModule, Message, SelectButton, Skeleton, Tag],
   templateUrl: './services-section.html',
   styleUrl: './services-section.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -1,0 +1,6 @@
+<p #textEl class="clamped-text" [class.clamped-text--clamped]="!expanded()">{{ text() }}</p>
+@if (overflowing()) {
+  <button type="button" class="clamped-text__toggle" [attr.aria-expanded]="expanded()" (click)="toggle()">
+    {{ expanded() ? 'Ver menos' : 'Ver más' }}
+  </button>
+}

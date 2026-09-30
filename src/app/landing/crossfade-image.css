@@ -1,0 +1,49 @@
+:host {
+  display: block;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: var(--cob-radius);
+}
+
+.crossfade-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: crossfade-in 1.2s ease forwards;
+}
+
+.crossfade-image--out {
+  /* Nombre de animación distinto al de por defecto: cambiar `animation-name` es lo que dispara una
+     animación nueva sobre un elemento que ya existe, incluso en el mismo tick en que se añade la capa
+     entrante — un `transition` no lo haría sin un reflow intermedio. */
+  animation: crossfade-out 1.2s ease forwards;
+}
+
+@keyframes crossfade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes crossfade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crossfade-image,
+  .crossfade-image--out {
+    animation: none;
+  }
+}

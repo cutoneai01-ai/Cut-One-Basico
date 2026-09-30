@@ -13,6 +13,27 @@
   flex: none;
 }
 
+/* El grid ya estira cada `p-card` a la altura de la fila (`align-items: stretch` por defecto de
+   `.cob-grid`); lo que falta es que el botón "Reservar este servicio" quede en el mismo borde inferior
+   en las tres, en vez de pegado justo debajo de una descripción de largo variable. `.p-card-body` y
+   `.p-card-content` son del DOM interno de PrimeNG (fuera del árbol de este componente), de ahí el
+   `::ng-deep`: solo así el contenido puede crecer y empujar el pie hacia abajo. */
+.service-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.service-card ::ng-deep .p-card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+
+.service-card ::ng-deep .p-card-content {
+  flex: 1 1 auto;
+}
+
 .service-card__media {
   position: relative;
 }

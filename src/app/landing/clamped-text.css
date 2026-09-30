@@ -1,0 +1,30 @@
+:host {
+  display: block;
+}
+
+.clamped-text {
+  margin: 0;
+}
+
+.clamped-text--clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.clamped-text__toggle {
+  margin-top: 0.25rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--cob-accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.clamped-text__toggle:hover,
+.clamped-text__toggle:focus-visible {
+  text-decoration: underline;
+}

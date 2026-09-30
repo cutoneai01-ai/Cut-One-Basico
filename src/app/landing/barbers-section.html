@@ -7,7 +7,7 @@
     </div>
 
     @if (loading()) {
-      <div class="cob-grid">
+      <div class="cob-grid barbers-grid">
         @for (placeholder of placeholders; track placeholder) {
           <div class="skeleton-card">
             <p-skeleton shape="circle" size="6rem" />
@@ -21,7 +21,7 @@
     } @else if (barbers().length === 0) {
       <p-message severity="info" text="Todavía no hay profesionales publicados." />
     } @else {
-      <div class="cob-grid">
+      <div class="cob-grid barbers-grid">
         @for (barber of barbers(); track barber.id) {
           <p-card styleClass="barber-card">
             <div class="barber-card__body">

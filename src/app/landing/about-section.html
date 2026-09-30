@@ -38,10 +38,13 @@
           [showItemNavigators]="true"
           [showThumbnails]="gallery().length > 1"
           [circular]="true"
+          [autoPlay]="gallery().length > 1"
+          [shouldStopAutoplayByClick]="false"
+          [transitionInterval]="5000"
           [containerStyle]="{ 'max-width': '100%' }"
         >
           <ng-template #item let-item>
-            <img class="about__image" [src]="item.src" [alt]="item.alt" loading="lazy" />
+            <cob-crossfade-image [src]="item.src" [alt]="item.alt" />
           </ng-template>
           <ng-template #thumbnail let-item>
             <img class="about__thumb" [src]="item.src" [alt]="item.alt" loading="lazy" />

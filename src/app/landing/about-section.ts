@@ -4,6 +4,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { GalleriaModule } from 'primeng/galleria';
 import { resolveImage } from '../core/images';
 import type { Branding } from '../data/branding';
+import { CrossfadeImage } from './crossfade-image';
 
 interface GalleryItem {
   readonly src: string;
@@ -12,7 +13,7 @@ interface GalleryItem {
 
 @Component({
   selector: 'cob-about-section',
-  imports: [GalleriaModule],
+  imports: [GalleriaModule, CrossfadeImage],
   templateUrl: './about-section.html',
   styleUrl: './about-section.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
