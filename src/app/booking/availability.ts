@@ -21,6 +21,15 @@ export interface BookingWindow {
   readonly lastBookableDate: string;
   /** Plazo mínimo en minutos. Solo para redactar texto de ayuda; no se calcula nada con él. */
   readonly minLeadMinutes: number;
+  /**
+   * Si la barbería deja reservar varios servicios a la vez (M-08 RN-DISPO-37, ADR-0055). Viaja por aquí
+   * y no por el paquete de ajustes públicos porque aquel vive 24 h en `localStorage`: apagarlo tiene
+   * que notarse en la siguiente apertura del asistente.
+   *
+   * **Opcional**: un backend anterior no lo manda, y ausente equivale a `false` —el asistente de
+   * siempre—. Se lee con `=== true`, nunca por verdad a secas.
+   */
+  readonly multiServiceBookingEnabled?: boolean;
 }
 
 /** El orden en que se concatenan los períodos en la rejilla plana (decisión 8 de la serie). */

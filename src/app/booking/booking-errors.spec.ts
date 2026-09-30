@@ -52,6 +52,22 @@ describe('planForBookingError', () => {
     expect(planForBookingError(apiError('SERVICE_NOT_FOUND', 'x', 404)).reaction).toBe('restart');
   });
 
+  it('la reserva múltiple apagada vuelve al asistente de un servicio (M-08 RN-DISPO-37)', () => {
+    const plan = planForBookingError(apiError('MULTI_SERVICE_BOOKING_DISABLED', 'x', 409));
+
+    expect(plan.reaction).toBe('single-service');
+    expect(plan.summary).toContain('varios servicios');
+  });
+
+  it('cualquier 429 muestra el mensaje del servidor y se queda (M-08 RN-DISPO-43)', () => {
+    const server = 'Con esta reserva superarías las 3 citas activas.';
+    const plan = planForBookingError(apiError('ALGUN_CUPO_NUEVO', server, 429));
+
+    expect(plan.reaction).toBe('stay');
+    expect(plan.detail).toBe(server);
+    expect(plan.summary).toBe('No podemos registrar otra reserva');
+  });
+
   it('un código desconocido se queda donde está y usa el mensaje del servidor', () => {
     const plan = planForBookingError(apiError('ALGO_NUEVO', 'Error raro', 500));
 

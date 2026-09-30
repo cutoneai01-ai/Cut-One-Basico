@@ -9,6 +9,7 @@ import {
   viewChild,
   type ElementRef,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
@@ -32,13 +33,95 @@ import {
   type BookingWindow,
   type FlatSlot,
 } from '../booking/availability';
+import { AppointmentList, type AppointmentListItem } from '../booking/appointment-list';
+import { BookingBlock } from '../booking/booking-block';
+import { ServicePicker } from '../booking/service-picker';
+import {
+  addLine,
+  blockSegments,
+  eligibleBarbers,
+  removeLine,
+  sameServiceIds,
+  totalDuration,
+  totalPrice,
+  type SelectionLine,
+} from '../booking/service-selection';
 import { CatalogService } from '../data/catalog.service';
 import { BookingService } from '../data/booking.service';
 import { ManageBookingService } from '../data/manage-booking.service';
 import { SettingsService } from '../data/settings.service';
-import type { ManageAppointment, PublicBarber, PublicService } from '../data/public-api.models';
+import { GroupSummary } from './group-summary';
+import type {
+  ManageAppointment,
+  ManageAppointmentService,
+  PublicBarber,
+  PublicService,
+  RescheduleInput,
+} from '../data/public-api.models';
 
 type PageState = 'loading' | 'ready' | 'saved' | 'error';
+
+/**
+ * Los textos que cambian si la pantalla gestiona una cita o una reserva de varias. Con grupo,
+ * confirmar y cancelar aplican a todas sus citas (M-08 RN-DISPO-46), y la pantalla lo dice: «tu
+ * reserva», nunca «tu cita». Los de una cita son, letra a letra, los de siempre.
+ */
+interface ManageCopy {
+  readonly alreadyConfirmed: string;
+  readonly justConfirmed: string;
+  readonly pendingTitle: string;
+  readonly confirmLabel: string;
+  readonly justCancelled: string;
+  readonly alreadyCancelled: string;
+  readonly cancelTrigger: string;
+  readonly cancelTitle: string;
+  readonly keepLabel: string;
+  readonly cancelLabel: string;
+}
+
+const SINGLE_COPY: ManageCopy = {
+  alreadyConfirmed: 'Tu cita ya está confirmada',
+  justConfirmed: '¡Cita confirmada!',
+  pendingTitle: 'Falta confirmar tu cita',
+  confirmLabel: 'Confirmar mi cita',
+  justCancelled: 'Tu cita quedó cancelada',
+  alreadyCancelled: 'Esta cita está cancelada',
+  cancelTrigger: 'Cancelar mi cita',
+  cancelTitle: '¿Cancelar tu cita?',
+  keepLabel: 'No, conservar mi cita',
+  cancelLabel: 'Sí, cancelar mi cita',
+};
+
+const GROUP_COPY: ManageCopy = {
+  alreadyConfirmed: 'Tu reserva ya está confirmada',
+  justConfirmed: '¡Reserva confirmada!',
+  pendingTitle: 'Falta confirmar tu reserva',
+  confirmLabel: 'Confirmar mi reserva',
+  justCancelled: 'Tu reserva quedó cancelada',
+  alreadyCancelled: 'Esta reserva está cancelada',
+  cancelTrigger: 'Cancelar mi reserva',
+  cancelTitle: '¿Cancelar toda la reserva?',
+  keepLabel: 'No, conservar mi reserva',
+  cancelLabel: 'Sí, cancelar reserva',
+};
+
+/** Las citas de la respuesta; un backend anterior no manda `services` y entonces es la propia cita. */
+function servicesOf(appointment: ManageAppointment): ManageAppointmentService[] {
+  if (appointment.services && appointment.services.length > 0) {
+    return appointment.services;
+  }
+
+  return [
+    {
+      appointmentId: appointment.appointmentId,
+      serviceId: appointment.serviceId,
+      serviceName: appointment.serviceName,
+      startAtUtc: appointment.startAtUtc,
+      durationMin: appointment.durationMin,
+      price: appointment.price,
+    },
+  ];
+}
 
 /**
  * `/reserva/:appointmentId` (RF-R01, 020-rfs-editar-reserva).
@@ -54,7 +137,18 @@ type PageState = 'loading' | 'ready' | 'saved' | 'error';
  */
 @Component({
   selector: 'cob-manage-booking-page',
-  imports: [Button, Message, ProgressSpinner, RouterLink, Skeleton],
+  imports: [
+    AppointmentList,
+    BookingBlock,
+    Button,
+    GroupSummary,
+    Message,
+    NgTemplateOutlet,
+    ProgressSpinner,
+    RouterLink,
+    ServicePicker,
+    Skeleton,
+  ],
   templateUrl: './manage-booking-page.html',
   styleUrl: './manage-booking-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -100,6 +194,24 @@ export class ManageBookingPage {
   protected readonly date = signal<string | null>(null);
   /** El `startAtUtc` elegido: el de la cita al cargar, o el de un hueco (M-09 RN-AG-47). */
   protected readonly time = signal<string | null>(null);
+
+  /**
+   * Servicios elegidos al modificar una reserva con varios servicios, o con la opción encendida
+   * (`groupMode`): una línea por cita, en orden (M-08 RN-DISPO-47). Arranca en los de la reserva.
+   *
+   * Cada línea guarda el servicio **como vino en la respuesta** por si ya no está en el catálogo; se
+   * cruza con el catálogo al pintar (`resolvedLines`), que puede llegar después que la cita.
+   */
+  protected readonly lines = signal<readonly SelectionLine[]>([]);
+  private nextLineKey = 0;
+
+  /**
+   * Cuántas citas tiene la reserva según la última carga o el último guardado. Decide si la pantalla
+   * habla de «tu cita» o de «tu reserva», y **no** cambia al cancelar: tras cancelar un grupo el
+   * servidor puede responder con una sola cita (RN-DISPO-45), y el texto no debe cambiar de
+   * «reserva» a «cita» en mitad de la confirmación.
+   */
+  protected readonly groupSize = signal(1);
 
   protected readonly slots = signal<FlatSlot[]>([]);
   protected readonly slotsLoading = signal(false);
@@ -170,6 +282,16 @@ export class ManageBookingPage {
   });
 
   protected readonly visibleBarbers = computed(() => {
+    if (this.groupMode()) {
+      // M-08 RN-DISPO-41: con varios servicios, quien los presta todos; y el barbero de la reserva,
+      // por el mismo motivo que en la rama de un servicio.
+      const services = this.groupServices();
+      const eligible = new Set(eligibleBarbers(this.barbers(), services).map((b) => b.id));
+      return this.barbers().filter(
+        (b) => eligible.has(b.id) || b.id === this.appointment()?.barberId,
+      );
+    }
+
     const service = this.selectedService();
     if (!service) {
       return this.barbers();
@@ -179,6 +301,91 @@ export class ManageBookingPage {
       (b) => service.barberIds.includes(b.id) || b.id === this.appointment()?.barberId,
     );
   });
+
+  /** Citas de la reserva según la respuesta, en orden (M-08 RN-DISPO-45). */
+  protected readonly bookedServices = computed(() => {
+    const appointment = this.appointment();
+    return appointment ? servicesOf(appointment) : [];
+  });
+
+  /** La reserva tiene más de una cita: se pinta como lista y los textos hablan de «la reserva». */
+  protected readonly isGroup = computed(() => this.groupSize() > 1);
+  protected readonly copy = computed(() => (this.isGroup() ? GROUP_COPY : SINGLE_COPY));
+
+  /**
+   * Modificar con el selector múltiple (M-08 RN-DISPO-47): cuando la reserva ya tiene varias citas o
+   * cuando la barbería ofrece varios servicios. Una cita suelta con la opción apagada se modifica con
+   * el selector de un servicio de siempre, y su `PUT` es el de siempre.
+   */
+  protected readonly groupMode = computed(() => {
+    const appointment = this.appointment();
+    return (
+      appointment !== null &&
+      (appointment.multiServiceBookingEnabled === true || servicesOf(appointment).length > 1)
+    );
+  });
+
+  /** Con la opción apagada solo se quita (M-08 RN-DISPO-48). */
+  protected readonly canAddServices = computed(
+    () => this.appointment()?.multiServiceBookingEnabled === true,
+  );
+
+  /** Las líneas con el servicio del catálogo si está; si no, el que vino en la respuesta. */
+  protected readonly resolvedLines = computed<readonly SelectionLine[]>(() => {
+    const catalog = new Map(this.services().map((service) => [service.id, service]));
+    return this.lines().map((line) => ({
+      key: line.key,
+      service: catalog.get(line.service.id) ?? line.service,
+    }));
+  });
+
+  protected readonly groupServices = computed(() =>
+    this.resolvedLines().map((line) => line.service),
+  );
+
+  /**
+   * Tarjetas del selector múltiple: el mismo filtrado por barbero que la rama de un servicio, y los
+   * servicios que ya están en la reserva aunque ese barbero ya no los preste.
+   */
+  protected readonly pickerOptions = computed(() => {
+    const barberId = this.barberId();
+    const booked = new Set(this.bookedServices().map((service) => service.serviceId));
+    const services = barberId
+      ? this.services().filter((s) => s.barberIds.includes(barberId) || booked.has(s.id))
+      : this.services();
+
+    return services.map((service) => ({ service, durationMin: service.durationMin }));
+  });
+
+  /** Tiempo del bloque con cada barbero, en el selector múltiple (M-08 RN-DISPO-39). */
+  protected readonly groupBarberOptions = computed(() => {
+    const services = this.groupServices();
+    return this.visibleBarbers().map((barber) => ({
+      barber,
+      durationMin: totalDuration(services, barber.id),
+    }));
+  });
+
+  /** «Quedaría así» con varios servicios: las citas seguidas desde la hora elegida (RN-DISPO-39). */
+  protected readonly plannedBlock = computed(() =>
+    blockSegments(this.resolvedLines(), this.barberId(), this.time()),
+  );
+
+  /** Las mismas citas con su hora de la barbería y su precio, para la lista de «Quedaría así». */
+  protected readonly plannedItems = computed<AppointmentListItem[]>(() => {
+    const lines = this.resolvedLines();
+    return this.plannedBlock().map((segment, index) => ({
+      key: segment.key,
+      time:
+        segment.startAtUtc && segment.endAtUtc
+          ? `${utcToZoned(segment.startAtUtc).time}–${utcToZoned(segment.endAtUtc).time}`
+          : null,
+      name: segment.name,
+      price: lines[index]?.service.price ?? null,
+    }));
+  });
+
+  protected readonly plannedTotal = computed(() => totalPrice(this.groupServices()));
 
   /**
    * Sin cambios no hay nada que guardar. El backend acepta el PUT idempotente (RN-11), pero pedirle a
@@ -190,8 +397,15 @@ export class ManageBookingPage {
       return false;
     }
 
+    const servicesChanged = this.groupMode()
+      ? !sameServiceIds(
+          this.lines().map((line) => line.service.id),
+          servicesOf(current).map((service) => service.serviceId),
+        )
+      : this.serviceId() !== current.serviceId;
+
     return (
-      this.serviceId() !== current.serviceId ||
+      servicesChanged ||
       this.barberId() !== current.barberId ||
       this.date() !== utcToZoned(current.startAtUtc).date ||
       !sameInstant(this.time(), current.startAtUtc)
@@ -287,6 +501,48 @@ export class ManageBookingPage {
     void this.loadAvailability();
   }
 
+  /** «Añadir» del selector múltiple (M-08 RN-DISPO-47). Solo se ofrece con la opción encendida. */
+  protected addService(service: PublicService): void {
+    if (!this.canAddServices()) {
+      return;
+    }
+
+    this.lines.update((lines) => addLine(lines, service, this.nextLineKey++));
+    this.afterServicesChanged();
+  }
+
+  /** La papelera: una reserva no se vacía editando, para eso está «Cancelar» (M-08 RN-DISPO-48). */
+  protected removeService(key: number): void {
+    if (this.lines().length <= 1) {
+      return;
+    }
+
+    this.lines.update((lines) => removeLine(lines, key));
+    this.afterServicesChanged();
+  }
+
+  /**
+   * Cambiar los servicios cambia el ancho del bloque, así que la hora elegida puede dejar de caber: se
+   * limpia y se recalcula la rejilla, igual que `chooseService`. Y si el barbero elegido no presta
+   * alguno, se pasa al primero que los presta todos (M-08 RN-DISPO-41); si no hay ninguno, la lista
+   * de barberos lo dice.
+   */
+  private afterServicesChanged(): void {
+    this.time.set(null);
+
+    const currentBarberId = this.barberId();
+    const eligible = eligibleBarbers(this.barbers(), this.groupServices());
+    if (
+      currentBarberId &&
+      !eligible.some((barber) => barber.id === currentBarberId) &&
+      eligible.length > 0
+    ) {
+      this.barberId.set(eligible[0].id);
+    }
+
+    void this.loadAvailability();
+  }
+
   protected chooseBarber(barber: PublicBarber): void {
     if (barber.id === this.barberId()) {
       return;
@@ -321,7 +577,17 @@ export class ManageBookingPage {
     const serviceId = this.serviceId();
     const date = this.date();
 
-    if (!time || !barberId || !serviceId || !date || this.submitting()) {
+    // Con el selector múltiple viaja la lista y el servidor recoloca la reserva entera
+    // (M-08 RN-DISPO-47); una cita suelta con la opción apagada manda el `serviceId` de siempre.
+    const services: Pick<RescheduleInput, 'serviceId' | 'serviceIds'> | null = this.groupMode()
+      ? this.lines().length > 0
+        ? { serviceIds: this.lines().map((line) => line.service.id) }
+        : null
+      : serviceId
+        ? { serviceId }
+        : null;
+
+    if (!time || !barberId || !services || !date || this.submitting()) {
       return;
     }
 
@@ -330,13 +596,14 @@ export class ManageBookingPage {
     try {
       const updated = await this.manage.reschedule(this.appointmentId(), {
         barberId,
-        serviceId,
+        ...services,
         // El instante del hueco (o el de la cita, si solo cambió el servicio), sin recomponerlo desde
         // día y hora (M-09 RN-AG-47).
         startAtUtc: time,
       });
 
       this.appointment.set(updated);
+      this.groupSize.set(servicesOf(updated).length);
       this.state.set('saved');
     } catch (error) {
       await this.handleSaveError(error);
@@ -478,6 +745,11 @@ export class ManageBookingPage {
       return;
     }
 
+    if (error.code === 'MULTI_SERVICE_BOOKING_DISABLED') {
+      this.handleMultiServiceDisabled(error);
+      return;
+    }
+
     this.messages.add({
       severity: 'error',
       summary: this.summaryFor(error),
@@ -518,9 +790,36 @@ export class ManageBookingPage {
       // cambio", que no dice qué hay que cambiar para que funcione.
       case 'SERVICE_NOT_OFFERED_BY_BARBER':
         return 'Ese profesional no presta ese servicio';
+      // M-08 RN-DISPO-43: añadir servicios gasta cupos de citas; el detalle es el del servidor.
+      case 'RATE_LIMIT_EMAIL':
+      case 'RATE_LIMIT_PHONE':
+      case 'RATE_LIMIT_HOURLY':
+        return 'No podemos registrar más citas';
       default:
         return 'No pudimos guardar el cambio';
     }
+  }
+
+  /**
+   * La barbería apagó la reserva múltiple mientras el cliente editaba (M-08 RN-DISPO-48): la
+   * selección vuelve a los servicios de la reserva, «Añadir» desaparece y se recalcula la rejilla.
+   * Quitar, cambiar barbero y hora siguen permitidos.
+   */
+  private handleMultiServiceDisabled(error: ApiError): void {
+    const current = this.appointment();
+    if (current) {
+      this.appointment.set({ ...current, multiServiceBookingEnabled: false });
+    }
+
+    this.messages.add({
+      severity: 'error',
+      summary: 'Esta barbería ya no permite añadir servicios',
+      detail: error.message,
+      life: 8000,
+    });
+
+    this.syncSelectionFromAppointment();
+    void this.loadAvailability();
   }
 
   private async load(): Promise<void> {
@@ -533,6 +832,7 @@ export class ManageBookingPage {
         this.settings.requireLocale(),
       ]);
       this.appointment.set(appointment);
+      this.groupSize.set(servicesOf(appointment).length);
       this.syncSelectionFromAppointment();
 
       if (appointment.shopName) {
@@ -587,6 +887,26 @@ export class ManageBookingPage {
     this.barberId.set(appointment.barberId);
     this.date.set(utcToZoned(appointment.startAtUtc).date);
     this.time.set(appointment.startAtUtc);
+
+    // Precarga del selector múltiple con los servicios de la reserva, en su orden (M-08 RN-DISPO-47).
+    // El servicio va como lo describe la respuesta; `resolvedLines` lo cambia por el del catálogo en
+    // cuanto este llega, y si ya no está publicado se conserva este para poder quitarlo o mantenerlo.
+    this.lines.set(
+      servicesOf(appointment).map((service) => ({
+        key: this.nextLineKey++,
+        service: {
+          id: service.serviceId,
+          name: service.serviceName,
+          description: null,
+          price: service.price,
+          durationMin: service.durationMin,
+          category: null,
+          isPopular: false,
+          imageUrl: null,
+          barberIds: [appointment.barberId],
+        },
+      })),
+    );
   }
 
   /**
@@ -643,8 +963,10 @@ export class ManageBookingPage {
     const barberId = this.barberId();
     const serviceId = this.serviceId();
     const date = this.date();
+    // Con el selector múltiple, la lista: cada hora es el inicio del bloque entero (M-08 RN-DISPO-47).
+    const services = this.groupMode() ? this.lines().map((line) => line.service.id) : serviceId;
 
-    if (!barberId || !serviceId || !date) {
+    if (!barberId || !services || services.length === 0 || !date) {
       return;
     }
 
@@ -653,12 +975,18 @@ export class ManageBookingPage {
 
     try {
       const [response, locale] = await Promise.all([
-        this.manage.getAvailability(this.appointmentId(), barberId, serviceId, date),
+        this.manage.getAvailability(this.appointmentId(), barberId, services, date),
         this.settings.requireLocale(),
       ]);
       this.slots.set(flattenSlots(response, locale));
-    } catch {
+    } catch (error) {
       this.slots.set([]);
+
+      if (error instanceof ApiError && error.code === 'MULTI_SERVICE_BOOKING_DISABLED') {
+        this.handleMultiServiceDisabled(error);
+        return;
+      }
+
       this.slotsFailed.set(true);
     } finally {
       this.slotsLoading.set(false);

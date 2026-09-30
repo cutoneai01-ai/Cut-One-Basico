@@ -1,0 +1,272 @@
+/*
+  M-08 RN-DISPO-38. Listado + Resumen: en dos columnas desde 48rem (el mismo corte que `.checkout` del
+  asistente) y en una por debajo, con el Resumen plegado en la barra fija del pie. Solo variables
+  `--cob-*`, que ya pasan por el respaldo de `light-dark()` para Safari < 17.5.
+*/
+.picker {
+  display: grid;
+  gap: 1.25rem;
+}
+
+@media (min-width: 48rem) {
+  .picker {
+    grid-template-columns: minmax(0, 1fr) 17rem;
+    align-items: start;
+  }
+}
+
+.picker__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.picker__title {
+  font-size: 1rem;
+}
+
+.picker__hint,
+.summary__notice {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  border-radius: var(--cob-radius);
+  background: color-mix(in srgb, var(--cob-accent) 12%, transparent);
+}
+
+.cards,
+.summary__list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--cob-panel-bg);
+  border: 1px solid var(--cob-border);
+  border-radius: var(--cob-radius);
+}
+
+.card--in {
+  border-color: var(--cob-accent);
+}
+
+.card__thumb {
+  width: 3.5rem;
+  height: 3.5rem;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  flex: none;
+}
+
+.card__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.card__top,
+.card__bottom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.card__top {
+  justify-content: space-between;
+}
+
+.card__price,
+.line__price {
+  color: var(--cob-accent);
+  white-space: nowrap;
+}
+
+.card__desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.card__duration,
+.card__in {
+  font-size: 0.8125rem;
+}
+
+.card__in {
+  color: var(--cob-accent);
+  font-weight: 600;
+}
+
+.card__bottom p-button {
+  margin-left: auto;
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1rem;
+  background: var(--cob-alt-bg);
+  border: 1px solid var(--cob-border);
+  border-radius: var(--cob-radius);
+}
+
+.summary__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.summary__title {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cob-text-muted);
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.line__thumb {
+  width: 2.25rem;
+  height: 2.25rem;
+  object-fit: cover;
+  border-radius: 0.375rem;
+  flex: none;
+}
+
+.line__text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.line__remove {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  cursor: pointer;
+  color: var(--cob-text-muted);
+  background: transparent;
+  border: 1px solid var(--cob-border);
+  border-radius: 999px;
+}
+
+.line__remove:hover:not(:disabled) {
+  color: var(--cob-accent);
+  border-color: var(--cob-accent);
+}
+
+.line__remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.summary__empty,
+.summary__quota {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.summary__totals {
+  display: grid;
+  gap: 0.375rem;
+  margin: 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--cob-border);
+}
+
+.summary__totals div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.summary__totals dd {
+  margin: 0;
+}
+
+.summary__grip,
+.bar {
+  display: none;
+}
+
+/*
+  Móvil. El Resumen del asistente se pliega en la barra; con la hoja abierta sube pegado al pie del área
+  que se desplaza. En `/reserva/:id` (`--inline`) no hay barra y el Resumen va debajo de la lista.
+*/
+@media (max-width: 47.99rem) {
+  .picker:not(.picker--inline) .summary {
+    display: none;
+  }
+
+  .picker--sheet-open .summary {
+    display: flex;
+    position: sticky;
+    bottom: 0;
+    max-height: 70vh;
+    overflow-y: auto;
+    box-shadow: 0 -0.5rem 1.5rem rgb(0 0 0 / 0.25);
+  }
+
+  .picker--sheet-open .summary__grip {
+    display: block;
+    align-self: center;
+    width: 3rem;
+    height: 0.375rem;
+    padding: 0;
+    cursor: pointer;
+    background: var(--cob-border);
+    border: 0;
+    border-radius: 999px;
+  }
+
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    position: sticky;
+    bottom: 0;
+    padding: 0.625rem 0.75rem;
+    background: var(--cob-panel-bg);
+    border: 1px solid var(--cob-accent);
+    border-radius: var(--cob-radius);
+  }
+
+  .bar__info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    font-size: 0.875rem;
+    background: transparent;
+    border: 0;
+  }
+}

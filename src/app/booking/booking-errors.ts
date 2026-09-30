@@ -6,7 +6,13 @@ import { ApiError } from '../core/api-error';
  * `reload-availability` no es opcional después de un choque de slot: sin ella el cliente vuelve a
  * elegir la misma hora que acaba de fallar, porque la rejilla sigue mostrándola libre.
  */
-export type BookingReaction = 'reload-availability' | 'back-to-schedule' | 'restart' | 'stay';
+export type BookingReaction =
+  | 'reload-availability'
+  | 'back-to-schedule'
+  | 'restart'
+  | 'stay'
+  /** Volver al asistente de un solo servicio: la barbería apagó la reserva múltiple (M-08 RN-DISPO-37). */
+  | 'single-service';
 
 export interface BookingErrorPlan {
   readonly summary: string;
@@ -105,7 +111,26 @@ export function planForBookingError(error: unknown): BookingErrorPlan {
         reaction: 'restart',
       };
 
+    // M-08 RN-DISPO-37: la barbería apagó la reserva de varios servicios con el asistente abierto. Lo
+    // hace cumplir el servidor, así que la única salida es seguir con uno.
+    case 'MULTI_SERVICE_BOOKING_DISABLED':
+      return {
+        summary: 'Esta barbería ya no permite reservar varios servicios',
+        detail: 'Elige un solo servicio para continuar con tu reserva.',
+        reaction: 'single-service',
+      };
+
     default:
+      // M-08 RN-DISPO-43: cualquier otro 429 es un cupo del servidor —con varios servicios, cada uno
+      // gasta una cita— y su mensaje es el que dice cuál. Mismo trato que los tres de arriba.
+      if (error.status === 429) {
+        return {
+          summary: 'No podemos registrar otra reserva',
+          detail: error.message,
+          reaction: 'stay',
+        };
+      }
+
       return {
         summary: 'No pudimos completar la reserva',
         detail: error.message,

@@ -7,6 +7,8 @@ import type {
   AppointmentCreatedResponse,
   AvailabilityResponse,
   CreateAppointmentInput,
+  CreateMultipleAppointmentsInput,
+  MultipleAppointmentsCreatedResponse,
 } from '../data/public-api.models';
 
 /**
@@ -27,7 +29,11 @@ import type {
  */
 @Injectable()
 export class PreviewBookingService
-  implements Pick<BookingService, 'getAvailability' | 'getBookingWindow' | 'createAppointment'>
+  implements
+    Pick<
+      BookingService,
+      'getAvailability' | 'getBookingWindow' | 'createAppointment' | 'createMultipleAppointments'
+    >
 {
   async getBookingWindow(): Promise<BookingWindow> {
     const today = todayInBusinessZone(new Date(), PREVIEW_LOCALE);
@@ -81,6 +87,33 @@ export class PreviewBookingService
       serviceName: 'Servicio de ejemplo',
       startAtUtc: input.startAtUtc,
       durationMin: 30,
+    };
+  }
+
+  /**
+   * La reserva múltiple (M-08 RN-DISPO-38) con el mismo criterio que `createAppointment`: citas de
+   * mentira compuestas en memoria, seguidas desde el instante pedido, sin ninguna petición. La ventana
+   * de arriba no enciende la opción, así que el asistente de la vista previa no llega aquí por su
+   * cuenta; existe para que nada que se monte en `/__preview` pueda llegar al backend real
+   * (M-20 RN-CFG-41).
+   */
+  async createMultipleAppointments(
+    input: CreateMultipleAppointmentsInput,
+  ): Promise<MultipleAppointmentsCreatedResponse> {
+    const durationMin = 30;
+    const start = new Date(input.startAtUtc).getTime();
+
+    return {
+      bookingGroupId: input.serviceIds.length > 1 ? 'preview-group' : null,
+      appointments: input.serviceIds.map((_, index) => ({
+        appointmentId: `preview-appointment-${index + 1}`,
+        confirmationCode: 'PREVIEW-0000',
+        status: 'Confirmed',
+        barberName: 'Barbero Ejemplo',
+        serviceName: 'Servicio de ejemplo',
+        startAtUtc: new Date(start + index * durationMin * 60_000).toISOString(),
+        durationMin,
+      })),
     };
   }
 }

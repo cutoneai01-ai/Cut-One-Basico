@@ -167,6 +167,25 @@ export interface AppointmentCreatedResponse {
   durationMin: number;
 }
 
+/**
+ * Cuerpo de `POST /public/appointments/multiple` (M-08 RN-DISPO-38, ADR-0055). Es el de la reserva
+ * simple con la lista en lugar del servicio suelto: el **orden** de `serviceIds` es el de las citas, y
+ * un servicio repetido son dos citas. El instante es el inicio del bloque; el resto de citas lo coloca
+ * el servidor, seguidas (RN-DISPO-39).
+ */
+export interface CreateMultipleAppointmentsInput extends Omit<CreateAppointmentInput, 'serviceId'> {
+  serviceIds: string[];
+}
+
+/**
+ * Respuesta `201` de la reserva múltiple: las citas en orden, con la forma de la reserva simple.
+ * `bookingGroupId` es nulo cuando la lista tenía un solo servicio (RN-DISPO-44).
+ */
+export interface MultipleAppointmentsCreatedResponse {
+  bookingGroupId: string | null;
+  appointments: AppointmentCreatedResponse[];
+}
+
 /** RF-E01 (006-rfs-encuestas). `appointmentDateEs` ya viene formateada en español por el backend. */
 export interface SurveyInfo {
   shopName: string;
@@ -237,11 +256,47 @@ export interface ManageAppointment {
   cancelable: boolean;
   /** Motivo redactado de por qué no se puede cancelar, o null si sí se puede o si ya lo está. */
   notCancelableReason: string | null;
+
+  // Reserva múltiple (M-08 RN-DISPO-45, ADR-0055). Con grupo, los campos de arriba son los de la
+  // **primera** cita viva y estos describen la reserva entera. Todos opcionales: un backend anterior no
+  // los manda, y entonces la pantalla es la de una cita suelta, exactamente la de siempre.
+
+  /** Id del grupo, o nulo si la cita no pertenece a una reserva múltiple (RN-DISPO-44). */
+  bookingGroupId?: string | null;
+  /** Las citas de la reserva, en orden. Sin grupo trae una sola línea: la propia cita. */
+  services?: ManageAppointmentService[];
+  /** Inicio y fin del bloque entero, instantes UTC. Sin grupo coinciden con la cita. */
+  blockStartAtUtc?: string;
+  blockEndAtUtc?: string;
+  /** Suma de los precios de `services`. */
+  totalPrice?: number;
+  /**
+   * Si la barbería deja hoy reservar varios servicios (RN-DISPO-37). Apagado, editar solo puede quitar
+   * servicios, cambiar barbero u hora (RN-DISPO-48). Ausente equivale a `false`.
+   */
+  multiServiceBookingEnabled?: boolean;
 }
 
+/** Una cita de la reserva, tal como la describe la respuesta de gestión (M-08 RN-DISPO-45). */
+export interface ManageAppointmentService {
+  appointmentId: string;
+  serviceId: string;
+  serviceName: string;
+  /** Instante UTC de inicio de esta cita. */
+  startAtUtc: string;
+  durationMin: number;
+  price: number;
+}
+
+/**
+ * Cuerpo del `PUT /public/appointments/{id}/manage`. Lleva **uno de los dos**: `serviceId` suelto (la
+ * edición de una cita de siempre, tal cual se mandaba) o `serviceIds`, que recoloca la reserva entera
+ * con la lista nueva (M-08 RN-DISPO-47).
+ */
 export interface RescheduleInput {
   barberId: string;
-  serviceId: string;
+  serviceId?: string;
+  serviceIds?: string[];
   /** El `startAtUtc` del hueco elegido, reenviado sin tocar (M-09 RN-AG-47). */
   startAtUtc: string;
 }

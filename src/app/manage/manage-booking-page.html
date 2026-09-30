@@ -32,17 +32,27 @@
         {{ state() === 'saved' ? 'Tu reserva quedó así' : 'Tu reserva' }}
       </h2>
 
-      <dl class="summary">
-        <div><dt class="cob-muted">Servicio</dt><dd>{{ booking.serviceName }}</dd></div>
-        <div><dt class="cob-muted">Profesional</dt><dd>{{ booking.barberName }}</dd></div>
-        <!-- `dateEs` viene formateada en español por el backend, en hora de negocio: no se reformatea. -->
-        <div><dt class="cob-muted">Fecha</dt><dd>{{ booking.dateEs }}</dd></div>
-        <div>
-          <dt class="cob-muted">Hora</dt>
-          <dd>{{ zoned(booking.startAtUtc).time }} · {{ booking.durationMin }} min</dd>
-        </div>
-        <div><dt class="cob-muted">Código</dt><dd>{{ booking.confirmationCode }}</dd></div>
-      </dl>
+      @if (bookedServices().length > 1) {
+        <!-- M-08 RN-DISPO-45: todas las citas de la reserva, el bloque y el total, con las horas que
+             dio el servidor, pintadas en la zona de la barbería. -->
+        <cob-group-summary [booking]="booking" [services]="bookedServices()" />
+
+        <dl class="summary">
+          <div><dt class="cob-muted">Código</dt><dd>{{ booking.confirmationCode }}</dd></div>
+        </dl>
+      } @else {
+        <dl class="summary">
+          <div><dt class="cob-muted">Servicio</dt><dd>{{ booking.serviceName }}</dd></div>
+          <div><dt class="cob-muted">Profesional</dt><dd>{{ booking.barberName }}</dd></div>
+          <!-- `dateEs` viene formateada en español por el backend, en hora de negocio: no se reformatea. -->
+          <div><dt class="cob-muted">Fecha</dt><dd>{{ booking.dateEs }}</dd></div>
+          <div>
+            <dt class="cob-muted">Hora</dt>
+            <dd>{{ zoned(booking.startAtUtc).time }} · {{ booking.durationMin }} min</dd>
+          </div>
+          <div><dt class="cob-muted">Código</dt><dd>{{ booking.confirmationCode }}</dd></div>
+        </dl>
+      }
     </section>
 
     <!-- RF-CN01 (027-rfs-confirmar-cita-desde-el-correo). Tres bloques excluyentes, en el orden en que
@@ -53,17 +63,17 @@
         <section class="card card--center">
           <i class="pi pi-check-circle card__icon" aria-hidden="true"></i>
           <h2 class="card__title">
-            {{ justConfirmed() ? '¡Cita confirmada!' : 'Tu cita ya está confirmada' }}
+            {{ justConfirmed() ? copy().justConfirmed : copy().alreadyConfirmed }}
           </h2>
           <p class="cob-muted">Te esperamos. Si algo cambia, puedes modificarla aquí abajo.</p>
         </section>
       } @else if (booking.confirmable) {
         <section class="card card--center">
           <i class="pi pi-calendar-plus card__icon" aria-hidden="true"></i>
-          <h2 class="card__title">Falta confirmar tu cita</h2>
+          <h2 class="card__title">{{ copy().pendingTitle }}</h2>
           <p class="cob-muted">Confírmala para que tu profesional sepa que vienes.</p>
           <p-button
-            label="Confirmar mi cita"
+            [label]="copy().confirmLabel"
             icon="pi pi-check"
             [loading]="confirming()"
             (onClick)="confirmBooking()"
@@ -85,7 +95,7 @@
         <section class="card card--center">
           <i class="pi pi-times-circle card__icon" aria-hidden="true"></i>
           <h2 class="card__title">
-            {{ justCancelled() ? 'Tu cita quedó cancelada' : 'Esta cita está cancelada' }}
+            {{ justCancelled() ? copy().justCancelled : copy().alreadyCancelled }}
           </h2>
           <p class="cob-muted">
             {{
@@ -100,7 +110,7 @@
         <section class="card card--center cancel-trigger">
           <p class="cob-muted">¿Ya no puedes venir?</p>
           <p-button
-            label="Cancelar mi cita"
+            [label]="copy().cancelTrigger"
             [text]="true"
             severity="danger"
             (onClick)="openCancelPanel()"
@@ -108,11 +118,20 @@
         </section>
       } @else if (booking.cancelable && cancelOpen()) {
         <section #cancelPanel class="card cancel-panel">
-          <h2 class="card__title">¿Cancelar tu cita?</h2>
-          <p class="cob-muted">
-            Si cancelas, tu cita se libera y <strong>no se puede deshacer</strong>. Si solo quieres
-            otro día u otra hora, usa «cambiar mi horario» de abajo.
-          </p>
+          <h2 class="card__title">{{ copy().cancelTitle }}</h2>
+          @if (isGroup()) {
+            <!-- M-08 RN-DISPO-46: cancelar desde el correo cancela todas las citas de la reserva. -->
+            <p class="cob-muted">
+              Se cancelarán las {{ groupSize() }} citas. Tu reserva se libera y
+              <strong>no se puede deshacer</strong>. Si solo quieres otro día u otra hora, modifícala
+              abajo.
+            </p>
+          } @else {
+            <p class="cob-muted">
+              Si cancelas, tu cita se libera y <strong>no se puede deshacer</strong>. Si solo quieres
+              otro día u otra hora, usa «cambiar mi horario» de abajo.
+            </p>
+          }
 
           <label class="cancel-panel__label" for="cancel-reason">Cuéntanos por qué (opcional)</label>
           <!-- La clase fija 16px: por debajo de eso iOS Safari hace auto-zoom al enfocar. -->
@@ -133,13 +152,13 @@
                botones pegados en un teléfono, uno de ellos irreversible, se pulsan por error. -->
           <div class="cancel-panel__actions">
             <p-button
-              label="No, conservar mi cita"
+              [label]="copy().keepLabel"
               [outlined]="true"
               [disabled]="cancelling()"
               (onClick)="dismissCancelPanel()"
             />
             <p-button
-              label="Sí, cancelar mi cita"
+              [label]="copy().cancelLabel"
               severity="danger"
               [loading]="cancelling()"
               (onClick)="cancelBooking()"
@@ -204,6 +223,101 @@
           }
         </section>
       }
+    } @else if (groupMode()) {
+      <!-- M-08 RN-DISPO-47: el mismo selector múltiple del asistente, precargado con los servicios de
+           la reserva. Con la opción apagada solo se quita (RN-DISPO-48). -->
+      <section class="card">
+        <cob-service-picker
+          [options]="pickerOptions()"
+          [lines]="resolvedLines()"
+          [canAdd]="canAddServices()"
+          [minLines]="1"
+          [showContinue]="false"
+          [heading]="canAddServices() ? 'Servicios de tu reserva · hasta 3' : 'Servicios de tu reserva'"
+          (serviceAdded)="addService($event)"
+          (lineRemoved)="removeService($event)"
+        />
+      </section>
+
+      <section class="card">
+        <h2 class="card__title">Profesional</h2>
+        @if (visibleBarbers().length === 0) {
+          <p-message severity="info" text="Ningún profesional presta todos los servicios de tu reserva. Quita alguno para continuar." />
+        } @else {
+          @if (groupServices().length > 1) {
+            <p-message
+              severity="secondary"
+              variant="simple"
+              size="small"
+              icon="pi pi-users"
+              [text]="'Solo aparecen los profesionales que prestan los ' + groupServices().length + ' servicios de tu reserva.'"
+            />
+          }
+          <div class="options">
+            @for (entry of groupBarberOptions(); track entry.barber.id) {
+              @let option = entry.barber;
+              <button
+                type="button"
+                class="option"
+                [class.option--active]="barberId() === option.id"
+                (click)="chooseBarber(option)"
+              >
+                @if (image(option.photoUrl); as src) {
+                  <img class="option__avatar" [src]="src" [alt]="barberName(option)" loading="lazy" />
+                }
+                <span class="option__text">
+                  <strong>{{ barberName(option) }}</strong>
+                  <!-- M-08 RN-DISPO-39: lo que dura el bloque con este barbero. -->
+                  <span class="cob-muted">{{ entry.durationMin }} min</span>
+                  @if (option.specialty) {
+                    <span class="cob-muted">{{ option.specialty }}</span>
+                  }
+                </span>
+              </button>
+            }
+          </div>
+        }
+      </section>
+
+      <ng-container *ngTemplateOutlet="schedule" />
+
+      <section class="card">
+        <h2 class="card__title">Quedaría así</h2>
+        @if (groupServices().length > 1) {
+          <cob-booking-block
+            [segments]="plannedBlock()"
+            [barberLabel]="selectedBarber() ? barberName(selectedBarber()) : booking.barberName"
+          />
+        }
+        <cob-appointment-list [items]="plannedItems()" />
+        <dl class="summary">
+          <div>
+            <dt class="cob-muted">Profesional</dt>
+            <dd>{{ selectedBarber() ? barberName(selectedBarber()) : booking.barberName }}</dd>
+          </div>
+          <div>
+            <dt class="cob-muted">Fecha</dt>
+            <dd>{{ date() ? formatDate(date()!) : '—' }}</dd>
+          </div>
+        </dl>
+
+        <p class="total">
+          <span class="cob-muted">Total</span>
+          <strong>{{ formatPrice(plannedTotal()) }}</strong>
+        </p>
+
+        <p-button
+          label="Guardar cambios"
+          icon="pi pi-check"
+          [loading]="submitting()"
+          [disabled]="!time() || !dirty() || submitting()"
+          (onClick)="save()"
+        />
+
+        @if (!dirty()) {
+          <p class="cob-muted total__hint">Cambia algo para poder guardar.</p>
+        }
+      </section>
     } @else {
       <section class="card">
         <h2 class="card__title">Servicio</h2>
@@ -260,53 +374,7 @@
         }
       </section>
 
-      <section class="card">
-        <h2 class="card__title">Fecha y hora</h2>
-
-        <div #dayStrip class="days" role="group" aria-label="Elige el día">
-          @for (day of days(); track day) {
-            <button
-              type="button"
-              class="day"
-              [attr.data-day]="day"
-              [class.day--active]="date() === day"
-              (click)="chooseDate(day)"
-            >
-              <span class="day__weekday">{{ labelsFor(day).weekday }}</span>
-              <span class="day__number">{{ labelsFor(day).day }}</span>
-              <span class="day__month">{{ labelsFor(day).month }}</span>
-            </button>
-          }
-        </div>
-
-        @if (slotsLoading()) {
-          <div class="slots-loading">
-            <p-progressSpinner [style]="{ width: '2.5rem', height: '2.5rem' }" />
-          </div>
-        } @else if (slotsFailed()) {
-          <p-message severity="warn" text="No pudimos consultar la disponibilidad. Intenta de nuevo." />
-        } @else if (slotsState() === 'no-shift') {
-          <!-- Tres estados vacíos con tres causas distintas, igual que en el wizard. -->
-          <p-message severity="info" text="Este profesional no atiende ese día. Prueba con otra fecha." />
-        } @else if (slotsState() === 'full') {
-          <p-message severity="info" text="Ese día está completo. Prueba con otra fecha." />
-        } @else {
-          <div class="slots">
-            @for (slot of slots(); track slot.startAtUtc) {
-              <button
-                type="button"
-                class="slot"
-                [class.slot--active]="isChosen(slot)"
-                [class.slot--taken]="!slot.available"
-                [disabled]="!slot.available"
-                (click)="chooseTime(slot)"
-              >
-                {{ slot.label }}
-              </button>
-            }
-          </div>
-        }
-      </section>
+      <ng-container *ngTemplateOutlet="schedule" />
 
       <section class="card">
         <h2 class="card__title">Quedaría así</h2>
@@ -346,3 +414,55 @@
     }
   }
 </main>
+
+<!-- «Fecha y hora», igual para una cita y para una reserva de varias: lo que cambia es con qué
+     servicios se pide la disponibilidad (`loadAvailability`). -->
+<ng-template #schedule>
+  <section class="card">
+    <h2 class="card__title">Fecha y hora</h2>
+
+    <div #dayStrip class="days" role="group" aria-label="Elige el día">
+      @for (day of days(); track day) {
+        <button
+          type="button"
+          class="day"
+          [attr.data-day]="day"
+          [class.day--active]="date() === day"
+          (click)="chooseDate(day)"
+        >
+          <span class="day__weekday">{{ labelsFor(day).weekday }}</span>
+          <span class="day__number">{{ labelsFor(day).day }}</span>
+          <span class="day__month">{{ labelsFor(day).month }}</span>
+        </button>
+      }
+    </div>
+
+    @if (slotsLoading()) {
+      <div class="slots-loading">
+        <p-progressSpinner [style]="{ width: '2.5rem', height: '2.5rem' }" />
+      </div>
+    } @else if (slotsFailed()) {
+      <p-message severity="warn" text="No pudimos consultar la disponibilidad. Intenta de nuevo." />
+    } @else if (slotsState() === 'no-shift') {
+      <!-- Tres estados vacíos con tres causas distintas, igual que en el wizard. -->
+      <p-message severity="info" text="Este profesional no atiende ese día. Prueba con otra fecha." />
+    } @else if (slotsState() === 'full') {
+      <p-message severity="info" text="Ese día está completo. Prueba con otra fecha." />
+    } @else {
+      <div class="slots">
+        @for (slot of slots(); track slot.startAtUtc) {
+          <button
+            type="button"
+            class="slot"
+            [class.slot--active]="isChosen(slot)"
+            [class.slot--taken]="!slot.available"
+            [disabled]="!slot.available"
+            (click)="chooseTime(slot)"
+          >
+            {{ slot.label }}
+          </button>
+        }
+      </div>
+    }
+  </section>
+</ng-template>

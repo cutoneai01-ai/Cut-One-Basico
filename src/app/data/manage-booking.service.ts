@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { serviceParams } from './booking.service';
 import type {
   AvailabilityResponse,
   ManageAppointment,
@@ -14,6 +15,10 @@ import type {
  * hueco que ya no existe, y reprogramar es una acción, no un dato.
  *
  * El `?subdomain=` lo pone el interceptor (`subdomain.interceptor.ts`) — ningún método lo construye.
+ *
+ * Con reserva múltiple el id de la ruta puede ser el de **cualquier** cita del grupo, y leer,
+ * confirmar, cancelar y editar operan la reserva entera (M-08 RN-DISPO-45 a RN-DISPO-47): los métodos
+ * no cambian, cambia lo que hace el servidor con ellos.
  */
 @Injectable({ providedIn: 'root' })
 export class ManageBookingService {
@@ -28,20 +33,21 @@ export class ManageBookingService {
   /**
    * Misma forma que `BookingService.getAvailability`, pero calculada excluyendo esta cita del solape
    * (RN-09): sin eso, el horario actual del propio cliente le aparecería ocupado y no podría cambiar
-   * solo el servicio.
+   * solo el servicio. Con grupo, el servidor excluye **todas** sus citas (M-08 RN-DISPO-47).
    *
-   * El barbero y el servicio son los **seleccionados en la pantalla**, no los de la cita.
+   * El barbero y los servicios son los **seleccionados en la pantalla**, no los de la cita. Con uno
+   * viaja `serviceId`, como siempre; con varios, `serviceIds` repetido (`serviceParams`).
    */
   getAvailability(
     appointmentId: string,
     barberId: string,
-    serviceId: string,
+    serviceIds: string | readonly string[],
     date: string,
   ): Promise<AvailabilityResponse> {
     return firstValueFrom(
       this.http.get<AvailabilityResponse>(
         `/api/v1/public/appointments/${appointmentId}/manage/availability`,
-        { params: { barberId, serviceId, date } },
+        { params: { barberId, ...serviceParams(serviceIds), date } },
       ),
     );
   }
