@@ -179,24 +179,65 @@ describe('filterServices', () => {
     expect(filterServices(services, ALL_CHIP_KEY)).toHaveLength(3);
   });
 
-  it('Todos pone primero los populares y conserva el orden del API dentro de cada grupo', () => {
+  it('Todos ordena solo por ORDEN, sin mirar la categoría ni el flag de popular', () => {
+    const catalog = [
+      service({ id: 'a', category: 'Color', displayOrder: 3 }),
+      service({ id: 'b', category: 'Corte', displayOrder: 1, isPopular: true }),
+      service({ id: 'c', category: 'Corte', displayOrder: 4 }),
+      service({ id: 'd', category: 'Extra', displayOrder: 2, isPopular: true }),
+      service({ id: 'e', category: 'Extra', displayOrder: 0 }),
+    ];
+
+    expect(filterServices(catalog, ALL_CHIP_KEY).map((s) => s.id)).toEqual(['e', 'b', 'd', 'a', 'c']);
+  });
+
+  it('con el mismo ORDEN conserva el orden del API, que es el de las categorías', () => {
+    const catalog = [
+      service({ id: 'a', category: 'Color', displayOrder: 1 }),
+      service({ id: 'b', category: 'Corte', displayOrder: 1 }),
+      service({ id: 'c', category: 'Corte', displayOrder: 0 }),
+      service({ id: 'd', category: 'Extra', displayOrder: 1 }),
+    ];
+
+    expect(filterServices(catalog, ALL_CHIP_KEY).map((s) => s.id)).toEqual(['c', 'a', 'b', 'd']);
+  });
+
+  it('una categoría filtra y ordena lo que queda por ORDEN', () => {
+    const catalog = [
+      service({ id: 'a', category: 'Corte', displayOrder: 5 }),
+      service({ id: 'x', category: 'Barba', displayOrder: 0 }),
+      service({ id: 'b', category: 'Corte', displayOrder: 2, isPopular: true }),
+      service({ id: 'c', category: 'Corte', displayOrder: 3 }),
+    ];
+
+    expect(filterServices(catalog, 'Corte').map((s) => s.id)).toEqual(['b', 'c', 'a']);
+  });
+
+  it('Populares filtra por el flag y ordena por ORDEN', () => {
+    const catalog = [
+      service({ id: 'a', isPopular: true, displayOrder: 9 }),
+      service({ id: 'b', displayOrder: 0 }),
+      service({ id: 'c', isPopular: true, displayOrder: 1 }),
+    ];
+
+    expect(filterServices(catalog, POPULAR_CHIP_KEY).map((s) => s.id)).toEqual(['c', 'a']);
+  });
+
+  it('sin displayOrder (backend anterior) deja el orden del API', () => {
     const catalog = [
       service({ id: 'a', category: 'Color' }),
       service({ id: 'b', category: 'Corte', isPopular: true }),
-      service({ id: 'c', category: 'Corte' }),
-      service({ id: 'd', category: 'Extra', isPopular: true }),
     ];
 
-    expect(filterServices(catalog, ALL_CHIP_KEY).map((s) => s.id)).toEqual(['b', 'd', 'a', 'c']);
+    expect(filterServices(catalog, ALL_CHIP_KEY).map((s) => s.id)).toEqual(['a', 'b']);
   });
 
-  it('una categoría no se reordena por el flag de popular', () => {
-    const catalog = [
-      service({ id: 'a', category: 'Corte' }),
-      service({ id: 'b', category: 'Corte', isPopular: true }),
-    ];
+  it('no muta el array recibido', () => {
+    const catalog = [service({ id: 'a', displayOrder: 2 }), service({ id: 'b', displayOrder: 1 })];
 
-    expect(filterServices(catalog, 'Corte').map((s) => s.id)).toEqual(['a', 'b']);
+    filterServices(catalog, ALL_CHIP_KEY);
+
+    expect(catalog.map((s) => s.id)).toEqual(['a', 'b']);
   });
 
   it('Populares filtra por el flag, no por categoría', () => {

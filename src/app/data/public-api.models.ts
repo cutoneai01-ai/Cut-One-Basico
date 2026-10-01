@@ -14,6 +14,12 @@ export interface PublicService {
   durationMin: number;
   category: string | null;
   isPopular: boolean;
+  /**
+   * El campo ORDEN del servicio (M-08 RN-DISPO-50). Con él se ordena el catálogo en «Todos» y dentro de
+   * cada chip (`service-filters.ts`). **Opcional** porque un backend anterior no lo manda: sin él se
+   * deja el orden del API.
+   */
+  displayOrder?: number;
   imageUrl: string | null;
   /**
    * Barberos que prestan este servicio (RF-BS03 §3, serie 023-rfs-barbero-servicio).
