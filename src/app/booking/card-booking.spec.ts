@@ -1,5 +1,6 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { MessageService } from 'primeng/api';
+import { providePrimeNG } from 'primeng/config';
 import { Subject, firstValueFrom } from 'rxjs';
 import { ApiError } from '../core/api-error';
 import { clearTenantLocale, formatLongDate, setTenantLocale, type TenantLocale } from '../core/locale';
@@ -119,6 +120,10 @@ describe('CardBooking: asistente de tarjetas', () => {
     TestBed.configureTestingModule({
       imports: [CardBooking],
       providers: [
+        // Sin tema: estas pruebas no miran la apariencia, y generar y cargar el CSS del tema de PrimeNG
+        // en jsdom era la parte mayor de la primera prueba del archivo, la que se acercaba al límite de
+        // tiempo con la suite completa (medido el 2026-10-02; ver `vitest-base.config.ts`).
+        providePrimeNG({ theme: 'none' }),
         MessageService,
         { provide: BookingService, useValue: booking },
         { provide: SettingsService, useValue: { requireLocale: () => Promise.resolve(LOCALE) } },

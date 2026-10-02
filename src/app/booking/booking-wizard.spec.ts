@@ -1,5 +1,6 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { MessageService } from 'primeng/api';
+import { providePrimeNG } from 'primeng/config';
 import { clearTenantLocale, setTenantLocale } from '../core/locale';
 import { BookingPolicyService } from '../data/booking-policy.service';
 import { BookingService } from '../data/booking.service';
@@ -47,14 +48,34 @@ const beard = service({
   barberDurations: [{ barberId: fast.id, durationMin: 10 }],
 });
 
+/**
+ * El asistente vive en un `p-dialog`, y abrirlo en jsdom es caro sin aportar nada a estas pruebas: el
+ * diálogo, al terminar de entrar, llama a `getComputedStyle` para cada elemento enfocable (dos veces, al
+ * probar contenido, pie, cabecera y otra vez contenido), y su animación lo llama para leer la duración
+ * de la transición. jsdom resuelve cada llamada recorriendo todas las reglas de todas las hojas y de los
+ * ancestros: medido el 2026-10-02, era más de la mitad del tiempo de CPU de
+ * cada prueba, y la primera del archivo pasaba de 5 s de CPU — con la máquina cargada, 42 s y fuera del
+ * límite de 15 s. Y el resultado no se usa: jsdom no maqueta, `offsetParent` es siempre `null`, así que
+ * PrimeNG nunca da por visible ningún elemento ni enfoca nada. El doble devuelve el estilo en línea del
+ * elemento, que no declara animación: la entrada del diálogo termina en el acto. Lo que comprueban estas
+ * pruebas (textos, pasos, llamadas) no pasa por aquí.
+ */
+function withoutJsdomStyleEngine(): void {
+  vi.spyOn(window, 'getComputedStyle').mockImplementation((element) => (element as HTMLElement).style);
+}
+
 describe('BookingWizard: tiempo de cada barbero', () => {
   let fixture: ComponentFixture<BookingWizard>;
   let wizard: BookingWizard;
 
   beforeEach(async () => {
+    withoutJsdomStyleEngine();
     TestBed.configureTestingModule({
       imports: [BookingWizard],
       providers: [
+        // Sin tema: estas pruebas no miran la apariencia, y generar y cargar el CSS del tema de PrimeNG
+        // en jsdom era cerca de 1 s de CPU de la primera prueba del archivo.
+        providePrimeNG({ theme: 'none' }),
         MessageService,
         {
           provide: BookingService,
@@ -83,6 +104,7 @@ describe('BookingWizard: tiempo de cada barbero', () => {
   afterEach(() => {
     fixture.destroy();
     clearTenantLocale();
+    vi.restoreAllMocks();
   });
 
   async function render(services: PublicService[]): Promise<HTMLElement> {

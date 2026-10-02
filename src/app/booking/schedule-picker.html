@@ -48,7 +48,8 @@
       <p-message severity="warn" text="No pudimos cargar los días disponibles. Recarga la página." />
     } @else {
       <div class="days">
-        @for (day of days(); track day) {
+        @for (option of dayOptions(); track option.day) {
+          @let day = option.day;
           <button
             type="button"
             class="day"
@@ -57,9 +58,9 @@
             [class.day--active]="date() === day"
             (click)="dateChosen.emit(day)"
           >
-            <span class="day__weekday">{{ labelsFor(day).weekday }}</span>
-            <span class="day__number">{{ labelsFor(day).day }}</span>
-            <span class="day__month">{{ labelsFor(day).month }}</span>
+            <span class="day__weekday">{{ option.labels.weekday }}</span>
+            <span class="day__number">{{ option.labels.day }}</span>
+            <span class="day__month">{{ option.labels.month }}</span>
           </button>
         }
       </div>

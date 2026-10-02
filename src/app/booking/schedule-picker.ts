@@ -71,7 +71,15 @@ export class SchedulePicker {
     return [...byReason].map(([reason, labels]) => `${reason}: ${labels.join(', ')}`);
   });
 
-  protected readonly labelsFor = dayLabels;
+  /**
+   * Cada día con sus etiquetas, calculadas una vez por cambio de días o de locale y no en cada pasada
+   * de la detección de cambios: `dayLabels` construye tres `Intl.DateTimeFormat` por llamada, y desde
+   * la plantilla eran nueve por día y por pasada (medido el 2026-10-02: ~8 % de la CPU de las pruebas
+   * del asistente de tarjetas).
+   */
+  protected readonly dayOptions = computed(() =>
+    this.days().map((day) => ({ day, labels: dayLabels(day) })),
+  );
 
   protected image(url: string | null): string | undefined {
     return resolveImage(url);

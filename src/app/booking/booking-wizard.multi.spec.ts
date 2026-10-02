@@ -1,6 +1,7 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { MessageService } from 'primeng/api';
+import { providePrimeNG } from 'primeng/config';
 import { ApiError } from '../core/api-error';
 import { clearTenantLocale, setTenantLocale, type TenantLocale } from '../core/locale';
 import { BookingService } from '../data/booking.service';
@@ -96,6 +97,16 @@ function created(index: number, overrides: Partial<AppointmentCreatedResponse> =
   };
 }
 
+/**
+ * Abrir el `p-dialog` en jsdom paga un `getComputedStyle` por elemento enfocable (y otro por la
+ * animación) cuyo resultado no se usa: jsdom no maqueta, así que PrimeNG nunca da nada por visible ni
+ * enfoca. Era más de la mitad de la CPU de cada prueba y sacaba la primera del límite de tiempo con la
+ * máquina cargada. El porqué completo, con la medición, en `booking-wizard.spec.ts`.
+ */
+function withoutJsdomStyleEngine(): void {
+  vi.spyOn(window, 'getComputedStyle').mockImplementation((element) => (element as HTMLElement).style);
+}
+
 describe('BookingWizard: reserva de varios servicios', () => {
   let fixture: ComponentFixture<BookingWizard>;
   let wizard: BookingWizard;
@@ -109,6 +120,7 @@ describe('BookingWizard: reserva de varios servicios', () => {
   let addMessage: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    withoutJsdomStyleEngine();
     setTenantLocale(LOCALE);
     bookingWindow = { ...WINDOW, multiServiceBookingEnabled: true };
     booking = {
@@ -121,6 +133,8 @@ describe('BookingWizard: reserva de varios servicios', () => {
     TestBed.configureTestingModule({
       imports: [BookingWizard],
       providers: [
+        // Sin tema: estas pruebas no miran la apariencia (el porqué, en `booking-wizard.spec.ts`).
+        providePrimeNG({ theme: 'none' }),
         MessageService,
         { provide: BookingService, useValue: booking },
         { provide: CatalogService, useValue: { revalidate: () => Promise.resolve() } },
@@ -138,6 +152,7 @@ describe('BookingWizard: reserva de varios servicios', () => {
   afterEach(() => {
     fixture.destroy();
     clearTenantLocale();
+    vi.restoreAllMocks();
   });
 
   /** Deja correr las promesas de los dobles (política, disponibilidad) y repinta. */

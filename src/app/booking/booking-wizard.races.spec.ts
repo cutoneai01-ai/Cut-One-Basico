@@ -1,5 +1,6 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { MessageService } from 'primeng/api';
+import { providePrimeNG } from 'primeng/config';
 import { ReplaySubject, Subject, firstValueFrom } from 'rxjs';
 import { clearTenantLocale, formatLongDate, setTenantLocale, type TenantLocale } from '../core/locale';
 import { BookingService } from '../data/booking.service';
@@ -88,6 +89,16 @@ function created(startAtUtc: string): AppointmentCreatedResponse {
   };
 }
 
+/**
+ * Abrir el `p-dialog` en jsdom paga un `getComputedStyle` por elemento enfocable (y otro por la
+ * animación) cuyo resultado no se usa: jsdom no maqueta, así que PrimeNG nunca da nada por visible ni
+ * enfoca. Era más de la mitad de la CPU de cada prueba y acercaba la primera al límite de tiempo con la
+ * máquina cargada. El porqué completo, con la medición, en `booking-wizard.spec.ts`.
+ */
+function withoutJsdomStyleEngine(): void {
+  vi.spyOn(window, 'getComputedStyle').mockImplementation((element) => (element as HTMLElement).style);
+}
+
 describe('BookingWizard: respuestas que llegan en otro orden', () => {
   let fixture: ComponentFixture<BookingWizard>;
   let wizard: BookingWizard;
@@ -112,6 +123,7 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
   }
 
   beforeEach(() => {
+    withoutJsdomStyleEngine();
     setTenantLocale(LOCALE);
     policy$ = new ReplaySubject<BookingWindow>(1);
     pendingDays = new Map();
@@ -127,6 +139,8 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
     TestBed.configureTestingModule({
       imports: [BookingWizard],
       providers: [
+        // Sin tema: estas pruebas no miran la apariencia (el porqué, en `booking-wizard.spec.ts`).
+        providePrimeNG({ theme: 'none' }),
         MessageService,
         { provide: BookingService, useValue: booking },
         { provide: CatalogService, useValue: { revalidate: () => Promise.resolve() } },
@@ -143,6 +157,7 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
   afterEach(() => {
     fixture.destroy();
     clearTenantLocale();
+    vi.restoreAllMocks();
   });
 
   /** Deja correr las promesas de los dobles y repinta. */
