@@ -68,10 +68,11 @@ export class BookingService {
    * La ventana de reserva del tenant, ya resuelta en fechas (M-08 RN-DISPO-13), y desde la reserva
    * múltiple también si la barbería la ofrece (M-08 RN-DISPO-37).
    *
-   * Se pide **al abrir el wizard**, antes de dibujar la tira de días. No puede salir de
-   * `/public/availability` —esa ruta necesita ya un servicio y una fecha elegidos, y la tira es
-   * justamente lo que permite elegir la fecha— ni del paquete público de settings, que se persiste en
-   * `localStorage` hasta 24 h: un plazo cambiado esta mañana tiene que aplicar esta mañana.
+   * El asistente no la llama: la pide `BookingPolicyService` **una vez al cargar la página** y la
+   * expone como señal (M-08 RN-DISPO-37). No puede salir de `/public/availability` —esa ruta necesita
+   * ya un servicio y una fecha elegidos, y la tira es justamente lo que permite elegir la fecha— ni del
+   * paquete público de settings, que se persiste en `localStorage` hasta 24 h: un plazo cambiado esta
+   * mañana tiene que aplicar en la siguiente carga, no mañana.
    *
    * Tampoco se cachea aquí, por lo mismo.
    */

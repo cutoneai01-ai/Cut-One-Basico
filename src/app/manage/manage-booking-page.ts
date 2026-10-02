@@ -27,6 +27,7 @@ import {
   type ZonedDateTime,
 } from '../core/locale';
 import {
+  availabilityKey,
   bookingWindow,
   flattenSlots,
   slotsState,
@@ -959,28 +960,62 @@ export class ManageBookingPage {
     }
   }
 
-  private async loadAvailability(): Promise<void> {
+  /**
+   * La clave de la disponibilidad que corresponde a la selección actual, o `null` si todavía no hay
+   * con qué pedirla (M-08 RN-DISPO-52). Con el selector múltiple, la lista: cada hora es el inicio del
+   * bloque entero (M-08 RN-DISPO-47).
+   */
+  private readonly availabilityRequest = computed(() => {
     const barberId = this.barberId();
-    const serviceId = this.serviceId();
     const date = this.date();
-    // Con el selector múltiple, la lista: cada hora es el inicio del bloque entero (M-08 RN-DISPO-47).
-    const services = this.groupMode() ? this.lines().map((line) => line.service.id) : serviceId;
+    const services = this.groupMode()
+      ? this.lines().map((line) => line.service.id)
+      : this.serviceId();
 
     if (!barberId || !services || services.length === 0 || !date) {
+      return null;
+    }
+
+    return { barberId, services, date, key: availabilityKey(barberId, services, date) };
+  });
+
+  /**
+   * Pide la disponibilidad de la selección actual y la aplica **solo si sigue siendo la elegida al
+   * llegar** (M-08 RN-DISPO-52), con la misma clave que el asistente de reserva: una respuesta tardía
+   * de otro día, barbero o servicios se descarta entera, porque la de la selección nueva ya está pedida.
+   */
+  private async loadAvailability(): Promise<void> {
+    const request = this.availabilityRequest();
+    if (!request) {
       return;
     }
+
+    const stillChosen = (): boolean => this.availabilityRequest()?.key === request.key;
 
     this.slotsLoading.set(true);
     this.slotsFailed.set(false);
 
     try {
       const [response, locale] = await Promise.all([
-        this.manage.getAvailability(this.appointmentId(), barberId, services, date),
+        this.manage.getAvailability(
+          this.appointmentId(),
+          request.barberId,
+          request.services,
+          request.date,
+        ),
         this.settings.requireLocale(),
       ]);
+      if (!stillChosen()) {
+        return;
+      }
       this.slots.set(flattenSlots(response, locale));
+      this.slotsLoading.set(false);
     } catch (error) {
+      if (!stillChosen()) {
+        return;
+      }
       this.slots.set([]);
+      this.slotsLoading.set(false);
 
       if (error instanceof ApiError && error.code === 'MULTI_SERVICE_BOOKING_DISABLED') {
         this.handleMultiServiceDisabled(error);
@@ -988,8 +1023,6 @@ export class ManageBookingPage {
       }
 
       this.slotsFailed.set(true);
-    } finally {
-      this.slotsLoading.set(false);
     }
   }
 

@@ -1,6 +1,7 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { MessageService } from 'primeng/api';
 import { clearTenantLocale, setTenantLocale } from '../core/locale';
+import { BookingPolicyService } from '../data/booking-policy.service';
 import { BookingService } from '../data/booking.service';
 import { CatalogService } from '../data/catalog.service';
 import type { PublicBarber, PublicService } from '../data/public-api.models';
@@ -50,7 +51,7 @@ describe('BookingWizard: tiempo de cada barbero', () => {
   let fixture: ComponentFixture<BookingWizard>;
   let wizard: BookingWizard;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     TestBed.configureTestingModule({
       imports: [BookingWizard],
       providers: [
@@ -70,6 +71,10 @@ describe('BookingWizard: tiempo de cada barbero', () => {
         },
       ],
     });
+
+    // Como en la página: la política se pidió al cargarla (M-08 RN-DISPO-37) y aquí ya falló, así que
+    // el asistente fija su paso al abrir, en modo un servicio.
+    await TestBed.inject(BookingPolicyService).ensureLoaded();
 
     fixture = TestBed.createComponent(BookingWizard);
     wizard = fixture.componentInstance;

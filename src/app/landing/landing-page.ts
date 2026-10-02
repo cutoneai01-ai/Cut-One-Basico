@@ -10,6 +10,7 @@ import {
 import { ActivatedRoute } from '@angular/router';
 import { applyPageMetadata } from '../core/page-metadata';
 import { BookingWizard } from '../booking/booking-wizard';
+import { BookingPolicyService } from '../data/booking-policy.service';
 import { CatalogService } from '../data/catalog.service';
 import { PopularServicesService } from '../data/popular.service';
 import { SettingsService } from '../data/settings.service';
@@ -53,6 +54,7 @@ export class LandingPage {
   private readonly catalog = inject(CatalogService);
   private readonly popular = inject(PopularServicesService);
   private readonly testimonialsService = inject(TestimonialsService);
+  private readonly bookingPolicy = inject(BookingPolicyService);
   private readonly route = inject(ActivatedRoute);
 
   private readonly wizard = viewChild.required(BookingWizard);
@@ -93,6 +95,8 @@ export class LandingPage {
     this.catalog.ensureLoaded();
     this.popular.ensureLoaded();
     this.testimonialsService.ensureLoaded();
+    // M-08 RN-DISPO-37: la política, al cargar la página y no al abrir el asistente.
+    void this.bookingPolicy.ensureLoaded();
 
     // Título y favicon en cuanto llega el branding (RF-G02 §8): `index.html` es un shell único servido
     // a todos los subdominios y no puede llevar el nombre de ningún tenant.

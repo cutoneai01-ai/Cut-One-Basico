@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { MessageService } from 'primeng/api';
+import { Subject, firstValueFrom } from 'rxjs';
 import { ApiError } from '../core/api-error';
 import { clearTenantLocale, setTenantLocale, type TenantLocale } from '../core/locale';
 import { BookingService } from '../data/booking.service';
@@ -366,6 +367,75 @@ describe('ManageBookingPage: reserva de una cita y de varias', () => {
       expect(addMessage).toHaveBeenCalledWith(
         expect.objectContaining({ summary: 'Esta barbería ya no permite añadir servicios' }),
       );
+    });
+  });
+
+  // M-08 RN-DISPO-52: al reprogramar, una respuesta tardía de otro día no pisa a la del día elegido.
+  describe('disponibilidad que responde en otro orden', () => {
+    function slotsOf(date: string): AvailabilityResponse {
+      return {
+        date,
+        periods: [{ period: 'Morning', slots: [{ startAtUtc: `${date}T15:00:00Z`, available: true }] }],
+      };
+    }
+
+    it('dos días en orden inverso: quedan los del día elegido y se reprograma a ese día', async () => {
+      const host = await render(BASE);
+      const pending = new Map<string, Subject<AvailabilityResponse>>([
+        ['2026-10-02', new Subject()],
+        ['2026-10-03', new Subject()],
+      ]);
+      manage.getAvailability.mockImplementation(
+        (_id: string, _barber: string, _services: unknown, date: string) => firstValueFrom(pending.get(date)!),
+      );
+
+      page['chooseDate']('2026-10-02');
+      page['chooseDate']('2026-10-03');
+      await settle();
+
+      pending.get('2026-10-03')!.next(slotsOf('2026-10-03'));
+      await settle();
+      pending.get('2026-10-02')!.next(slotsOf('2026-10-02'));
+      await settle();
+
+      expect(page['date']()).toBe('2026-10-03');
+      expect(page['slots']().map((slot) => slot.startAtUtc)).toEqual(['2026-10-03T15:00:00Z']);
+      expect(page['slotsLoading']()).toBe(false);
+      expect(all(host, 'button.slot')).toEqual(['10:00']);
+
+      page['chooseTime'](page['slots']()[0]!);
+      manage.reschedule.mockResolvedValue({ ...BASE, startAtUtc: '2026-10-03T15:00:00Z' });
+      await page['save']();
+
+      expect(manage.reschedule).toHaveBeenCalledWith('appt-2', {
+        barberId: 'juan',
+        serviceId: 'corte',
+        startAtUtc: '2026-10-03T15:00:00Z',
+      });
+    });
+
+    it('el error tardío de un día que se dejó no se pinta ni apaga la carga del elegido', async () => {
+      await render(BASE);
+      const pending = new Map<string, Subject<AvailabilityResponse>>([
+        ['2026-10-02', new Subject()],
+        ['2026-10-03', new Subject()],
+      ]);
+      manage.getAvailability.mockImplementation(
+        (_id: string, _barber: string, _services: unknown, date: string) => firstValueFrom(pending.get(date)!),
+      );
+
+      page['chooseDate']('2026-10-02');
+      page['chooseDate']('2026-10-03');
+      pending.get('2026-10-02')!.error(new Error('se cayó la red'));
+      await settle();
+
+      expect(page['slotsFailed']()).toBe(false);
+      expect(page['slotsLoading']()).toBe(true);
+
+      pending.get('2026-10-03')!.next(slotsOf('2026-10-03'));
+      await settle();
+      expect(page['slotsLoading']()).toBe(false);
+      expect(page['slots']().length).toBe(1);
     });
   });
 

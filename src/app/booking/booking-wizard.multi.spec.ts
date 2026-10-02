@@ -399,7 +399,7 @@ describe('BookingWizard: reserva de varios servicios', () => {
       expect(text('.done')).toContain('Te enviamos un correo a laura@correo.com con toda tu reserva');
     });
 
-    it('409 MULTI_SERVICE_BOOKING_DISABLED: vuelve a un servicio, recarga la política y lo dice', async () => {
+    it('409 MULTI_SERVICE_BOOKING_DISABLED: vuelve a un servicio y lo dice, sin volver a pedir la política', async () => {
       booking.createMultipleAppointments.mockRejectedValue(
         new ApiError(409, 'La barbería no permite varios servicios.', 'MULTI_SERVICE_BOOKING_DISABLED'),
       );
@@ -413,7 +413,10 @@ describe('BookingWizard: reserva de varios servicios', () => {
       expect(wizard['multiEnabled']()).toBe(false);
       expect(wizard['service']()).toBe(cut);
       expect(host().querySelector('cob-service-picker')).toBeNull();
-      expect(booking.getBookingWindow.mock.calls.length).toBe(policyCalls + 1);
+      // M-08 RN-DISPO-37: la política se pidió al cargar la página; el 409 manda sobre ella sin pedirla
+      // otra vez, y la tira de días sigue siendo la misma.
+      expect(booking.getBookingWindow.mock.calls.length).toBe(policyCalls);
+      expect(wizard['days']()).toEqual(['2026-10-01', '2026-10-02', '2026-10-03']);
       expect(addMessage).toHaveBeenCalledWith(
         expect.objectContaining({ summary: 'Esta barbería ya no permite reservar varios servicios' }),
       );

@@ -92,6 +92,27 @@ export function slotsState(slots: readonly FlatSlot[]): SlotsState {
 }
 
 /**
+ * La clave de una consulta de disponibilidad: lo que pidió (servicio o servicios, barbero, fecha).
+ *
+ * M-08 RN-DISPO-52: cada petición se lanza con la clave de la selección y, al llegar, se descarta si
+ * la selección ya no es esa. Sin esto las respuestas se aplicaban en el orden en que llegaban: cambiar
+ * de día con el anterior aún cargando dejaba seleccionado un día y pintados —y reservables— los
+ * horarios del otro. La comparten el asistente y la gestión desde el correo, para que las dos
+ * pantallas decidan «sigue siendo lo elegido» de la misma forma.
+ *
+ * `barberId` nulo es «cualquier profesional». El orden de los servicios cuenta: es el orden de las
+ * citas del bloque, y el servidor responde distinto para `[A, B]` que para `[B, A]`.
+ */
+export function availabilityKey(
+  barberId: string | null,
+  serviceIds: string | readonly string[],
+  date: string,
+): string {
+  const ids = typeof serviceIds === 'string' ? [serviceIds] : serviceIds;
+  return JSON.stringify([barberId, ids, date]);
+}
+
+/**
  * Expande la ventana que sirvió el backend en la lista de días seleccionables, ambos extremos
  * incluidos (RF-RA03 §3, serie 042).
  *

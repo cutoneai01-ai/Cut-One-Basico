@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { BookingPolicyService } from './data/booking-policy.service';
 import { BookingService } from './data/booking.service';
 import { CatalogService } from './data/catalog.service';
 import { PopularServicesService } from './data/popular.service';
@@ -51,6 +52,10 @@ export const routes: Routes = [
       // iframe — y `createAppointment` escribiría una cita real. Ver el docblock de
       // `PreviewBookingService`.
       { provide: BookingService, useClass: PreviewBookingService },
+      // La misma clase, no un doble: `BookingPolicyService` es `providedIn: 'root'`, y la instancia raíz
+      // inyectaría el `BookingService` REAL del inyector raíz. Proveída aquí, su instancia vive en el
+      // inyector de esta ruta y recibe `PreviewBookingService` de la línea de arriba (M-20 RN-CFG-41).
+      BookingPolicyService,
     ],
     loadComponent: () => import('./preview/preview-page').then((m) => m.PreviewPage),
   },

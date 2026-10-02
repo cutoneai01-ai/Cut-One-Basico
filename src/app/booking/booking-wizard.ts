@@ -12,6 +12,7 @@ import { Textarea } from 'primeng/textarea';
 import { ApiError } from '../core/api-error';
 import { resolveImage } from '../core/images';
 import { dayLabels, formatLongDate, formatMoney, utcToZoned } from '../core/locale';
+import { BookingPolicyService } from '../data/booking-policy.service';
 import { BookingService } from '../data/booking.service';
 import { CatalogService } from '../data/catalog.service';
 import { SettingsService } from '../data/settings.service';
@@ -23,13 +24,7 @@ import {
 } from '../data/public-api.models';
 import { AppointmentList, type AppointmentListItem } from './appointment-list';
 import { BookingBlock } from './booking-block';
-import {
-  bookingWindow,
-  flattenSlots,
-  slotsState,
-  type BookingWindow,
-  type FlatSlot,
-} from './availability';
+import { availabilityKey, bookingWindow, flattenSlots, slotsState, type FlatSlot } from './availability';
 import { planForBookingError } from './booking-errors';
 import { ServicePicker } from './service-picker';
 import {
@@ -83,6 +78,7 @@ import {
 })
 export class BookingWizard {
   private readonly booking = inject(BookingService);
+  private readonly bookingPolicy = inject(BookingPolicyService);
   private readonly catalog = inject(CatalogService);
   private readonly settings = inject(SettingsService);
   private readonly messages = inject(MessageService);
@@ -98,23 +94,39 @@ export class BookingWizard {
   protected readonly visible = signal(false);
   protected readonly step = signal(1);
 
+  /**
+   * El asistente está abierto y espera a la política para fijar su primer paso (M-08 RN-DISPO-37). El
+   * diálogo enseña un indicador de carga en vez del stepper: así el primer paso que se pinta es el
+   * definitivo, y no hay ningún cambio de paso que choque con las transiciones de PrimeNG.
+   */
+  protected readonly starting = signal(false);
+
+  /** Cada apertura invalida la espera de la anterior: cerrar y reabrir no aplica dos pasos iniciales. */
+  private openings = 0;
+
   /** El servicio elegido con la opción apagada: el asistente de siempre, de un solo servicio. */
   protected readonly service = signal<PublicService | null>(null);
   protected readonly barber = signal<PublicBarber | null>(null);
 
   /**
-   * La barbería deja reservar varios servicios (M-08 RN-DISPO-37). Arranca apagado en cada apertura y
-   * lo enciende la política cuando llega (`loadBookingWindow`): **hasta entonces, y si no llega, el
-   * asistente es el de siempre**.
+   * El servidor rechazó la reserva múltiple en esta apertura (`409 MULTI_SERVICE_BOOKING_DISABLED`).
+   * Manda sobre la política, que se pidió al cargar la página y puede seguir diciendo «encendida»:
+   * volver a ofrecerla sería dejar al cliente en un bucle de rechazos.
    */
-  protected readonly multiEnabled = signal(false);
+  private readonly multiRevoked = signal(false);
 
   /**
-   * El servidor rechazó la reserva múltiple en esta apertura (`409 MULTI_SERVICE_BOOKING_DISABLED`).
-   * Manda sobre la política recargada: si esta todavía dijera «encendida», volver a ofrecerla sería
-   * dejar al cliente en un bucle de rechazos.
+   * La barbería deja reservar varios servicios (M-08 RN-DISPO-37). Sale de la política ya cargada; si
+   * la petición falló, o el servidor la revocó en esta apertura, **el asistente es el de siempre**.
    */
-  private multiRevoked = false;
+  protected readonly multiEnabled = computed(() => {
+    const policy = this.bookingPolicy.state();
+    return (
+      policy.status === 'ready' &&
+      policy.policy.multiServiceBookingEnabled === true &&
+      !this.multiRevoked()
+    );
+  });
 
   /** Con la opción encendida, la selección: una línea por cita, en orden (M-08 RN-DISPO-38). */
   protected readonly lines = signal<readonly SelectionLine[]>([]);
@@ -159,7 +171,7 @@ export class BookingWizard {
    */
   protected readonly showAnyBarberOption = computed(() => this.visibleBarbers().length > 1);
   /**
-   * Día elegido, `yyyy-MM-dd` **de la barbería**. Arranca vacío y lo siembra `loadBookingWindow()` con
+   * Día elegido, `yyyy-MM-dd` **de la barbería**. Arranca vacío y lo siembra `start()` con
    * el primer día reservable, que el backend ya calcula en la zona de la barbería y que es «hoy»
    * siempre que hoy se pueda reservar (M-02 RN-TEN-20). Sembrarlo aquí con un «hoy» propio exigiría
    * la zona antes de que haya llegado, y el del navegador sería el día equivocado.
@@ -184,17 +196,34 @@ export class BookingWizard {
   protected readonly createdEmail = signal('');
 
   /**
-   * Los días seleccionables. **Vacíos hasta que el backend diga cuáles son** (RF-RA03 §3, serie 042).
+   * Los días seleccionables. **Vacíos hasta que el backend diga cuáles son** (M-08 RN-DISPO-13).
    *
    * Antes esto arrancaba con 30 días calculados aquí. Ahora la ventana es de cada barbería —el
-   * horizonte lo fija ella y el plazo mínimo puede empujar el primer día más allá de hoy—, así que se
-   * pide al abrir el wizard. Se arranca vacío a propósito y no con una ventana provisional: pintar 30
-   * días y quitarlos 200 ms después haría desaparecer chips bajo el dedo del cliente.
+   * horizonte lo fija ella y el plazo mínimo puede empujar el primer día más allá de hoy—, así que
+   * sale de la política (M-08 RN-DISPO-37). Vacía a propósito y no con una ventana provisional: pintar
+   * 30 días y quitarlos 200 ms después haría desaparecer chips bajo el dedo del cliente. Si la política
+   * falló, la tira queda vacía: es preferible a inventar días que el servidor rechazaría uno a uno.
    */
-  protected readonly days = signal<string[]>([]);
+  protected readonly days = computed(() => {
+    const policy = this.bookingPolicy.state();
+    return policy.status === 'ready' ? bookingWindow(policy.policy) : [];
+  });
 
-  /** `true` mientras se resuelve la ventana, para que el paso 3 muestre su esqueleto en vez de nada. */
-  protected readonly windowLoading = signal(false);
+  /**
+   * La clave de la disponibilidad que corresponde a la selección actual, o `null` si todavía no hay
+   * con qué pedirla. Es contra la que se compara cada respuesta al llegar (M-08 RN-DISPO-52).
+   */
+  private readonly availabilityRequest = computed(() => {
+    const services = this.selectedServices();
+    const date = this.date();
+    if (services.length === 0 || !this.barberChosen() || !date) {
+      return null;
+    }
+
+    const barberId = this.barber()?.id ?? null;
+    const serviceIds = services.map((service) => service.id);
+    return { barberId, serviceIds, date, key: availabilityKey(barberId, serviceIds, date) };
+  });
 
   protected readonly slotsState = computed(() => slotsState(this.slots()));
 
@@ -370,105 +399,75 @@ export class BookingWizard {
   protected readonly formatDate = formatLongDate;
   protected readonly labelsFor = dayLabels;
 
-  /** Abre el wizard en el primer paso que todavía no tiene dato. */
+  /**
+   * Abre el wizard en el primer paso que todavía no tiene dato.
+   *
+   * M-08 RN-DISPO-37: el paso inicial se fija **una sola vez, con la política ya llegada**. Si todavía
+   * no llegó, el diálogo se abre con su indicador de carga y el paso se fija cuando llegue; no se pide
+   * otra vez: se espera la misma petición que lanzó la página.
+   */
   open(service: PublicService | null = null, barber: PublicBarber | null = null): void {
     this.reset();
-    // M-08 RN-DISPO-37: cada apertura empieza como el asistente de siempre y la política decide.
-    this.multiEnabled.set(false);
-    this.multiRevoked = false;
+    this.multiRevoked.set(false);
     this.service.set(service);
     this.barber.set(barber);
-    this.step.set(this.firstIncompleteStep());
     this.visible.set(true);
 
-    // RF-RA03 §3: la ventana se resuelve en cada apertura, no una vez por sesión. Es barata (el
-    // backend la sirve desde su cache, sin tocar Postgres) y el plazo mínimo la mueve con el reloj:
-    // una pestaña abierta desde ayer tendría la de ayer.
-    // La disponibilidad espera a la ventana: es la que fija el día preseleccionado.
-    const windowLoaded = this.loadBookingWindow();
-
-    // M-08 RN-DISPO-31, y por el mismo motivo que la línea de arriba. `CatalogService.ensureLoaded()` se
-    // ejecuta una vez por carga de página, así que una pestaña abierta desde la mañana seguiría
-    // ofreciendo a un barbero al que el admin acaba de dejar sin turnos — y desde el horario por día
-    // de la semana eso es una operación normal, no una rareza.
+    // M-08 RN-DISPO-31. `CatalogService.ensureLoaded()` se ejecuta una vez por carga de página, así que
+    // una pestaña abierta desde la mañana seguiría ofreciendo a un barbero al que el admin acaba de
+    // dejar sin turnos — y desde el horario por día de la semana eso es una operación normal, no una
+    // rareza.
     void this.catalog.revalidate();
 
-    if (service && barber) {
-      void windowLoaded.then(() => this.loadAvailability());
-    }
-  }
-
-  /**
-   * Pide la ventana de reserva del tenant y siembra la tira de días.
-   *
-   * Si falla, la tira queda vacía y el paso 3 lo dice: es preferible a inventar 30 días que el
-   * servidor podría rechazar uno a uno. Es el mismo criterio que `slotsFailed`.
-   */
-  private async loadBookingWindow(): Promise<void> {
-    this.windowLoading.set(true);
-
-    try {
-      const window: BookingWindow = await this.booking.getBookingWindow();
-      this.days.set(bookingWindow(window));
-
-      // El día preseleccionado tiene que estar DENTRO de la ventana. Con un plazo mínimo de un día,
-      // "hoy" ya no es reservable y dejarlo seleccionado pediría slots que el backend rechaza.
-      const days = this.days();
-      if (days.length > 0 && !days.includes(this.date())) {
-        this.date.set(days[0]);
-      }
-
-      if (window.multiServiceBookingEnabled === true) {
-        this.enableMultiService();
-      }
-    } catch {
-      this.days.set([]);
-    } finally {
-      this.windowLoading.set(false);
-    }
-  }
-
-  /**
-   * La política dice que la barbería ofrece varios servicios (M-08 RN-DISPO-37): el paso 1 pasa a ser
-   * el selector con Resumen.
-   *
-   * Si el asistente se abrió desde una tarjeta de servicio de la portada, ese servicio entra como
-   * primera línea y el asistente se queda en «Servicio» en vez de seguir en el barbero, para que el
-   * cliente pueda añadir más. Solo si todavía no eligió barbero: moverle el paso a quien ya avanzó
-   * sería quitarle lo que está mirando.
-   */
-  private enableMultiService(): void {
-    if (this.multiRevoked || this.multiEnabled()) {
+    const opening = ++this.openings;
+    if (this.bookingPolicy.state().status !== 'loading') {
+      this.start();
       return;
     }
 
-    this.multiEnabled.set(true);
-
-    const service = this.service();
-    if (service && this.lines().length === 0) {
-      this.lines.set([{ key: this.nextLineKey++, service }]);
-
-      if (this.step() === 2 && !this.barberChosen()) {
-        this.step.set(1);
+    this.starting.set(true);
+    void this.bookingPolicy.ensureLoaded().then(() => {
+      // Cerrado o reabierto mientras tanto: esa apertura ya no es la que espera.
+      if (opening === this.openings && this.visible()) {
+        this.start();
       }
+    });
+  }
+
+  /**
+   * Fija el paso inicial con la política ya resuelta (M-08 RN-DISPO-37). Con la múltiple, el servicio
+   * tocado en la portada entra como primera línea y el asistente se queda en «Servicio», para que el
+   * cliente pueda añadir más; con la normal, o si la política falló, salta al barbero como siempre.
+   */
+  private start(): void {
+    const service = this.service();
+    if (this.multiEnabled() && service) {
+      this.lines.set([{ key: this.nextLineKey++, service }]);
+    }
+
+    this.date.set(this.days()[0] ?? '');
+    this.step.set(this.firstIncompleteStep());
+    this.starting.set(false);
+
+    // Con barbero y servicio ya dados, el paso inicial es el Horario y necesita su disponibilidad.
+    if (this.availabilityRequest()) {
+      void this.loadAvailability();
     }
   }
 
   /**
    * El servidor dice que la barbería ya no deja reservar varios servicios (`409
    * MULTI_SERVICE_BOOKING_DISABLED`, M-08 RN-DISPO-37): se vuelve al asistente de un servicio, con el
-   * primero de la selección elegido, y se recarga la política para la tira de días.
+   * primero de la selección elegido. La tira de días no cambia: sale de la misma política.
    */
   private fallBackToSingleService(): void {
     const first = this.selectedServices()[0] ?? null;
 
-    this.multiRevoked = true;
-    this.multiEnabled.set(false);
+    this.multiRevoked.set(true);
     this.lines.set([]);
     this.service.set(first);
     this.clearTime();
     this.step.set(1);
-    void this.loadBookingWindow();
   }
 
   protected image(url: string | null): string | undefined {
@@ -707,13 +706,19 @@ export class BookingWizard {
     }
   }
 
+  /**
+   * Pide la disponibilidad de la selección actual y la aplica **solo si sigue siendo la elegida al
+   * llegar** (M-08 RN-DISPO-52). Si el cliente cambió de día, de barbero o de servicios con la anterior
+   * aún en vuelo, la respuesta tardía se descarta entera —horas, error y fin de carga—: la de la
+   * selección nueva ya está pedida y es la que manda.
+   */
   private async loadAvailability(): Promise<void> {
-    const services = this.selectedServices();
-    const barber = this.barber();
-
-    if (services.length === 0 || !this.barberChosen() || !this.date()) {
+    const request = this.availabilityRequest();
+    if (!request) {
       return;
     }
+
+    const stillChosen = (): boolean => this.availabilityRequest()?.key === request.key;
 
     this.slotsLoading.set(true);
     this.slotsFailed.set(false);
@@ -723,16 +728,20 @@ export class BookingWizard {
       // `requireLocale()` la vuelve a pedir, y si falla cuenta como fallo de disponibilidad.
       // Con varios servicios, cada hora es el inicio del bloque entero (M-08 RN-DISPO-40).
       const [response, locale] = await Promise.all([
-        this.booking.getAvailability(
-          barber?.id ?? null,
-          services.map((service) => service.id),
-          this.date(),
-        ),
+        this.booking.getAvailability(request.barberId, request.serviceIds, request.date),
         this.settings.requireLocale(),
       ]);
+      if (!stillChosen()) {
+        return;
+      }
       this.slots.set(flattenSlots(response, locale));
+      this.slotsLoading.set(false);
     } catch (error) {
+      if (!stillChosen()) {
+        return;
+      }
       this.slots.set([]);
+      this.slotsLoading.set(false);
 
       // La barbería apagó la opción con el asistente abierto: no es un fallo de red, es el mismo
       // rechazo que al confirmar y tiene la misma salida.
@@ -742,8 +751,6 @@ export class BookingWizard {
       }
 
       this.slotsFailed.set(true);
-    } finally {
-      this.slotsLoading.set(false);
     }
   }
 
@@ -752,7 +759,9 @@ export class BookingWizard {
       return 1;
     }
     if (!this.barberChosen()) {
-      return 2;
+      // M-08 RN-DISPO-37: con la múltiple, el servicio tocado ya es la primera línea y el cliente se
+      // queda en «Servicio» para poder añadir más; con la normal, al barbero, como siempre.
+      return this.multiEnabled() ? 1 : 2;
     }
     return this.time() ? 4 : 3;
   }
@@ -766,11 +775,14 @@ export class BookingWizard {
     this.service.set(null);
     this.barber.set(null);
     this.anyBarber.set(false);
-    this.date.set('');
-    // La tira se repuebla en `loadBookingWindow()`, que `open()` dispara justo después del reset.
-    this.days.set([]);
+    // El primer día reservable, que el backend ya calcula en la zona de la barbería. Si la política
+    // todavía no llegó queda vacío y lo siembra `start()`.
+    this.date.set(this.days()[0] ?? '');
     this.time.set(null);
     this.slots.set([]);
+    // Una petición de la apertura anterior que siga en vuelo ya no responde a esta selección y se
+    // descartará al llegar (M-08 RN-DISPO-52): nadie más apagaría su indicador.
+    this.slotsLoading.set(false);
     this.slotsFailed.set(false);
     this.created.set(null);
     this.createdAll.set([]);
@@ -778,8 +790,8 @@ export class BookingWizard {
     this.createdEmail.set('');
     this.submitting.set(false);
     this.form.reset();
-    // `multiEnabled` no se toca: un reinicio tras un error sigue en la misma barbería y con la misma
-    // política. Lo apaga `open()`, que es donde se vuelve a preguntar.
+    // `multiRevoked` no se toca: un reinicio tras un error sigue en la misma apertura, y si el servidor
+    // ya rechazó la múltiple no se vuelve a ofrecer. Lo limpia `open()`.
     this.lines.set([]);
   }
 }

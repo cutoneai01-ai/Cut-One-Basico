@@ -61,6 +61,12 @@
         <p-button label="Listo" (onClick)="close()" />
       </div>
     }
+  } @else if (starting()) {
+    <!-- M-08 RN-DISPO-37: el paso inicial espera a la política; mientras, carga y nunca un paso vacío. -->
+    <div class="slots-loading" role="status" aria-live="polite">
+      <p-progressSpinner [style]="{ width: '2.5rem', height: '2.5rem' }" />
+      <span class="cob-visually-hidden">Preparando tu reserva…</span>
+    </div>
   } @else {
     @if (referralBarberName(); as name) {
       <p class="cob-referral-banner" role="status">Reservando con {{ name }}</p>
