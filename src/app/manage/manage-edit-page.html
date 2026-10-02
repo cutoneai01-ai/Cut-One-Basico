@@ -1,0 +1,76 @@
+<cob-manage-frame [state]="ref.state()" [appointment]="ref.appointment()" [errorMessage]="ref.errorMessage()">
+  @if (ref.appointment(); as booking) {
+    @if (saved()) {
+      <section class="card">
+        <h1 class="card__title">¡Cita actualizada!</h1>
+        <p class="banner banner--ok" role="status">Te enviamos los datos nuevos por correo.</p>
+        <cob-appointment-card [appointment]="booking" [showPrice]="true" />
+        <a class="back" [routerLink]="['/reserva', booking.appointmentId]">Ver mi reserva</a>
+      </section>
+    } @else if (!booking.editable) {
+      <cob-action-not-allowed
+        title="No se puede cambiar esta cita"
+        [reason]="booking.notEditableReason || 'Esta cita ya no se puede modificar.'"
+        [appointment]="booking"
+      />
+    } @else {
+      <section class="card">
+        <h1 class="card__title">Cambiar tu cita</h1>
+        <p class="cob-muted lead">
+          @if (hasGroup()) {
+            Cambia el servicio, el barbero, el día o la hora de esta cita. Las demás no se tocan.
+          } @else {
+            Cambia el servicio, el barbero, el día o la hora de tu cita.
+          }
+        </p>
+
+        <label class="field__label" for="edit-service">Servicio</label>
+        <select
+          id="edit-service"
+          class="field__input"
+          [value]="serviceId() ?? ''"
+          (change)="chooseService($any($event.target).value)"
+        >
+          @for (service of serviceOptions(); track service.id) {
+            <option [value]="service.id" [selected]="service.id === serviceId()">
+              {{ service.name }} · {{ service.durationMin }} min · {{ formatPrice(service.price) }}
+            </option>
+          }
+        </select>
+
+        <div class="schedule">
+          <cob-schedule-picker
+            idPrefix="edit"
+            [barberOptions]="barberOptions()"
+            [barberId]="barberId()"
+            [days]="days()"
+            [date]="date()"
+            [slots]="slots()"
+            [slotsLoading]="slotsLoading()"
+            [slotsFailed]="slotsFailed()"
+            [time]="time()"
+            [clashes]="clashes()"
+            (barberChosen)="chooseBarber($event)"
+            (dateChosen)="chooseDate($event)"
+            (timeChosen)="chooseTime($event)"
+          />
+        </div>
+
+        <div class="actions">
+          <button
+            type="button"
+            class="btn btn--primary"
+            [disabled]="!time() || !dirty() || submitting()"
+            (click)="save()"
+          >
+            {{ submitting() ? 'Guardando…' : 'Guardar cambios' }}
+          </button>
+          <a class="btn" [routerLink]="['/reserva', booking.appointmentId]">Volver</a>
+        </div>
+        @if (!dirty()) {
+          <p class="cob-muted">Cambia algo para poder guardar.</p>
+        }
+      </section>
+    }
+  }
+</cob-manage-frame>

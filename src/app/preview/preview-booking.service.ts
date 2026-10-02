@@ -91,28 +91,24 @@ export class PreviewBookingService
   }
 
   /**
-   * La reserva múltiple (M-08 RN-DISPO-38) con el mismo criterio que `createAppointment`: citas de
-   * mentira compuestas en memoria, seguidas desde el instante pedido, sin ninguna petición. La ventana
-   * de arriba no enciende la opción, así que el asistente de la vista previa no llega aquí por su
-   * cuenta; existe para que nada que se monte en `/__preview` pueda llegar al backend real
-   * (M-20 RN-CFG-41).
+   * La reserva múltiple (M-08 RN-DISPO-54) con el mismo criterio que `createAppointment`: citas de
+   * mentira compuestas en memoria, una por item y en su instante, sin ninguna petición. La ventana de
+   * arriba no enciende la opción, así que el asistente de la vista previa no llega aquí por su cuenta;
+   * existe para que nada que se monte en `/__preview` pueda llegar al backend real (M-20 RN-CFG-41).
    */
   async createMultipleAppointments(
     input: CreateMultipleAppointmentsInput,
   ): Promise<MultipleAppointmentsCreatedResponse> {
-    const durationMin = 30;
-    const start = new Date(input.startAtUtc).getTime();
-
     return {
-      bookingGroupId: input.serviceIds.length > 1 ? 'preview-group' : null,
-      appointments: input.serviceIds.map((_, index) => ({
+      bookingGroupId: input.items.length > 1 ? 'preview-group' : null,
+      appointments: input.items.map((item, index) => ({
         appointmentId: `preview-appointment-${index + 1}`,
         confirmationCode: 'PREVIEW-0000',
         status: 'Confirmed',
         barberName: 'Barbero Ejemplo',
         serviceName: 'Servicio de ejemplo',
-        startAtUtc: new Date(start + index * durationMin * 60_000).toISOString(),
-        durationMin,
+        startAtUtc: item.startAtUtc,
+        durationMin: 30,
       })),
     };
   }

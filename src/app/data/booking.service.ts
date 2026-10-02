@@ -11,24 +11,6 @@ import type {
 } from './public-api.models';
 
 /**
- * Parámetros de servicio de una consulta de disponibilidad (M-08 RN-DISPO-40).
- *
- * Con **uno**, `serviceId` —la consulta de siempre, byte a byte—; con varios, `serviceIds` repetido y
- * en orden (`serviceIds=A&serviceIds=B&serviceIds=A`), que es como el servidor sabe el orden de las
- * citas. Mandar la lista también con uno no sería equivalente: con la opción apagada, un backend que
- * todavía no conoce `serviceIds` respondería `400` por falta de `serviceId`.
- *
- * La comparten el asistente y la gestión desde el correo, que tienen que decidir lo mismo.
- */
-export function serviceParams(serviceIds: string | readonly string[]): {
-  serviceId?: string;
-  serviceIds?: readonly string[];
-} {
-  const ids = typeof serviceIds === 'string' ? [serviceIds] : serviceIds;
-  return ids.length === 1 ? { serviceId: ids[0] } : { serviceIds: ids };
-}
-
-/**
  * Los endpoints públicos de reserva (M-08 §7, superficie API).
  *
  * Sin estado: la disponibilidad **no se cachea** —cachearla sería ofrecer un slot que ya no existe— y
@@ -42,24 +24,22 @@ export class BookingService {
    * El servicio importa en la consulta, no solo el barbero: el solape se calcula con su duración, así
    * que la misma hora puede estar libre para un corte y ocupada para un corte + barba.
    *
-   * `barberId` **nulo** es "cualquier profesional" (RF-CP01 §4.1, serie 031): el parámetro se omite y
-   * el backend devuelve la unión de las horas de todos los que prestan el servicio, con la misma
-   * forma de respuesta. Se omite en vez de mandarse vacío porque `?barberId=` sería un GUID inválido,
-   * no una ausencia.
+   * Siempre **un** servicio, también en la reserva múltiple: cada tarjeta pide la suya
+   * (M-08 RN-DISPO-60).
    *
-   * Con varios servicios cada hora devuelta es el inicio del **bloque** entero y «cualquier
-   * profesional» se limita a quienes prestan todos (M-08 RN-DISPO-40, RN-DISPO-41). La forma de la
-   * respuesta no cambia.
+   * `barberId` **nulo** es "cualquier profesional" (M-08 RN-DISPO-11): el parámetro se omite y el
+   * backend devuelve la unión de las horas de todos los que prestan el servicio, con la misma forma de
+   * respuesta. Se omite en vez de mandarse vacío porque `?barberId=` sería un GUID inválido, no una
+   * ausencia.
    */
   getAvailability(
     barberId: string | null,
-    serviceIds: string | readonly string[],
+    serviceId: string,
     date: string,
   ): Promise<AvailabilityResponse> {
-    const services = serviceParams(serviceIds);
     return firstValueFrom(
       this.http.get<AvailabilityResponse>('/api/v1/public/availability', {
-        params: barberId ? { barberId, ...services, date } : { ...services, date },
+        params: barberId ? { barberId, serviceId, date } : { serviceId, date },
       }),
     );
   }
@@ -87,9 +67,9 @@ export class BookingService {
   }
 
   /**
-   * Reserva de 2 o 3 servicios en un bloque, todo o nada (M-08 RN-DISPO-38 a RN-DISPO-42). Con un
-   * solo servicio el asistente sigue llamando a `createAppointment`: esta ruta existe solo para la
-   * reserva múltiple y un backend anterior no la tiene.
+   * Reserva de 2 o 3 citas independientes, todas o ninguna (M-08 RN-DISPO-54, RN-DISPO-56). Con una sola
+   * tarjeta el asistente sigue llamando a `createAppointment`: esta ruta existe solo para la reserva
+   * múltiple.
    */
   createMultipleAppointments(
     input: CreateMultipleAppointmentsInput,

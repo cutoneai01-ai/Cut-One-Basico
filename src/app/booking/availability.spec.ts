@@ -178,25 +178,16 @@ describe('bookingWindow', () => {
 
 // M-08 RN-DISPO-52: la clave con la que se descarta una respuesta que ya no responde a lo elegido.
 describe('availabilityKey', () => {
-  it('es la misma para la misma selección, venga el servicio suelto o en lista', () => {
-    expect(availabilityKey('juan', 'corte', '2026-10-01')).toBe(
-      availabilityKey('juan', ['corte'], '2026-10-01'),
-    );
+  it('es la misma para la misma selección', () => {
+    expect(availabilityKey('juan', 'corte', '2026-10-01')).toBe(availabilityKey('juan', 'corte', '2026-10-01'));
   });
 
-  it('cambia con el día, con el barbero y con «cualquier profesional»', () => {
-    const base = availabilityKey('juan', ['corte'], '2026-10-01');
+  it('cambia con el día, con el servicio, con el barbero y con «cualquier profesional»', () => {
+    const base = availabilityKey('juan', 'corte', '2026-10-01');
 
-    expect(availabilityKey('juan', ['corte'], '2026-10-02')).not.toBe(base);
-    expect(availabilityKey('camilo', ['corte'], '2026-10-01')).not.toBe(base);
-    expect(availabilityKey(null, ['corte'], '2026-10-01')).not.toBe(base);
-  });
-
-  it('cambia con los servicios y con su orden, que es el de las citas del bloque', () => {
-    const base = availabilityKey('juan', ['corte', 'barba'], '2026-10-01');
-
-    expect(availabilityKey('juan', ['barba', 'corte'], '2026-10-01')).not.toBe(base);
-    expect(availabilityKey('juan', ['corte'], '2026-10-01')).not.toBe(base);
-    expect(availabilityKey('juan', ['corte', 'barba', 'corte'], '2026-10-01')).not.toBe(base);
+    expect(availabilityKey('juan', 'corte', '2026-10-02')).not.toBe(base);
+    expect(availabilityKey('juan', 'barba', '2026-10-01')).not.toBe(base);
+    expect(availabilityKey('camilo', 'corte', '2026-10-01')).not.toBe(base);
+    expect(availabilityKey(null, 'corte', '2026-10-01')).not.toBe(base);
   });
 });

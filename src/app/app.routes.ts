@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { BookingPolicyService } from './data/booking-policy.service';
 import { BookingService } from './data/booking.service';
+import { legacyManageLinkGuard } from './manage/legacy-links';
 import { CatalogService } from './data/catalog.service';
 import { PopularServicesService } from './data/popular.service';
 import { SettingsService } from './data/settings.service';
@@ -65,12 +66,37 @@ export const routes: Routes = [
     path: 'encuesta/:appointmentId',
     loadComponent: () => import('./survey/survey-page').then((m) => m.SurveyPage),
   },
+  // M-08 RN-DISPO-61: una pantalla por acción, cada una en su chunk. Mismo argumento que la ruta de
+  // encuesta: el backend compone `https://{subdomain}.{domain}/reserva/{id}` en el correo
+  // (`TransactionalEmails.RenderManageButtonHtml`), así que quien sirve `/` es dueño de estas rutas.
   {
-    // RF-R01 (020-rfs-editar-reserva): mismo argumento que la ruta de encuesta — el backend compone
-    // `https://{subdomain}.{domain}/reserva/{id}` en el correo de confirmación
-    // (`TransactionalEmails.RenderManageButtonHtml`), así que quien sirve `/` es dueño de esta ruta.
     path: 'reserva/:appointmentId',
-    loadComponent: () => import('./manage/manage-booking-page').then((m) => m.ManageBookingPage),
+    canActivate: [legacyManageLinkGuard],
+    loadComponent: () => import('./manage/manage-detail-page').then((m) => m.ManageDetailPage),
+  },
+  {
+    path: 'reserva/:appointmentId/confirmar',
+    loadComponent: () => import('./manage/manage-confirm-page').then((m) => m.ManageConfirmPage),
+  },
+  {
+    path: 'reserva/:appointmentId/cancelar',
+    loadComponent: () => import('./manage/manage-cancel-page').then((m) => m.ManageCancelPage),
+  },
+  {
+    path: 'reserva/:appointmentId/editar',
+    loadComponent: () => import('./manage/manage-edit-page').then((m) => m.ManageEditPage),
+  },
+  {
+    path: 'reserva/:appointmentId/confirmar-todas',
+    data: { action: 'confirm' },
+    loadComponent: () =>
+      import('./manage/manage-group-action-page').then((m) => m.ManageGroupActionPage),
+  },
+  {
+    path: 'reserva/:appointmentId/cancelar-todas',
+    data: { action: 'cancel' },
+    loadComponent: () =>
+      import('./manage/manage-group-action-page').then((m) => m.ManageGroupActionPage),
   },
   {
     path: '**',

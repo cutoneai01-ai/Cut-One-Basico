@@ -1,9 +1,9 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { serviceParams } from './booking.service';
 import type {
   AvailabilityResponse,
+  GroupActionResponse,
   ManageAppointment,
   RescheduleInput,
 } from './public-api.models';
@@ -16,9 +16,9 @@ import type {
  *
  * El `?subdomain=` lo pone el interceptor (`subdomain.interceptor.ts`) — ningún método lo construye.
  *
- * Con reserva múltiple el id de la ruta puede ser el de **cualquier** cita del grupo, y leer,
- * confirmar, cancelar y editar operan la reserva entera (M-08 RN-DISPO-45 a RN-DISPO-47): los métodos
- * no cambian, cambia lo que hace el servidor con ellos.
+ * La gestión es **por cita** (M-08 RN-DISPO-57): leer, confirmar, cancelar y editar actúan sobre la cita
+ * del enlace aunque tenga grupo. Confirmar o cancelar el grupo entero son rutas aparte,
+ * `confirm-all` y `cancel-all` (M-08 RN-DISPO-58).
  */
 @Injectable({ providedIn: 'root' })
 export class ManageBookingService {
@@ -32,30 +32,31 @@ export class ManageBookingService {
 
   /**
    * Misma forma que `BookingService.getAvailability`, pero calculada excluyendo esta cita del solape
-   * (RN-09): sin eso, el horario actual del propio cliente le aparecería ocupado y no podría cambiar
-   * solo el servicio. Con grupo, el servidor excluye **todas** sus citas (M-08 RN-DISPO-47).
+   * (M-08 RN-DISPO-25): sin eso, el horario actual del propio cliente le aparecería ocupado y no podría
+   * cambiar solo el servicio. Excluye **solo** esta cita, no las demás del grupo (M-08 RN-DISPO-59).
    *
-   * El barbero y los servicios son los **seleccionados en la pantalla**, no los de la cita. Con uno
-   * viaja `serviceId`, como siempre; con varios, `serviceIds` repetido (`serviceParams`).
+   * El barbero y el servicio son los **seleccionados en la pantalla**, no los de la cita.
    */
   getAvailability(
     appointmentId: string,
     barberId: string,
-    serviceIds: string | readonly string[],
+    serviceId: string,
     date: string,
   ): Promise<AvailabilityResponse> {
     return firstValueFrom(
       this.http.get<AvailabilityResponse>(
         `/api/v1/public/appointments/${appointmentId}/manage/availability`,
-        { params: { barberId, ...serviceParams(serviceIds), date } },
+        { params: { barberId, serviceId, date } },
       ),
     );
   }
 
   /**
-   * Confirma la cita desde el botón del correo (RF-CN01 §4). Es idempotente: confirmar una ya
-   * confirmada devuelve 200 con su estado, no un error — la pantalla puede llamarlo sin comprobar
-   * nada. Sin cuerpo: el único dato es el id de la ruta.
+   * Confirma **esta** cita (M-08 RN-DISPO-57). Es idempotente (M-08 RN-DISPO-22): confirmar una ya
+   * confirmada devuelve 200 con su estado, no un error. Sin cuerpo: el único dato es el id de la ruta.
+   *
+   * **Solo se llama desde un clic** (M-08 RN-DISPO-61): los antivirus y los clientes de correo abren
+   * los enlaces por su cuenta, y abrir la pantalla no puede confirmar nada.
    */
   confirm(appointmentId: string): Promise<ManageAppointment> {
     return firstValueFrom(
@@ -67,11 +68,10 @@ export class ManageBookingService {
   }
 
   /**
-   * Cancela la cita a petición del cliente (RF-CC01 §4, 041-rfs-cancelar-cita-desde-el-correo). Es
-   * idempotente: cancelar una ya cancelada devuelve 200 con su estado, no un error.
+   * Cancela **esta** cita a petición del cliente (M-08 RN-DISPO-57). Es idempotente: cancelar una ya
+   * cancelada devuelve 200 con su estado, no un error.
    *
-   * **Solo se llama desde un handler de click.** El `?cancelar=1` del correo no la dispara: solo abre
-   * el panel de confirmación. Ver el comentario de `load()` en `manage-booking-page.ts`.
+   * **Solo se llama desde un clic** (M-08 RN-DISPO-61), igual que `confirm`: cancelar es irreversible.
    *
    * El cuerpo va siempre, aunque `reason` sea null: el endpoint espera un DTO, y un POST sin cuerpo
    * no lo bindea. Es la diferencia con `confirm()`, que va con `null` porque no lleva DTO.
@@ -85,6 +85,30 @@ export class ManageBookingService {
     );
   }
 
+  /**
+   * Confirma todas las citas vivas del grupo que se pueden confirmar (M-08 RN-DISPO-58). Las que no,
+   * vuelven en `skipped` con su motivo. Solo se llama desde un clic, como `confirm`.
+   */
+  confirmAll(appointmentId: string): Promise<GroupActionResponse> {
+    return firstValueFrom(
+      this.http.post<GroupActionResponse>(
+        `/api/v1/public/appointments/${appointmentId}/confirm-all`,
+        null,
+      ),
+    );
+  }
+
+  /** Cancela todas las citas vivas del grupo que se pueden cancelar (M-08 RN-DISPO-58). Solo desde un clic. */
+  cancelAll(appointmentId: string, reason: string | null): Promise<GroupActionResponse> {
+    return firstValueFrom(
+      this.http.post<GroupActionResponse>(
+        `/api/v1/public/appointments/${appointmentId}/cancel-all`,
+        { reason },
+      ),
+    );
+  }
+
+  /** Edita esta cita y ninguna otra del grupo (M-08 RN-DISPO-59). */
   reschedule(appointmentId: string, input: RescheduleInput): Promise<ManageAppointment> {
     return firstValueFrom(
       this.http.put<ManageAppointment>(

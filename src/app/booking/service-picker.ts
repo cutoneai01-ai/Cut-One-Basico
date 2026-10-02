@@ -18,11 +18,10 @@ export interface ServicePickerOption {
 }
 
 /**
- * Selector de hasta 3 servicios, repetibles, con su **Resumen** (M-08 RN-DISPO-38, ADR-0055).
- *
- * Es el mismo en el paso «Servicio» del asistente y en «Modificar» de `/reserva/:id`
- * (M-08 RN-DISPO-47): no guarda la selección, la recibe (`lines`) y emite lo que el cliente pide
- * —añadir, quitar, continuar—, así que cada pantalla decide qué hace con ello.
+ * Selector de hasta 3 servicios, repetibles, con su **Resumen** (M-08 RN-DISPO-38, ADR-0060): el paso
+ * «Servicios» del asistente de tarjetas (M-08 RN-DISPO-60). No guarda la selección, la recibe (`lines`)
+ * y emite lo que el cliente pide —añadir, quitar, continuar—. Cada línea será una tarjeta, con su
+ * propio barbero, día y hora, así que no hace falta un barbero que los preste todos.
  *
  * En móvil el Resumen se pliega en una barra fija al pie («3 servicios · 85 min · $56.000 ·
  * Continuar») que se abre como hoja. Es `sticky` y no `fixed` a propósito: dentro del `p-dialog`, un
@@ -40,23 +39,10 @@ export class ServicePicker {
   readonly options = input.required<readonly ServicePickerOption[]>();
   readonly lines = input.required<readonly SelectionLine[]>();
   /**
-   * Con `false` no se ofrece «Añadir» y solo se listan los servicios que ya están en la selección: es
-   * «Modificar» con la opción apagada, donde solo se puede quitar (M-08 RN-DISPO-48).
-   */
-  readonly canAdd = input(true);
-  /** Líneas que no se pueden quitar: 0 al reservar, 1 al modificar (una reserva no se vacía editando). */
-  readonly minLines = input(0);
-  readonly heading = input('Elige hasta 3 servicios');
-  /**
    * Barbero cuyo tiempo se muestra en el Resumen (RN-DISPO-35); nulo = el base de cada servicio, que
    * es lo que dice «A partir de».
    */
   readonly durationBarberId = input<string | null>(null);
-  /**
-   * El asistente avanza desde el Resumen; `/reserva/:id` no tiene pasos y guarda más abajo, así que
-   * ahí no hay botón ni barra fija: el Resumen va en línea.
-   */
-  readonly showContinue = input(true);
 
   readonly serviceAdded = output<PublicService>();
   readonly lineRemoved = output<number>();
@@ -71,12 +57,10 @@ export class ServicePicker {
 
   protected readonly cards = computed(() => {
     const selected = this.selected();
-    const cards = this.options().map((option) => ({
+    return this.options().map((option) => ({
       ...option,
       count: countOf(selected, option.service.id),
     }));
-    // Sin «Añadir», un servicio que no está en la reserva no tiene nada que hacer en la lista.
-    return this.canAdd() ? cards : cards.filter((card) => card.count > 0);
   });
 
   protected readonly summaryLines = computed(() => {

@@ -1,0 +1,180 @@
+/* Mismo lenguaje que la tira de días y la rejilla del asistente (booking-wizard.css): se repiten las
+   reglas porque los estilos van encapsulados por componente. */
+
+:host {
+  display: block;
+}
+
+.schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.row__label {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cob-text-muted);
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.375rem 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  font-size: 0.875rem;
+  background: var(--cob-panel-bg);
+  border: 1px solid var(--cob-border);
+  border-radius: var(--cob-radius);
+}
+
+.pill:hover,
+.pill[aria-pressed='true'] {
+  border-color: var(--cob-accent);
+}
+
+.pill[aria-pressed='true'] {
+  box-shadow: inset 0 0 0 1px var(--cob-accent);
+}
+
+.pill__avatar,
+.pill__glyph {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  flex: none;
+  object-fit: cover;
+}
+
+.pill__glyph {
+  display: grid;
+  place-items: center;
+  color: var(--cob-accent);
+  background: color-mix(in srgb, var(--cob-accent) 14%, transparent);
+}
+
+.pill__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.days {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scrollbar-width: thin;
+}
+
+.day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+  width: 3.75rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  line-height: 1.2;
+  background: var(--cob-panel-bg);
+  border: 1px solid var(--cob-border);
+  border-radius: var(--cob-radius);
+}
+
+.day--active {
+  border-color: var(--cob-accent);
+  color: var(--cob-accent);
+}
+
+.day__weekday,
+.day__month {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cob-text-muted);
+}
+
+.day--active .day__weekday,
+.day--active .day__month {
+  color: inherit;
+}
+
+.day__number {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+/* Objetivos de al menos 44 × 44 px; la rejilla se adapta al ancho. */
+.slots {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(4.75rem, 1fr));
+}
+
+.slot {
+  min-height: 2.75rem;
+  padding: 0.5rem;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  background: var(--cob-panel-bg);
+  border: 1px solid var(--cob-border);
+  border-radius: var(--cob-radius);
+}
+
+.slot:hover:not(:disabled):not(.slot--clash) {
+  border-color: var(--cob-accent);
+  color: var(--cob-accent);
+}
+
+.slot--active {
+  border-color: var(--cob-accent);
+  color: var(--cob-accent);
+  box-shadow: inset 0 0 0 1px var(--cob-accent);
+  font-weight: 600;
+}
+
+.slot--taken {
+  cursor: not-allowed;
+  text-decoration: line-through;
+  color: var(--cob-text-muted);
+  opacity: 0.55;
+}
+
+/* M-08 RN-DISPO-55: choca con otra cita del cliente. Punteada, y el motivo va escrito debajo. */
+.slot--clash {
+  cursor: not-allowed;
+  border-style: dashed;
+  color: var(--cob-text-muted);
+}
+
+.slot-note {
+  display: flex;
+  gap: 0.375rem;
+  align-items: baseline;
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--cob-text-muted);
+}
+
+.slots-loading {
+  display: grid;
+  place-items: center;
+  padding: 1.5rem 0;
+}

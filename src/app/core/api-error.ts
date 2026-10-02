@@ -14,6 +14,12 @@ export class ApiError extends Error {
     message: string,
     readonly code?: string,
     readonly errors?: Record<string, string[]>,
+    /**
+     * Extensión `details` del ProblemDetails: solo la traen los errores con datos estructurados, como
+     * los fallos por cita de `409 BOOKING_ITEMS_FAILED` (M-08 RN-DISPO-56). Sin forma fija: la estrecha
+     * quien la lee.
+     */
+    readonly details?: unknown,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -40,6 +46,7 @@ export const apiErrorInterceptor: HttpInterceptorFn = (request, next) =>
         title?: string;
         code?: string;
         errors?: Record<string, string[]>;
+        details?: unknown;
       };
 
       return throwError(
@@ -49,6 +56,7 @@ export const apiErrorInterceptor: HttpInterceptorFn = (request, next) =>
             typeof body.title === 'string' ? body.title : GENERIC_MESSAGE,
             body.code,
             body.errors,
+            body.details,
           ),
       );
     }),

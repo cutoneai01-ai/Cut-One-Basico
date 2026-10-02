@@ -117,7 +117,7 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
     pendingDays = new Map();
     booking = {
       getBookingWindow: vi.fn(() => firstValueFrom(policy$)),
-      getAvailability: vi.fn((_barberId: string | null, _ids: readonly string[], date: string) =>
+      getAvailability: vi.fn((_barberId: string | null, _serviceId: string, date: string) =>
         firstValueFrom(day(date)),
       ),
       createAppointment: vi.fn(),
@@ -159,6 +159,11 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
 
   // El diálogo de PrimeNG puede montarse fuera del host: se busca en todo el documento.
   const host = (): HTMLElement => document.body;
+  /** Las líneas del Resumen del paso Servicios del asistente de tarjetas. */
+  const summaryLines = (): string[] =>
+    Array.from(host().querySelectorAll('cob-service-picker .summary .line strong:first-child')).map((el) =>
+      (el.textContent ?? '').trim(),
+    );
   const clean = (value: string | null | undefined): string => (value ?? '').replace(/\s+/g, ' ').trim();
 
   function fillForm(): void {
@@ -174,7 +179,7 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
     it('dos días que responden en orden inverso: quedan los del día elegido y se reserva ese día', async () => {
       wizard.open(cut, juan);
       await settle();
-      expect(booking.getAvailability).toHaveBeenLastCalledWith('juan', ['corte'], '2026-10-01');
+      expect(booking.getAvailability).toHaveBeenLastCalledWith('juan', 'corte', '2026-10-01');
 
       // El cliente cambia de día con el primero todavía cargando.
       wizard['chooseDate']('2026-10-02');
@@ -276,7 +281,7 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
       return steps;
     }
 
-    it('con la múltiple y la política tardía: carga, y después Servicio con el servicio añadido, sin más cambios', async () => {
+    it('con la múltiple y la política tardía: carga, y después Servicios con el servicio añadido, sin más cambios', async () => {
       wizard.open(cut, null);
       const steps = recordSteps();
       await settle();
@@ -289,14 +294,12 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
       await settle();
       await settle();
 
-      expect(steps).toEqual([1]);
-      expect(wizard['step']()).toBe(1);
-      expect(host().querySelector('cob-service-picker')).not.toBeNull();
-      expect(wizard['lines']().map((line) => line.service.id)).toEqual(['corte']);
+      // El asistente de tarjetas arranca en su paso 1 y el de un servicio no se movió nunca.
+      expect(steps).toEqual([]);
+      expect(host().querySelector('cob-card-booking cob-service-picker')).not.toBeNull();
+      expect(summaryLines()).toEqual(['Corte']);
       expect(host().querySelector('p-dialog [role="status"] p-progressspinner')).toBeNull();
-      // La tira de días sale de la misma política, con el primer día elegido.
       expect(wizard['days']()).toEqual(['2026-10-01', '2026-10-02', '2026-10-03']);
-      expect(wizard['date']()).toBe('2026-10-01');
     });
 
     it('con la normal y la política tardía: carga, y después Barbero con ese servicio, sin más cambios', async () => {
@@ -311,7 +314,7 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
 
       expect(steps).toEqual([2]);
       expect(wizard['service']()).toBe(cut);
-      expect(host().querySelector('cob-service-picker')).toBeNull();
+      expect(host().querySelector('cob-card-booking')).toBeNull();
     });
 
     it('si la política falla: modo un servicio, paso Barbero y sin tira de días', async () => {
@@ -354,25 +357,22 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
       policy$.next({ ...WINDOW, multiServiceBookingEnabled: true });
       await settle();
 
-      expect(wizard['lines']().map((line) => line.service.id)).toEqual(['barba']);
-      expect(wizard['step']()).toBe(1);
+      expect(summaryLines()).toEqual(['Barba']);
     });
 
-    it('con la política ya cargada, el paso se fija al abrir y no hay indicador de carga', async () => {
+    it('con la política ya cargada, el asistente se monta al abrir y no hay indicador de carga', async () => {
       policy$.next({ ...WINDOW, multiServiceBookingEnabled: true });
       wizard.open(beard, null);
       await settle();
 
-      const steps = recordSteps();
       wizard['close']();
       wizard.open(cut, null);
 
-      // Síncrono: el primer pintado ya tiene su paso definitivo.
+      // Síncrono: el primer pintado ya es el definitivo.
       expect(wizard['starting']()).toBe(false);
-      expect(wizard['step']()).toBe(1);
-      expect(steps.at(-1)).toBe(1);
       await settle();
-      expect(host().querySelector('cob-service-picker')).not.toBeNull();
+      // Montado de nuevo en la apertura: solo el servicio de esta, no el de la anterior.
+      expect(summaryLines()).toEqual(['Corte']);
     });
   });
 });

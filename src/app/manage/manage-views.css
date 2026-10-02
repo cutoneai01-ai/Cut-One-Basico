@@ -1,0 +1,119 @@
+/* Lo común de las vistas de `/reserva/:id` (M-08 RN-DISPO-61). Un solo archivo que comparten por
+   `styleUrl`: cada vista lo encapsula, pero las reglas viven en un sitio. */
+
+:host {
+  display: block;
+}
+
+.card {
+  padding: clamp(1rem, 4vw, 1.75rem);
+  background: var(--cob-panel-bg);
+  border: 1px solid var(--cob-border);
+  border-radius: var(--cob-radius);
+}
+
+.card__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.25rem;
+}
+
+.lead {
+  margin: 0 0 0.75rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+/* Botones-enlace y botones con la misma forma: 44 px de alto como mínimo. En móvil, uno por fila. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border-radius: var(--cob-radius);
+  border: 1px solid var(--cob-border);
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  background: var(--cob-panel-bg);
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn--primary {
+  color: var(--p-primary-contrast-color, #fff);
+  background: var(--cob-accent);
+  border-color: var(--cob-accent);
+}
+
+.btn--danger {
+  color: #fff;
+  background: var(--p-red-500, #b3261e);
+  border-color: var(--p-red-500, #b3261e);
+}
+
+@media (max-width: 30rem) {
+  .actions .btn {
+    flex: 1 1 100%;
+  }
+}
+
+.banner {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem;
+  border-radius: var(--cob-radius);
+}
+
+.banner--ok {
+  color: var(--p-green-600, #2f7d4f);
+  background: color-mix(in srgb, var(--p-green-600, #2f7d4f) 12%, transparent);
+}
+
+.banner--err {
+  color: var(--p-red-500, #b3261e);
+  background: color-mix(in srgb, var(--p-red-500, #b3261e) 12%, transparent);
+}
+
+.back {
+  display: inline-block;
+  margin-top: 1rem;
+  color: var(--cob-accent);
+}
+
+.field__label {
+  display: block;
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.875rem;
+}
+
+/* 16px: por debajo iOS Safari amplía la página al enfocar el campo. */
+.field__input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.625rem;
+  color: inherit;
+  font: inherit;
+  font-size: 1rem;
+  background: var(--cob-panel-bg);
+  border: 1px solid var(--cob-border);
+  border-radius: var(--cob-radius);
+}
+
+.results {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.schedule {
+  margin-top: 1rem;
+}

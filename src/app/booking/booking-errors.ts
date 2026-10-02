@@ -1,4 +1,5 @@
 import { ApiError } from '../core/api-error';
+import type { BookingItemFailure } from '../data/public-api.models';
 
 /**
  * Qué hace el wizard además de mostrar el mensaje.
@@ -137,4 +138,31 @@ export function planForBookingError(error: unknown): BookingErrorPlan {
         reaction: 'stay',
       };
   }
+}
+
+/**
+ * Los fallos por cita de un `409 BOOKING_ITEMS_FAILED` (M-08 RN-DISPO-56), o nulo si el error es otro.
+ *
+ * `details` llega sin forma garantizada desde la red: se descarta cualquier fallo que no traiga índice
+ * entero y mensaje, en vez de pintar `undefined` en una tarjeta. Si el código es el bueno pero no queda
+ * ningún fallo legible, se devuelve la lista vacía y quien llama muestra solo el mensaje general.
+ */
+export function bookingItemFailures(error: unknown): BookingItemFailure[] | null {
+  if (!(error instanceof ApiError) || error.code !== 'BOOKING_ITEMS_FAILED') {
+    return null;
+  }
+
+  const failures = (error.details as { failures?: unknown } | null | undefined)?.failures;
+  if (!Array.isArray(failures)) {
+    return [];
+  }
+
+  return failures.filter(
+    (failure): failure is BookingItemFailure =>
+      typeof failure === 'object' &&
+      failure !== null &&
+      Number.isInteger((failure as BookingItemFailure).index) &&
+      typeof (failure as BookingItemFailure).message === 'string' &&
+      typeof (failure as BookingItemFailure).code === 'string',
+  );
 }

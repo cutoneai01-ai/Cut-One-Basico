@@ -4,63 +4,35 @@
   [draggable]="false"
   [dismissableMask]="false"
   [style]="{ width: 'min(56rem, 94vw)' }"
+  styleClass="cob-booking-dialog"
   header="Reservar cita"
 >
   @if (created(); as appointment) {
-    @if (createdAll().length > 1) {
-      <!-- M-08 RN-DISPO-39 y M-24 RN-MAIL-32: una reserva de varias citas seguidas, un código (el de la
-           primera cita, ADR-0055) y un solo correo con todo. -->
-      <div class="done">
-        <i class="pi pi-check-circle done__icon" aria-hidden="true"></i>
-        <h3 class="cob-title">¡Reserva confirmada!</h3>
+    <div class="done">
+      <i class="pi pi-check-circle done__icon" aria-hidden="true"></i>
+      <h3 class="cob-title">¡Tu cita quedó agendada!</h3>
 
-        <p class="done__code">
-          Código de confirmación
-          <strong>{{ appointment.confirmationCode }}</strong>
-        </p>
+      <p class="done__code">
+        Código de confirmación
+        <strong>{{ appointment.confirmationCode }}</strong>
+      </p>
 
-        @if (createdRange(); as range) {
-          <p class="cob-muted">
-            {{ formatDate(zoned(appointment.startAtUtc).date) }} · {{ range }} con
-            {{ appointment.barberName }}
-          </p>
-        }
+      <!-- M-08 RN-DISPO-52: el día y la hora salen de la cita creada, no del selector. -->
+      <dl class="summary">
+        <div><dt class="cob-muted">Servicio</dt><dd>{{ appointment.serviceName }}</dd></div>
+        <div><dt class="cob-muted">Profesional</dt><dd>{{ appointment.barberName }}</dd></div>
+        <div><dt class="cob-muted">Fecha</dt><dd>{{ formatDate(zoned(appointment.startAtUtc).date) }}</dd></div>
+        <div>
+          <dt class="cob-muted">Hora</dt>
+          <dd>{{ zoned(appointment.startAtUtc).time }} · {{ appointment.durationMin }} min</dd>
+        </div>
+      </dl>
 
-        <cob-appointment-list class="done__list" [items]="createdItems()" />
+      <!-- Este aviso solo es cierto porque el correo es obligatorio (§5 RN-04). -->
+      <p class="cob-muted">Te enviamos los detalles al correo que indicaste.</p>
 
-        <p class="cob-muted">
-          Te enviamos un correo a <strong>{{ createdEmail() }}</strong> con toda tu reserva. Desde ahí
-          puedes modificarla o cancelarla completa.
-        </p>
-
-        <p-button label="Listo" (onClick)="close()" />
-      </div>
-    } @else {
-      <div class="done">
-        <i class="pi pi-check-circle done__icon" aria-hidden="true"></i>
-        <h3 class="cob-title">¡Tu cita quedó agendada!</h3>
-
-        <p class="done__code">
-          Código de confirmación
-          <strong>{{ appointment.confirmationCode }}</strong>
-        </p>
-
-        <dl class="summary">
-          <div><dt class="cob-muted">Servicio</dt><dd>{{ appointment.serviceName }}</dd></div>
-          <div><dt class="cob-muted">Profesional</dt><dd>{{ appointment.barberName }}</dd></div>
-          <div><dt class="cob-muted">Fecha</dt><dd>{{ formatDate(zoned(appointment.startAtUtc).date) }}</dd></div>
-          <div>
-            <dt class="cob-muted">Hora</dt>
-            <dd>{{ zoned(appointment.startAtUtc).time }} · {{ appointment.durationMin }} min</dd>
-          </div>
-        </dl>
-
-        <!-- Este aviso solo es cierto porque el correo es obligatorio (§5 RN-04). -->
-        <p class="cob-muted">Te enviamos los detalles al correo que indicaste.</p>
-
-        <p-button label="Listo" (onClick)="close()" />
-      </div>
-    }
+      <p-button label="Listo" (onClick)="close()" />
+    </div>
   } @else if (starting()) {
     <!-- M-08 RN-DISPO-37: el paso inicial espera a la política; mientras, carga y nunca un paso vacío. -->
     <div class="slots-loading" role="status" aria-live="polite">
@@ -71,6 +43,21 @@
     @if (referralBarberName(); as name) {
       <p class="cob-referral-banner" role="status">Reservando con {{ name }}</p>
     }
+    @if (multiEnabled()) {
+      <!-- M-08 RN-DISPO-60: con la múltiple, el asistente de tarjetas. Se monta de nuevo en cada
+           apertura (la identidad es el número de apertura), así empieza siempre limpio. -->
+      @for (opening of [openings()]; track opening) {
+        <cob-card-booking
+          [services]="services()"
+          [barbers]="barbers()"
+          [initialService]="service()"
+          [fixedBarber]="barber()"
+          [referralBarberId]="referralBarberId()"
+          (finished)="close()"
+          (singleServiceFallback)="fallBackToSingleService($event)"
+        />
+      }
+    } @else {
     <p-stepper [(value)]="step" [linear]="false" styleClass="wizard">
       <p-step-list>
         <p-step [value]="1">Servicio</p-step>
@@ -85,16 +72,6 @@
           <ng-template #content>
             @if (visibleServices().length === 0) {
               <p-message severity="info" [text]="barber() ? barberName(barber()) + ' no tiene servicios configurados. Elige otro profesional.' : 'Este negocio todavía no publicó servicios.'" />
-            } @else if (multiEnabled()) {
-              <!-- M-08 RN-DISPO-37 y RN-DISPO-38: con la opción encendida, hasta 3 servicios con Resumen. -->
-              <cob-service-picker
-                [options]="serviceOptions()"
-                [lines]="lines()"
-                [durationBarberId]="barber()?.id ?? null"
-                (serviceAdded)="addService($event)"
-                (lineRemoved)="removeService($event)"
-                (proceed)="continueFromServices()"
-              />
             } @else {
               <div class="options">
                 @for (entry of serviceOptions(); track entry.service.id) {
@@ -125,19 +102,8 @@
         <p-step-panel [value]="2">
           <ng-template #content>
             @if (visibleBarbers().length === 0) {
-              @if (isMulti()) {
-                <p-message severity="info" text="Ningún profesional presta todos los servicios de tu reserva. Quita alguno para continuar." />
-              } @else {
-                <p-message severity="info" [text]="service() ? 'Ningún profesional presta este servicio ahora mismo. Elige otro servicio.' : 'Este negocio todavía no publicó profesionales.'" />
-              }
+              <p-message severity="info" [text]="service() ? 'Ningún profesional presta este servicio ahora mismo. Elige otro servicio.' : 'Este negocio todavía no publicó profesionales.'" />
             } @else {
-              <!-- M-08 RN-DISPO-41: con varios servicios, solo quien los presta todos. -->
-              @if (isMulti()) {
-                <p class="helper">
-                  <i class="pi pi-users" aria-hidden="true"></i>
-                  Solo aparecen los profesionales que prestan los {{ selectedServices().length }} servicios de tu reserva.
-                </p>
-              }
               <div class="options">
                 <!--
                   RF-CP01 §8 (serie 031): primera opción, y solo con dos o más profesionales. El texto
@@ -186,13 +152,6 @@
                   </button>
                 }
               </div>
-              @if (isMulti() && hiddenBarberCount() > 0) {
-                <p class="helper helper--after">
-                  <i class="pi pi-info-circle" aria-hidden="true"></i>
-                  {{ hiddenBarberCount() === 1 ? '1 profesional no aparece' : hiddenBarberCount() + ' profesionales no aparecen' }}
-                  porque no presta todos los servicios elegidos.
-                </p>
-              }
             }
 
             <div class="nav">
@@ -204,11 +163,6 @@
         <!-- Paso 3 — Horario -->
         <p-step-panel [value]="3">
           <ng-template #content>
-            <!-- M-08 RN-DISPO-39: las citas van seguidas, con el mismo profesional, desde la hora elegida. -->
-            @if (isMulti()) {
-              <cob-booking-block [segments]="block()" [barberLabel]="blockBarberLabel()" />
-            }
-
             <div class="days" role="group" aria-label="Elige el día">
               @for (day of days(); track day) {
                 <button
@@ -236,19 +190,11 @@
             } @else if (slotsState() === 'full') {
               <p-message severity="info" text="Ese día está completo. Prueba con otra fecha." />
             } @else {
-              <!-- M-08 RN-DISPO-40: el paso entre arranques es el servicio más corto y cada hora reserva el bloque entero. -->
-              @if (isMulti()) {
-                <p class="helper">
-                  <i class="pi pi-clock" aria-hidden="true"></i>
-                  Horas de inicio cada {{ startStepMin() }} min · cada una reserva {{ selectedDurationMin() }} min seguidos
-                </p>
-              }
               <div class="slots">
                 @for (slot of slots(); track slot.startAtUtc) {
                   <button
                     type="button"
                     class="slot"
-                    [class.slot--active]="isMulti() && time() === slot.startAtUtc"
                     [class.slot--taken]="!slot.available"
                     [disabled]="!slot.available"
                     (click)="chooseTime(slot)"
@@ -259,17 +205,8 @@
               </div>
             }
 
-            <div class="nav" [class.nav--split]="isMulti()">
+            <div class="nav">
               <p-button label="Atrás" [text]="true" icon="pi pi-arrow-left" (onClick)="back()" />
-              @if (isMulti()) {
-                <p-button
-                  label="Continuar"
-                  icon="pi pi-arrow-right"
-                  iconPos="right"
-                  [disabled]="!time()"
-                  (onClick)="continueToDetails()"
-                />
-              }
             </div>
           </ng-template>
         </p-step-panel>
@@ -279,36 +216,7 @@
           <ng-template #content>
             <div class="checkout">
               <form class="form" [formGroup]="form" (ngSubmit)="confirm()">
-                <p-floatlabel variant="on">
-                  <input pInputText id="fullName" formControlName="fullName" maxlength="120" autocomplete="name" />
-                  <label for="fullName">Nombre completo *</label>
-                </p-floatlabel>
-                @if (form.controls.fullName.touched && form.controls.fullName.invalid) {
-                  <p-message severity="error" variant="simple" size="small" text="Necesitamos tu nombre." />
-                }
-
-                <p-floatlabel variant="on">
-                  <input pInputText id="email" type="email" formControlName="email" maxlength="160" autocomplete="email" />
-                  <label for="email">Correo electrónico *</label>
-                </p-floatlabel>
-                @if (form.controls.email.touched && form.controls.email.invalid) {
-                  <p-message
-                    severity="error"
-                    variant="simple"
-                    size="small"
-                    text="Necesitamos un correo válido: es donde llega la confirmación."
-                  />
-                }
-
-                <p-floatlabel variant="on">
-                  <input pInputText id="phone" formControlName="phone" maxlength="30" autocomplete="tel" />
-                  <label for="phone">Teléfono (opcional)</label>
-                </p-floatlabel>
-
-                <p-floatlabel variant="on">
-                  <textarea pTextarea id="notes" formControlName="notes" maxlength="500" rows="3"></textarea>
-                  <label for="notes">Notas (opcional)</label>
-                </p-floatlabel>
+                <cob-customer-fields [form]="form" />
 
                 <div class="nav nav--split">
                   <p-button label="Atrás" [text]="true" icon="pi pi-arrow-left" (onClick)="back()" />
@@ -324,15 +232,9 @@
 
               <aside class="recap">
                 <h4 class="recap__title">Tu reserva</h4>
-                <!-- M-08 RN-DISPO-39: con varios servicios, cada cita con su hora dentro del bloque. -->
-                @if (isMulti()) {
-                  <cob-appointment-list [items]="recapItems()" />
-                }
                 <dl class="summary">
-                  @if (!isMulti()) {
-                    @if (selectedServices()[0]; as chosen) {
-                      <div><dt class="cob-muted">Servicio</dt><dd>{{ chosen.name }}</dd></div>
-                    }
+                  @if (service(); as chosen) {
+                    <div><dt class="cob-muted">Servicio</dt><dd>{{ chosen.name }}</dd></div>
                   }
                   <!--
                     M-08 RN-DISPO-35: con «cualquier profesional» es el base y se marca aproximado, porque
@@ -350,26 +252,15 @@
                     <div><dt class="cob-muted">Profesional</dt><dd>Cualquier profesional</dd></div>
                   }
                   <div><dt class="cob-muted">Fecha</dt><dd>{{ date() ? formatDate(date()) : '—' }}</dd></div>
-                  @if (!isMulti()) {
-                    @if (time(); as chosen) {
-                      <div><dt class="cob-muted">Hora</dt><dd>{{ zoned(chosen).time }}</dd></div>
-                    }
+                  @if (time(); as chosen) {
+                    <div><dt class="cob-muted">Hora</dt><dd>{{ zoned(chosen).time }}</dd></div>
                   }
                 </dl>
 
-                @if (selectedServices().length > 0) {
+                @if (service(); as chosen) {
                   <p class="recap__total">
                     <span class="cob-muted">Total</span>
-                    <strong>{{ formatPrice(selectedTotal()) }}</strong>
-                  </p>
-                }
-
-                @if (isMulti()) {
-                  <!-- M-24 RN-MAIL-32: una reserva, un correo. -->
-                  <p class="helper helper--after">
-                    <i class="pi pi-envelope" aria-hidden="true"></i>
-                    Te enviaremos un solo correo con todos tus servicios. Desde ahí podrás modificar o
-                    cancelar la reserva completa.
+                    <strong>{{ formatPrice(chosen.price) }}</strong>
                   </p>
                 }
               </aside>
@@ -378,5 +269,6 @@
         </p-step-panel>
       </p-step-panels>
     </p-stepper>
+    }
   }
 </p-dialog>

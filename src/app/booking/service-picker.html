@@ -1,23 +1,12 @@
-<div
-  class="picker"
-  [class.picker--inline]="!showContinue()"
-  [class.picker--sheet-open]="sheetOpen()"
->
+<div class="picker" [class.picker--sheet-open]="sheetOpen()">
   <div class="picker__main">
     <div class="picker__head">
-      <h3 class="picker__title">{{ heading() }}</h3>
-      @if (canAdd()) {
-        <span class="cob-muted">Puedes repetir un servicio</span>
-      }
+      <h3 class="picker__title">Elige hasta 3 servicios</h3>
+      <span class="cob-muted">Puedes repetir un servicio</span>
     </div>
 
-    <!-- M-08 RN-DISPO-48: con la opción apagada, al modificar solo se quita. M-08 RN-DISPO-38: el tope. -->
-    @if (!canAdd()) {
-      <p class="picker__hint" role="status">
-        <i class="pi pi-info-circle" aria-hidden="true"></i>
-        Esta barbería ya no permite añadir servicios; puedes quitar o cambiar la hora.
-      </p>
-    } @else if (full()) {
+    <!-- M-08 RN-DISPO-38: el tope. -->
+    @if (full()) {
       <p class="picker__hint" role="status">
         <i class="pi pi-info-circle" aria-hidden="true"></i>
         Máximo {{ max }} servicios por reserva
@@ -48,17 +37,15 @@
                   <i class="pi pi-check" aria-hidden="true"></i> {{ countLabel(card.count) }}
                 </span>
               }
-              @if (canAdd()) {
-                <p-button
-                  size="small"
-                  [outlined]="true"
-                  icon="pi pi-plus"
-                  label="Añadir"
-                  [ariaLabel]="'Añadir ' + card.service.name"
-                  [disabled]="full()"
-                  (onClick)="serviceAdded.emit(card.service)"
-                />
-              }
+              <p-button
+                size="small"
+                [outlined]="true"
+                icon="pi pi-plus"
+                label="Añadir"
+                [ariaLabel]="'Añadir ' + card.service.name"
+                [disabled]="full()"
+                (onClick)="serviceAdded.emit(card.service)"
+              />
             </div>
           </div>
         </li>
@@ -67,14 +54,12 @@
   </div>
 
   <aside class="summary" aria-label="Resumen de la reserva">
-    @if (showContinue()) {
-      <button
-        type="button"
-        class="summary__grip"
-        aria-label="Cerrar el resumen"
-        (click)="sheetOpen.set(false)"
-      ></button>
-    }
+    <button
+      type="button"
+      class="summary__grip"
+      aria-label="Cerrar el resumen"
+      (click)="sheetOpen.set(false)"
+    ></button>
 
     <div class="summary__head">
       <h4 class="summary__title">Resumen</h4>
@@ -97,7 +82,6 @@
               type="button"
               class="line__remove"
               [attr.aria-label]="'Quitar ' + line.service.name + ' del resumen'"
-              [disabled]="lines().length <= minLines()"
               (click)="remove(line.key)"
             >
               <i class="pi pi-trash" aria-hidden="true"></i>
@@ -120,33 +104,32 @@
       </div>
     </dl>
 
-    @if (lines().length > 1) {
-      <!-- M-24 RN-MAIL-32: una reserva, un correo. M-08 RN-DISPO-43: cada servicio gasta un cupo. -->
+    @if (lines().length > 0) {
+      <!-- M-08 RN-DISPO-54: cada servicio es una cita independiente. -->
       <p class="summary__notice">
-        <i class="pi pi-envelope" aria-hidden="true"></i>
-        <span>
-          Te enviaremos un solo correo con todos tus servicios. Desde ahí podrás modificar o cancelar
-          la reserva completa.
-        </span>
+        <i class="pi pi-calendar" aria-hidden="true"></i>
+        <span>Cada servicio será una cita, con su propio barbero, día y hora.</span>
       </p>
+    }
+
+    @if (lines().length > 1) {
+      <!-- M-08 RN-DISPO-43: cada servicio gasta un cupo. -->
       <p class="cob-muted summary__quota">
         Cada servicio cuenta como una cita: puedes tener hasta 3 citas activas.
       </p>
     }
 
-    @if (showContinue()) {
-      <p-button
-        [fluid]="true"
-        label="Continuar"
-        icon="pi pi-arrow-right"
-        iconPos="right"
-        [disabled]="lines().length === 0"
-        (onClick)="continueBooking()"
-      />
-    }
+    <p-button
+      [fluid]="true"
+      label="Continuar"
+      icon="pi pi-arrow-right"
+      iconPos="right"
+      [disabled]="lines().length === 0"
+      (onClick)="continueBooking()"
+    />
   </aside>
 
-  @if (showContinue() && lines().length > 0 && !sheetOpen()) {
+  @if (lines().length > 0 && !sheetOpen()) {
     <div class="bar">
       <button
         type="button"

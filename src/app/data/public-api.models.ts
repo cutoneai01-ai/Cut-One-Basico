@@ -174,22 +174,42 @@ export interface AppointmentCreatedResponse {
 }
 
 /**
- * Cuerpo de `POST /public/appointments/multiple` (M-08 RN-DISPO-38, ADR-0055). Es el de la reserva
- * simple con la lista en lugar del servicio suelto: el **orden** de `serviceIds` es el de las citas, y
- * un servicio repetido son dos citas. El instante es el inicio del bloque; el resto de citas lo coloca
- * el servidor, seguidas (RN-DISPO-39).
+ * Una cita de la reserva múltiple: **su** servicio, **su** barbero (nulo = «cualquier profesional») y
+ * **su** instante, tal cual llegó de la disponibilidad de su tarjeta (M-08 RN-DISPO-54).
  */
-export interface CreateMultipleAppointmentsInput extends Omit<CreateAppointmentInput, 'serviceId'> {
-  serviceIds: string[];
+export interface BookingItemInput {
+  serviceId: string;
+  barberId: string | null;
+  startAtUtc: string;
 }
 
 /**
- * Respuesta `201` de la reserva múltiple: las citas en orden, con la forma de la reserva simple.
- * `bookingGroupId` es nulo cuando la lista tenía un solo servicio (RN-DISPO-44).
+ * Cuerpo de `POST /public/appointments/multiple` (M-08 RN-DISPO-54, ADR-0060): un item por tarjeta, en
+ * el orden de las tarjetas, que es el de las citas en la respuesta. El cliente y el barbero referido
+ * son los de la reserva simple.
  */
+export interface CreateMultipleAppointmentsInput {
+  items: BookingItemInput[];
+  customer: CreateAppointmentInput['customer'];
+  referralBarberId?: string | null;
+}
+
+/** Respuesta `201` de la reserva múltiple: las citas en el orden de los items (M-08 RN-DISPO-54). */
 export interface MultipleAppointmentsCreatedResponse {
   bookingGroupId: string | null;
   appointments: AppointmentCreatedResponse[];
+}
+
+/**
+ * Un item que no se pudo crear, dentro de `details.failures` del `409 BOOKING_ITEMS_FAILED`
+ * (M-08 RN-DISPO-56). `message` es el texto que se pinta en su tarjeta; `overlapsIndex` solo viene con
+ * `BOOKING_ITEMS_OVERLAP`.
+ */
+export interface BookingItemFailure {
+  index: number;
+  code: string;
+  message: string;
+  overlapsIndex?: number;
 }
 
 /** RF-E01 (006-rfs-encuestas). `appointmentDateEs` ya viene formateada en español por el backend. */
@@ -263,46 +283,64 @@ export interface ManageAppointment {
   /** Motivo redactado de por qué no se puede cancelar, o null si sí se puede o si ya lo está. */
   notCancelableReason: string | null;
 
-  // Reserva múltiple (M-08 RN-DISPO-45, ADR-0055). Con grupo, los campos de arriba son los de la
-  // **primera** cita viva y estos describen la reserva entera. Todos opcionales: un backend anterior no
-  // los manda, y entonces la pantalla es la de una cita suelta, exactamente la de siempre.
-
-  /** Id del grupo, o nulo si la cita no pertenece a una reserva múltiple (RN-DISPO-44). */
-  bookingGroupId?: string | null;
-  /** Las citas de la reserva, en orden. Sin grupo trae una sola línea: la propia cita. */
-  services?: ManageAppointmentService[];
-  /** Inicio y fin del bloque entero, instantes UTC. Sin grupo coinciden con la cita. */
-  blockStartAtUtc?: string;
-  blockEndAtUtc?: string;
-  /** Suma de los precios de `services`. */
-  totalPrice?: number;
   /**
-   * Si la barbería deja hoy reservar varios servicios (RN-DISPO-37). Apagado, editar solo puede quitar
-   * servicios, cambiar barbero u hora (RN-DISPO-48). Ausente equivale a `false`.
+   * Id del grupo, o nulo si la cita no pertenece a una reserva múltiple (M-08 RN-DISPO-44).
+   * **Opcional** hasta que el backend de la gestión por cita esté desplegado: ausente equivale a nulo.
    */
-  multiServiceBookingEnabled?: boolean;
+  bookingGroupId?: string | null;
+  /**
+   * La reserva entera, si la cita tiene grupo (M-08 RN-DISPO-57): **todas** sus citas, la del enlace
+   * incluida, en orden de inicio y también las canceladas. Nulo o ausente, la cita va suelta.
+   */
+  group?: ManageGroup | null;
 }
 
-/** Una cita de la reserva, tal como la describe la respuesta de gestión (M-08 RN-DISPO-45). */
-export interface ManageAppointmentService {
+/** El grupo de la cita del enlace (M-08 RN-DISPO-57). */
+export interface ManageGroup {
+  appointments: ManageGroupAppointment[];
+  /** Alguna cita viva del grupo se puede confirmar: se ofrece «Confirmar todas» (M-08 RN-DISPO-58). */
+  anyConfirmable: boolean;
+  /** Alguna cita viva del grupo se puede cancelar: se ofrece «Cancelar todas». */
+  anyCancelable: boolean;
+}
+
+/** Una cita del grupo, con sus propios permisos (M-08 RN-DISPO-57). */
+export interface ManageGroupAppointment {
   appointmentId: string;
+  confirmationCode: string;
+  status: string;
   serviceId: string;
   serviceName: string;
+  barberId: string;
+  barberName: string;
   /** Instante UTC de inicio de esta cita. */
   startAtUtc: string;
+  /** Ya formateada por el backend en la zona de la barbería. */
+  dateEs: string;
   durationMin: number;
   price: number;
+  editable: boolean;
+  confirmable: boolean;
+  cancelable: boolean;
 }
 
 /**
- * Cuerpo del `PUT /public/appointments/{id}/manage`. Lleva **uno de los dos**: `serviceId` suelto (la
- * edición de una cita de siempre, tal cual se mandaba) o `serviceIds`, que recoloca la reserva entera
- * con la lista nueva (M-08 RN-DISPO-47).
+ * Respuesta de `confirm-all` y `cancel-all` (M-08 RN-DISPO-58): la gestión de la cita del enlace tras el
+ * cambio, qué citas cambiaron y cuáles se saltaron con su motivo redactado.
+ */
+export interface GroupActionResponse {
+  manage: ManageAppointment;
+  changedAppointmentIds: string[];
+  skipped: { appointmentId: string; reason: string }[];
+}
+
+/**
+ * Cuerpo del `PUT /public/appointments/{id}/manage` (M-08 RN-DISPO-59): los tres campos, siempre, y con
+ * barbero concreto. Edita esta cita y ninguna otra del grupo.
  */
 export interface RescheduleInput {
+  serviceId: string;
   barberId: string;
-  serviceId?: string;
-  serviceIds?: string[];
   /** El `startAtUtc` del hueco elegido, reenviado sin tocar (M-09 RN-AG-47). */
   startAtUtc: string;
 }

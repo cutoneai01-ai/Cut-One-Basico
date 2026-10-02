@@ -22,7 +22,7 @@ export interface BookingWindow {
   /** Plazo mínimo en minutos. Solo para redactar texto de ayuda; no se calcula nada con él. */
   readonly minLeadMinutes: number;
   /**
-   * Si la barbería deja reservar varios servicios a la vez (M-08 RN-DISPO-37, ADR-0055). Viaja por aquí
+   * Si la barbería deja reservar varios servicios a la vez (M-08 RN-DISPO-37, ADR-0060). Viaja por aquí
    * y no por el paquete de ajustes públicos porque aquel vive 24 h en `localStorage`: apagarlo tiene
    * que notarse en la siguiente apertura del asistente.
    *
@@ -92,24 +92,18 @@ export function slotsState(slots: readonly FlatSlot[]): SlotsState {
 }
 
 /**
- * La clave de una consulta de disponibilidad: lo que pidió (servicio o servicios, barbero, fecha).
+ * La clave de una consulta de disponibilidad: lo que pidió (servicio, barbero, fecha).
  *
  * M-08 RN-DISPO-52: cada petición se lanza con la clave de la selección y, al llegar, se descarta si
  * la selección ya no es esa. Sin esto las respuestas se aplicaban en el orden en que llegaban: cambiar
  * de día con el anterior aún cargando dejaba seleccionado un día y pintados —y reservables— los
- * horarios del otro. La comparten el asistente y la gestión desde el correo, para que las dos
- * pantallas decidan «sigue siendo lo elegido» de la misma forma.
+ * horarios del otro. La comparten el asistente de un servicio, cada tarjeta de la reserva múltiple y la
+ * edición desde el correo, para que todas decidan «sigue siendo lo elegido» de la misma forma.
  *
- * `barberId` nulo es «cualquier profesional». El orden de los servicios cuenta: es el orden de las
- * citas del bloque, y el servidor responde distinto para `[A, B]` que para `[B, A]`.
+ * `barberId` nulo es «cualquier profesional».
  */
-export function availabilityKey(
-  barberId: string | null,
-  serviceIds: string | readonly string[],
-  date: string,
-): string {
-  const ids = typeof serviceIds === 'string' ? [serviceIds] : serviceIds;
-  return JSON.stringify([barberId, ids, date]);
+export function availabilityKey(barberId: string | null, serviceId: string, date: string): string {
+  return JSON.stringify([barberId, serviceId, date]);
 }
 
 /**

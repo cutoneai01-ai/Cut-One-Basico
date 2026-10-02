@@ -1,8 +1,9 @@
-import { durationFor, type PublicBarber, type PublicService } from '../data/public-api.models';
+import { durationFor, type PublicService } from '../data/public-api.models';
 
 /**
- * Selección de servicios de una reserva múltiple (M-08 RN-DISPO-38, ADR-0055). Funciones puras: el
- * asistente y la gestión desde el correo las comparten, y así se prueban sin montar ninguna vista.
+ * Selección de servicios de una reserva múltiple (M-08 RN-DISPO-38, ADR-0060): el paso «Servicios» del
+ * asistente. Funciones puras, para probarlas sin montar ninguna vista. Cada línea será una tarjeta y
+ * una cita (`booking-cards.ts`).
  */
 
 /** Tope de servicios por reserva (M-08 RN-DISPO-38). El servidor lo hace cumplir igual. */
@@ -52,73 +53,10 @@ export function totalPrice(services: readonly PublicService[]): number {
 }
 
 /**
- * Duración del bloque con un barbero dado: la suma del tiempo de ese barbero en cada servicio
- * (M-08 RN-DISPO-39, RN-DISPO-35). Con `barberId` nulo —«cualquier profesional» o todavía sin barbero—
- * es la suma de los base: solo el servidor sabe a quién asignará.
+ * Suma de los tiempos de la selección con un barbero dado (M-08 RN-DISPO-35): la «Duración total» del
+ * Resumen. Con `barberId` nulo, la suma de los base. Es solo informativa: cada cita tiene su barbero y
+ * su hora.
  */
 export function totalDuration(services: readonly PublicService[], barberId: string | null): number {
   return services.reduce((sum, service) => sum + durationFor(service, barberId), 0);
-}
-
-/**
- * Los barberos que pueden atender la reserva entera: los que prestan **todos** los servicios de la
- * selección (M-08 RN-DISPO-41). Con uno solo es el filtro de siempre. Sin servicios no se filtra.
- */
-export function eligibleBarbers<T extends Pick<PublicBarber, 'id'>>(
-  barbers: readonly T[],
-  services: readonly PublicService[],
-): T[] {
-  return barbers.filter((barber) => services.every((service) => service.barberIds.includes(barber.id)));
-}
-
-/** Una cita del bloque, para pintar la línea de tiempo. */
-export interface BlockSegment {
-  /** Identidad estable para el `track`: la `key` de la línea, o el id de la cita ya creada. */
-  readonly key: string | number;
-  readonly name: string;
-  readonly durationMin: number;
-  /** Instante UTC de inicio, o nulo si todavía no hay hora elegida. */
-  readonly startAtUtc: string | null;
-  readonly endAtUtc: string | null;
-}
-
-/**
- * Las citas del bloque seguidas desde `startAtUtc` (M-08 RN-DISPO-39): la *k* empieza donde termina la
- * *k−1* y dura el tiempo del barbero en su servicio.
- *
- * Se suma sobre el **instante** y no sobre la hora de reloj: una suma de minutos en hora local se
- * equivocaría el día que cambia el horario de verano. Las etiquetas se sacan después con
- * `utcToZoned`, en la zona de la barbería.
- *
- * Es una **previsión** para pintar: las citas las coloca el servidor con el mismo criterio, y con
- * «cualquier profesional» la duración real depende de a quién asigne.
- */
-export function blockSegments(
-  lines: readonly SelectionLine[],
-  barberId: string | null,
-  startAtUtc: string | null,
-): BlockSegment[] {
-  let cursor = startAtUtc ? new Date(startAtUtc).getTime() : null;
-
-  return lines.map(({ key, service }) => {
-    const durationMin = durationFor(service, barberId);
-    if (cursor === null) {
-      return { key, name: service.name, durationMin, startAtUtc: null, endAtUtc: null };
-    }
-
-    const start = cursor;
-    cursor = start + durationMin * 60_000;
-    return {
-      key,
-      name: service.name,
-      durationMin,
-      startAtUtc: new Date(start).toISOString(),
-      endAtUtc: new Date(cursor).toISOString(),
-    };
-  });
-}
-
-/** Misma lista de servicios, en el mismo orden (el orden es el de las citas, RN-DISPO-38). */
-export function sameServiceIds(a: readonly string[], b: readonly string[]): boolean {
-  return a.length === b.length && a.every((id, index) => id === b[index]);
 }

@@ -5,18 +5,18 @@ import { formatMoney } from '../core/locale';
 export interface AppointmentListItem {
   /** Identidad estable para el `track`. */
   readonly key: string | number;
-  /** «9:00 – 9:30», o nulo si todavía no hay hora elegida. */
+  /** Una hora delante del nombre, o nulo para no pintarla. */
   readonly time: string | null;
   readonly name: string;
-  /** Segunda línea opcional: «Juan · 30 min». */
+  /** Segunda línea opcional: «Juan · sáb 10 oct · 10:00». */
   readonly detail?: string | null;
   readonly price: number | null;
 }
 
 /**
- * Las citas de una reserva de varios servicios, una por fila: hora · servicio · precio
- * (M-08 RN-DISPO-39). La usan el recuadro «Tu reserva» y la pantalla de éxito del asistente, y
- * «Quedaría así» de `/reserva/:id`. Solo pinta: quien la usa decide las horas y los textos.
+ * Las citas de una reserva de varios servicios, una por fila: servicio, su barbero, día y hora, y
+ * precio (M-08 RN-DISPO-60). La usan el resumen de las tarjetas y el de «Tus datos» del asistente.
+ * Solo pinta: quien la usa decide los textos.
  */
 @Component({
   selector: 'cob-appointment-list',

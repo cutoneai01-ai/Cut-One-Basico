@@ -1,0 +1,185 @@
+@if (created().length > 0) {
+  <!-- M-08 RN-DISPO-60 y RN-DISPO-52: una línea por cita creada, con SU startAtUtc de la respuesta
+       pintado en la zona de la barbería, no el día que quedó en el selector. -->
+  <div class="done">
+    <i class="pi pi-check-circle done__icon" aria-hidden="true"></i>
+    <h3 class="cob-title">
+      {{ created().length === 1 ? '¡Listo! Reservaste tu cita' : '¡Listo! Reservaste ' + created().length + ' citas' }}
+    </h3>
+
+    <ol class="done__list">
+      @for (item of createdItems(); track item.key) {
+        <li class="done__line">
+          <span class="num num--ok" aria-hidden="true">{{ item.number }}</span>
+          <span class="done__text">
+            <span><strong>{{ item.serviceName }}</strong> con {{ item.barberName }}</span>
+            <span class="cob-muted">{{ item.when }}</span>
+            <span class="done__code">Código <code>{{ item.code }}</code></span>
+          </span>
+        </li>
+      }
+    </ol>
+
+    <p class="cob-muted">Te enviamos un correo a <strong>{{ createdEmail() }}</strong>.</p>
+
+    <p-button label="Listo" (onClick)="finished.emit()" />
+  </div>
+} @else {
+  <p-stepper [(value)]="step" [linear]="false" styleClass="wizard">
+    <p-step-list>
+      <p-step [value]="1">Servicios</p-step>
+      <p-step [value]="2" [disabled]="step() < 2">Barbero, día y hora</p-step>
+      <p-step [value]="3" [disabled]="step() < 3">Tus datos</p-step>
+    </p-step-list>
+
+    <p-step-panels>
+      <!-- Paso 1 — Servicios: el selector de 1 a 3, repetibles (M-08 RN-DISPO-38). -->
+      <p-step-panel [value]="1">
+        <ng-template #content>
+          <cob-service-picker
+            [options]="pickerOptions()"
+            [lines]="lines()"
+            [durationBarberId]="fixedBarber()?.id ?? null"
+            (serviceAdded)="addService($event)"
+            (lineRemoved)="removeService($event)"
+            (proceed)="continueToCards()"
+          />
+        </ng-template>
+      </p-step-panel>
+
+      <!-- Paso 2 — Una tarjeta por servicio, en acordeón (M-08 RN-DISPO-60). -->
+      <p-step-panel [value]="2">
+        <ng-template #content>
+          <div class="layout">
+            <div class="layout__main">
+              @if (failureAlert(); as message) {
+                <!-- M-08 RN-DISPO-56: el mensaje general; cada tarjeta marcada lleva el suyo. -->
+                <p class="alert" role="alert">{{ message }}</p>
+              }
+
+              @for (view of cardViews(); track view.card.key) {
+                <section
+                  class="bcard"
+                  [class.bcard--open]="view.open"
+                  [class.bcard--done]="view.done"
+                  [class.bcard--failed]="view.card.failure !== null"
+                >
+                  <h3 class="bcard__heading">
+                    <button
+                      type="button"
+                      class="bcard__head"
+                      [attr.aria-expanded]="view.open"
+                      [attr.aria-controls]="'card-body-' + view.card.key"
+                      (click)="toggleCard(view.card.key)"
+                    >
+                      <span class="num" aria-hidden="true">
+                        @if (view.card.failure !== null) {
+                          !
+                        } @else if (view.done) {
+                          <i class="pi pi-check"></i>
+                        } @else {
+                          {{ view.index + 1 }}
+                        }
+                      </span>
+                      <span class="bcard__title">
+                        <strong>
+                          {{ view.index + 1 }}. {{ view.card.service.name }} · {{ view.durationMin }} min ·
+                          {{ formatPrice(view.card.service.price) }}
+                        </strong>
+                        <span class="bcard__status">
+                          {{ view.card.failure ?? view.summary ?? 'Sin hora' }}
+                        </span>
+                      </span>
+                      <i class="pi pi-chevron-down bcard__chevron" aria-hidden="true"></i>
+                    </button>
+                  </h3>
+
+                  @if (view.open) {
+                    <div class="bcard__body" [id]="'card-body-' + view.card.key">
+                      <cob-schedule-picker
+                        [idPrefix]="'card-' + view.card.key"
+                        [barberOptions]="view.barberOptions"
+                        [showAnyOption]="view.showAny"
+                        [anyDurationMin]="view.card.service.durationMin"
+                        [barberId]="view.card.barberId"
+                        [anyBarber]="view.card.anyBarber"
+                        [days]="days()"
+                        [date]="view.card.date"
+                        [slots]="view.slots"
+                        [slotsLoading]="view.slotsLoading"
+                        [slotsFailed]="view.slotsFailed"
+                        [time]="view.card.startAtUtc"
+                        [clashes]="view.clashes"
+                        (barberChosen)="chooseBarber(view.index, $event)"
+                        (dateChosen)="chooseDate(view.index, $event)"
+                        (timeChosen)="chooseTime(view.index, $event)"
+                      />
+                    </div>
+                  }
+                </section>
+              }
+
+              <div class="nav">
+                <p-button label="Atrás" [text]="true" icon="pi pi-arrow-left" (onClick)="backToServices()" />
+              </div>
+            </div>
+
+            <aside class="side" aria-label="Tus citas">
+              <h4 class="side__title">Tus citas</h4>
+              <cob-appointment-list [items]="summaryItems()" />
+              <p class="cob-muted side__total">
+                {{ countLabel(cards().length) }} · total {{ formatPrice(total()) }}
+              </p>
+              <p-button
+                [fluid]="true"
+                label="Continuar"
+                icon="pi pi-arrow-right"
+                iconPos="right"
+                [disabled]="!allComplete()"
+                (onClick)="continueToDetails()"
+              />
+            </aside>
+          </div>
+        </ng-template>
+      </p-step-panel>
+
+      <!-- Paso 3 — Tus datos. -->
+      <p-step-panel [value]="3">
+        <ng-template #content>
+          <div class="layout">
+            <form class="layout__main form" [formGroup]="form" (ngSubmit)="confirm()">
+              <cob-customer-fields [form]="form" />
+
+              <!-- M-08 RN-DISPO-43: cada servicio gasta un cupo. M-08 RN-DISPO-57: cada cita se gestiona sola. -->
+              <p class="cob-muted notes">
+                Cada servicio cuenta como una cita: puedes tener hasta 3 citas activas.<br />
+                Te enviaremos un correo con tus citas. Desde ahí puedes confirmar, cambiar o cancelar cada
+                una, o todas a la vez.
+              </p>
+
+              <div class="nav nav--split">
+                <p-button label="Atrás" [text]="true" icon="pi pi-arrow-left" (onClick)="backToCards()" />
+                <p-button
+                  type="submit"
+                  label="Confirmar reserva"
+                  icon="pi pi-check"
+                  [loading]="submitting()"
+                  [disabled]="submitting()"
+                />
+              </div>
+            </form>
+
+            <aside class="side" aria-label="Resumen">
+              <h4 class="side__title">Resumen</h4>
+              <cob-appointment-list [items]="summaryItems()" />
+              <p class="side__total">
+                <span class="cob-muted">Total</span>
+                <strong>{{ formatPrice(total()) }}</strong>
+              </p>
+            </aside>
+          </div>
+        </ng-template>
+      </p-step-panel>
+    </p-step-panels>
+  </p-stepper>
+}

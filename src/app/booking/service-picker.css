@@ -174,14 +174,9 @@
   border-radius: 999px;
 }
 
-.line__remove:hover:not(:disabled) {
+.line__remove:hover {
   color: var(--cob-accent);
   border-color: var(--cob-accent);
-}
-
-.line__remove:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
 }
 
 .summary__empty,
@@ -214,10 +209,10 @@
 
 /*
   Móvil. El Resumen del asistente se pliega en la barra; con la hoja abierta sube pegado al pie del área
-  que se desplaza. En `/reserva/:id` (`--inline`) no hay barra y el Resumen va debajo de la lista.
+  que se desplaza.
 */
 @media (max-width: 47.99rem) {
-  .picker:not(.picker--inline) .summary {
+  .picker .summary {
     display: none;
   }
 

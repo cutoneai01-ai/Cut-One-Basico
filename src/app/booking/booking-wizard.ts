@@ -1,15 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { Dialog } from 'primeng/dialog';
-import { FloatLabel } from 'primeng/floatlabel';
-import { InputText } from 'primeng/inputtext';
 import { Message } from 'primeng/message';
 import { ProgressSpinner } from 'primeng/progressspinner';
 import { Step, StepList, StepPanel, StepPanels, Stepper } from 'primeng/stepper';
-import { Textarea } from 'primeng/textarea';
-import { ApiError } from '../core/api-error';
 import { resolveImage } from '../core/images';
 import { dayLabels, formatLongDate, formatMoney, utcToZoned } from '../core/locale';
 import { BookingPolicyService } from '../data/booking-policy.service';
@@ -22,23 +18,17 @@ import {
   type PublicBarber,
   type PublicService,
 } from '../data/public-api.models';
-import { AppointmentList, type AppointmentListItem } from './appointment-list';
-import { BookingBlock } from './booking-block';
 import { availabilityKey, bookingWindow, flattenSlots, slotsState, type FlatSlot } from './availability';
 import { planForBookingError } from './booking-errors';
-import { ServicePicker } from './service-picker';
-import {
-  addLine,
-  blockSegments,
-  eligibleBarbers,
-  removeLine,
-  totalDuration,
-  totalPrice,
-  type SelectionLine,
-} from './service-selection';
+import { CardBooking, type SingleServiceFallback } from './card-booking';
+import { CustomerFields, createCustomerForm, customerInput } from './customer-fields';
 
 /**
- * Wizard de reserva en cuatro pasos dentro de un diálogo modal (RF-G04).
+ * Wizard de reserva dentro de un diálogo modal (M-08, reserva pública).
+ *
+ * Es el **diálogo** y el asistente de **un** servicio, en cuatro pasos. Con la reserva múltiple
+ * encendida (M-08 RN-DISPO-37) el diálogo monta en su lugar el asistente de tarjetas
+ * (`CardBooking`, M-08 RN-DISPO-60).
  *
  * ~~**El paso 2 no ofrece "cualquier barbero"** y no puede ofrecerlo (decisión 7 de la serie):
  * `BarberId` es `Guid` no nullable en `CreateAppointmentRequest` y `barberId` es obligatorio en
@@ -55,22 +45,18 @@ import {
 @Component({
   selector: 'cob-booking-wizard',
   imports: [
-    AppointmentList,
-    BookingBlock,
     Button,
+    CardBooking,
+    CustomerFields,
     Dialog,
-    FloatLabel,
-    InputText,
     Message,
     ProgressSpinner,
     ReactiveFormsModule,
-    ServicePicker,
     Step,
     StepList,
     StepPanel,
     StepPanels,
     Stepper,
-    Textarea,
   ],
   templateUrl: './booking-wizard.html',
   styleUrl: './booking-wizard.css',
@@ -82,7 +68,6 @@ export class BookingWizard {
   private readonly catalog = inject(CatalogService);
   private readonly settings = inject(SettingsService);
   private readonly messages = inject(MessageService);
-  private readonly formBuilder = inject(FormBuilder);
 
   readonly services = input.required<readonly PublicService[]>();
   readonly barbers = input.required<readonly PublicBarber[]>();
@@ -101,10 +86,14 @@ export class BookingWizard {
    */
   protected readonly starting = signal(false);
 
-  /** Cada apertura invalida la espera de la anterior: cerrar y reabrir no aplica dos pasos iniciales. */
-  private openings = 0;
+  /**
+   * Cuenta las aperturas. Invalida la espera de la anterior —cerrar y reabrir no aplica dos pasos
+   * iniciales— y es la identidad con la que se monta de nuevo `CardBooking` en cada apertura: así el
+   * asistente de tarjetas empieza limpio sin que haya que vaciarlo campo a campo.
+   */
+  protected readonly openings = signal(0);
 
-  /** El servicio elegido con la opción apagada: el asistente de siempre, de un solo servicio. */
+  /** El servicio de la apertura: el elegido en el asistente de un servicio, o el tocado en la portada. */
   protected readonly service = signal<PublicService | null>(null);
   protected readonly barber = signal<PublicBarber | null>(null);
 
@@ -116,8 +105,9 @@ export class BookingWizard {
   private readonly multiRevoked = signal(false);
 
   /**
-   * La barbería deja reservar varios servicios (M-08 RN-DISPO-37). Sale de la política ya cargada; si
-   * la petición falló, o el servidor la revocó en esta apertura, **el asistente es el de siempre**.
+   * La barbería deja reservar varios servicios (M-08 RN-DISPO-37): el diálogo monta el asistente de
+   * tarjetas. Sale de la política ya cargada; si la petición falló, o el servidor la revocó en esta
+   * apertura, **el asistente es el de siempre**.
    */
   protected readonly multiEnabled = computed(() => {
     const policy = this.bookingPolicy.state();
@@ -128,31 +118,8 @@ export class BookingWizard {
     );
   });
 
-  /** Con la opción encendida, la selección: una línea por cita, en orden (M-08 RN-DISPO-38). */
-  protected readonly lines = signal<readonly SelectionLine[]>([]);
-  private nextLineKey = 0;
-
   /**
-   * Los servicios de la reserva, con la opción encendida o apagada. Todo lo que viene después del
-   * paso 1 —barberos, duraciones, horas, confirmación— lee de aquí, y con un solo servicio da
-   * exactamente lo mismo que el asistente de siempre.
-   */
-  protected readonly selectedServices = computed<readonly PublicService[]>(() => {
-    if (this.multiEnabled()) {
-      return this.lines().map((line) => line.service);
-    }
-
-    const chosen = this.service();
-    return chosen ? [chosen] : [];
-  });
-
-  /** Reserva de más de un servicio: la que enseña el bloque, el aviso del correo y la lista de citas. */
-  protected readonly isMulti = computed(
-    () => this.multiEnabled() && this.selectedServices().length > 1,
-  );
-
-  /**
-   * "Cualquier profesional" elegido en el paso 2 (RF-CP01, serie 031).
+   * "Cualquier profesional" elegido en el paso 2 (M-08 RN-DISPO-11).
    *
    * Es una señal aparte y **no** un valor centinela dentro de `barber`: un `PublicBarber` falso con
    * id vacío se colaría en el `barberIds.includes(...)` de los filtros y en la petición de creación,
@@ -186,14 +153,7 @@ export class BookingWizard {
   protected readonly slotsFailed = signal(false);
 
   protected readonly submitting = signal(false);
-  /** La cita creada, o la **primera** de la reserva: su código es el que se muestra (ADR-0055). */
   protected readonly created = signal<AppointmentCreatedResponse | null>(null);
-  /** Todas las citas creadas, en orden. Con un servicio, una. */
-  protected readonly createdAll = signal<readonly AppointmentCreatedResponse[]>([]);
-  /** Precio de cada cita creada: la respuesta no lo trae, sale de la selección que se reservó. */
-  private readonly bookedPrices = signal<readonly number[]>([]);
-  /** El correo al que salió la confirmación, para decirlo en la pantalla de éxito (M-24 RN-MAIL-32). */
-  protected readonly createdEmail = signal('');
 
   /**
    * Los días seleccionables. **Vacíos hasta que el backend diga cuáles son** (M-08 RN-DISPO-13).
@@ -214,15 +174,14 @@ export class BookingWizard {
    * con qué pedirla. Es contra la que se compara cada respuesta al llegar (M-08 RN-DISPO-52).
    */
   private readonly availabilityRequest = computed(() => {
-    const services = this.selectedServices();
+    const service = this.service();
     const date = this.date();
-    if (services.length === 0 || !this.barberChosen() || !date) {
+    if (!service || !this.barberChosen() || !date) {
       return null;
     }
 
     const barberId = this.barber()?.id ?? null;
-    const serviceIds = services.map((service) => service.id);
-    return { barberId, serviceIds, date, key: availabilityKey(barberId, serviceIds, date) };
+    return { barberId, serviceId: service.id, date, key: availabilityKey(barberId, service.id, date) };
   });
 
   protected readonly slotsState = computed(() => slotsState(this.slots()));
@@ -244,23 +203,15 @@ export class BookingWizard {
     return this.services().filter((s) => s.barberIds.includes(chosenBarber.id));
   });
 
-  /**
-   * Con varios servicios, solo los que prestan **todos** (M-08 RN-DISPO-41); con uno, el filtro de
-   * siempre.
-   */
+  /** Los que prestan el servicio elegido; sin servicio todavía, todos. */
   protected readonly visibleBarbers = computed(() => {
-    const chosenServices = this.selectedServices();
-    if (chosenServices.length === 0) {
+    const chosen = this.service();
+    if (!chosen) {
       return this.barbers();
     }
 
-    return eligibleBarbers(this.barbers(), chosenServices);
+    return this.barbers().filter((barber) => chosen.barberIds.includes(barber.id));
   });
-
-  /** Cuántos profesionales se quedan fuera por no prestar toda la selección, para decirlo. */
-  protected readonly hiddenBarberCount = computed(
-    () => this.barbers().length - this.visibleBarbers().length,
-  );
 
   /**
    * Barbero cuyo tiempo se muestra (M-08 RN-DISPO-35): el elegido o el fijado por `?barbero=`, y nulo
@@ -285,23 +236,17 @@ export class BookingWizard {
   /**
    * Paso 2 con el tiempo de cada barbero para el servicio elegido (M-08 RN-DISPO-35). Sin servicio
    * todavía no hay tiempo que mostrar: `null` y la tarjeta no pinta la línea.
-   *
-   * Con varios servicios es la suma de sus tiempos: lo que dura el bloque con ese barbero
-   * (M-08 RN-DISPO-39). Con uno, la suma de un sumando es el tiempo de siempre.
    */
   protected readonly barberOptions = computed(() => {
-    const chosenServices = this.selectedServices();
+    const chosen = this.service();
     return this.visibleBarbers().map((barber) => ({
       barber,
-      durationMin: chosenServices.length > 0 ? totalDuration(chosenServices, barber.id) : null,
+      durationMin: chosen ? durationFor(chosen, barber.id) : null,
     }));
   });
 
   /** «Cualquier profesional» muestra el base: el asignado puede tardar otra cosa (ADR-0044). */
-  protected readonly baseDurationMin = computed(() => {
-    const chosenServices = this.selectedServices();
-    return chosenServices.length > 0 ? totalDuration(chosenServices, null) : null;
-  });
+  protected readonly baseDurationMin = computed(() => this.service()?.durationMin ?? null);
 
   /**
    * Duración del servicio elegido con el barbero elegido, para el resumen (M-08 RN-DISPO-35). Cambia al
@@ -309,91 +254,11 @@ export class BookingWizard {
    * la duración real llega con la confirmación (`AppointmentCreatedResponse.durationMin`).
    */
   protected readonly selectedDurationMin = computed(() => {
-    const chosenServices = this.selectedServices();
-    return chosenServices.length > 0
-      ? totalDuration(chosenServices, this.durationBarberId())
-      : null;
+    const chosen = this.service();
+    return chosen ? durationFor(chosen, this.durationBarberId()) : null;
   });
 
-  /** Total de la reserva: el precio del servicio, o la suma con varios. */
-  protected readonly selectedTotal = computed(() => totalPrice(this.selectedServices()));
-
-  /**
-   * Las citas del bloque desde la hora elegida (M-08 RN-DISPO-39), para la tarjeta «Tu bloque» y el
-   * recuadro «Tu reserva». Solo con varios servicios.
-   */
-  protected readonly block = computed(() =>
-    this.isMulti() ? blockSegments(this.lines(), this.durationBarberId(), this.time()) : [],
-  );
-
-  /** Las citas del bloque con su hora y su precio, para el recuadro «Tu reserva» del paso 4. */
-  protected readonly recapItems = computed<AppointmentListItem[]>(() => {
-    const lines = this.lines();
-    return this.block().map((segment, index) => ({
-      key: segment.key,
-      time:
-        segment.startAtUtc && segment.endAtUtc
-          ? `${utcToZoned(segment.startAtUtc).time}–${utcToZoned(segment.endAtUtc).time}`
-          : null,
-      name: segment.name,
-      price: lines[index]?.service.price ?? null,
-    }));
-  });
-
-  /**
-   * Cada cuánto se ofrece una hora de inicio: el tiempo del servicio más corto (M-08 RN-DISPO-40). Es
-   * solo el texto de ayuda: las horas las calcula el servidor con el mismo criterio.
-   */
-  protected readonly startStepMin = computed(() => {
-    const barberId = this.durationBarberId();
-    const durations = this.selectedServices().map((service) => durationFor(service, barberId));
-    return durations.length > 0 ? Math.min(...durations) : null;
-  });
-
-  protected readonly blockBarberLabel = computed(() =>
-    this.anyBarber() ? 'cualquier profesional' : this.barberName(this.barber()),
-  );
-
-  /**
-   * La pantalla de éxito de una reserva de varios servicios: cada cita con su hora de la barbería,
-   * su duración real (la del barbero asignado) y su precio.
-   */
-  protected readonly createdItems = computed<AppointmentListItem[]>(() => {
-    const prices = this.bookedPrices();
-    return this.createdAll().map((appointment, index) => ({
-      key: appointment.appointmentId,
-      time: `${utcToZoned(appointment.startAtUtc).time} – ${utcToZoned(endOf(appointment)).time}`,
-      name: appointment.serviceName,
-      detail: `${appointment.barberName} · ${appointment.durationMin} min`,
-      price: prices[index] ?? null,
-    }));
-  });
-
-  /** «9:00 – 10:25»: del inicio de la primera cita creada al fin de la última. */
-  protected readonly createdRange = computed(() => {
-    const all = this.createdAll();
-    const first = all[0];
-    const last = all[all.length - 1];
-    return first && last
-      ? `${utcToZoned(first.startAtUtc).time} – ${utcToZoned(endOf(last)).time}`
-      : null;
-  });
-
-  /**
-   * Límites del backend (`CreateAppointmentRequestValidator`), no los de `pz-personalizado` — su
-   * esquema zod usa 80 y 300, más estrictos que el servidor sin motivo documentado. Rechazar en el
-   * cliente algo que el servidor aceptaría es fricción gratuita.
-   *
-   * El correo es obligatorio aquí aunque el backend acepte correo **o** teléfono (RF-G04 §5 RN-04): los
-   * tres avisos al cliente son correo, y el link de encuesta viaja *solo* dentro del correo de
-   * agradecimiento. Quien reserve solo con teléfono no recibiría nada.
-   */
-  protected readonly form = this.formBuilder.nonNullable.group({
-    fullName: ['', [Validators.required, Validators.maxLength(120)]],
-    email: ['', [Validators.required, Validators.email, Validators.maxLength(160)]],
-    phone: ['', [Validators.maxLength(30)]],
-    notes: ['', [Validators.maxLength(500)]],
-  });
+  protected readonly form = createCustomerForm(inject(FormBuilder));
 
   protected readonly formatPrice = (value: number): string => formatMoney(value);
   protected readonly formatDate = formatLongDate;
@@ -408,6 +273,7 @@ export class BookingWizard {
    */
   open(service: PublicService | null = null, barber: PublicBarber | null = null): void {
     this.reset();
+    this.form.reset();
     this.multiRevoked.set(false);
     this.service.set(service);
     this.barber.set(barber);
@@ -419,7 +285,8 @@ export class BookingWizard {
     // rareza.
     void this.catalog.revalidate();
 
-    const opening = ++this.openings;
+    const opening = this.openings() + 1;
+    this.openings.set(opening);
     if (this.bookingPolicy.state().status !== 'loading') {
       this.start();
       return;
@@ -428,26 +295,25 @@ export class BookingWizard {
     this.starting.set(true);
     void this.bookingPolicy.ensureLoaded().then(() => {
       // Cerrado o reabierto mientras tanto: esa apertura ya no es la que espera.
-      if (opening === this.openings && this.visible()) {
+      if (opening === this.openings() && this.visible()) {
         this.start();
       }
     });
   }
 
   /**
-   * Fija el paso inicial con la política ya resuelta (M-08 RN-DISPO-37). Con la múltiple, el servicio
-   * tocado en la portada entra como primera línea y el asistente se queda en «Servicio», para que el
-   * cliente pueda añadir más; con la normal, o si la política falló, salta al barbero como siempre.
+   * Fija el paso inicial con la política ya resuelta (M-08 RN-DISPO-37). Con la múltiple no hay nada
+   * que fijar aquí: `CardBooking` arranca en «Servicios» con el servicio tocado ya añadido. Con la
+   * normal, o si la política falló, salta al barbero como siempre.
    */
   private start(): void {
-    const service = this.service();
-    if (this.multiEnabled() && service) {
-      this.lines.set([{ key: this.nextLineKey++, service }]);
+    this.starting.set(false);
+    if (this.multiEnabled()) {
+      return;
     }
 
     this.date.set(this.days()[0] ?? '');
     this.step.set(this.firstIncompleteStep());
-    this.starting.set(false);
 
     // Con barbero y servicio ya dados, el paso inicial es el Horario y necesita su disponibilidad.
     if (this.availabilityRequest()) {
@@ -456,16 +322,14 @@ export class BookingWizard {
   }
 
   /**
-   * El servidor dice que la barbería ya no deja reservar varios servicios (`409
-   * MULTI_SERVICE_BOOKING_DISABLED`, M-08 RN-DISPO-37): se vuelve al asistente de un servicio, con el
-   * primero de la selección elegido. La tira de días no cambia: sale de la misma política.
+   * El asistente de tarjetas recibió `409 MULTI_SERVICE_BOOKING_DISABLED` (M-08 RN-DISPO-37): se sigue
+   * con el de un servicio, con el primero de la selección elegido y los datos del cliente que ya
+   * escribió. La tira de días no cambia: sale de la misma política.
    */
-  private fallBackToSingleService(): void {
-    const first = this.selectedServices()[0] ?? null;
-
+  protected fallBackToSingleService(fallback: SingleServiceFallback): void {
     this.multiRevoked.set(true);
-    this.lines.set([]);
-    this.service.set(first);
+    this.service.set(fallback.service);
+    this.form.setValue(fallback.customer);
     this.clearTime();
     this.step.set(1);
   }
@@ -497,49 +361,6 @@ export class BookingWizard {
     const chosenBarber = this.barber();
     if (chosenBarber && !service.barberIds.includes(chosenBarber.id)) {
       this.barber.set(null);
-    }
-
-    this.step.set(this.barberChosen() ? 3 : 2);
-
-    if (this.barberChosen()) {
-      void this.loadAvailability();
-    }
-  }
-
-  /** «Añadir» del selector (M-08 RN-DISPO-38). Cambiar la selección invalida la hora elegida. */
-  protected addService(service: PublicService): void {
-    this.lines.update((lines) => addLine(lines, service, this.nextLineKey++));
-    this.clearTime();
-  }
-
-  /** La papelera de una línea del Resumen. */
-  protected removeService(key: number): void {
-    this.lines.update((lines) => removeLine(lines, key));
-    this.clearTime();
-  }
-
-  /**
-   * «Continuar» del Resumen. Mismo destino que elegir servicio con la opción apagada —barbero, o
-   * directamente horario si el barbero ya está fijado—, pero con la selección entera.
-   *
-   * Un barbero ya elegido que no presta todos los servicios se descarta (M-08 RN-DISPO-41), igual que
-   * `chooseService` descarta al que no presta el nuevo. «Cualquier profesional» se descarta si ya no
-   * quedan dos que puedan atender la reserva, porque la tarjeta ya no se ofrece.
-   */
-  protected continueFromServices(): void {
-    if (this.selectedServices().length === 0) {
-      return;
-    }
-
-    this.clearTime();
-
-    const eligible = this.visibleBarbers();
-    const chosenBarber = this.barber();
-    if (chosenBarber && !eligible.some((candidate) => candidate.id === chosenBarber.id)) {
-      this.barber.set(null);
-    }
-    if (this.anyBarber() && eligible.length < 2) {
-      this.anyBarber.set(false);
     }
 
     this.step.set(this.barberChosen() ? 3 : 2);
@@ -583,19 +404,7 @@ export class BookingWizard {
     }
 
     this.time.set(slot.startAtUtc);
-
-    // Con varios servicios la hora elegida se queda en pantalla para que el cliente vea su bloque
-    // (M-08 RN-DISPO-39) y avanza con «Continuar». Con uno, avanza sola, como siempre.
-    if (!this.isMulti()) {
-      this.step.set(4);
-    }
-  }
-
-  /** «Continuar» del paso Horario con varios servicios, una vez elegida la hora del bloque. */
-  protected continueToDetails(): void {
-    if (this.time()) {
-      this.step.set(4);
-    }
+    this.step.set(4);
   }
 
   protected back(): void {
@@ -603,11 +412,11 @@ export class BookingWizard {
   }
 
   protected async confirm(): Promise<void> {
-    const services = this.selectedServices();
+    const service = this.service();
     const barber = this.barber();
     const time = this.time();
 
-    if (services.length === 0 || !this.barberChosen() || !time) {
+    if (!service || !this.barberChosen() || !time) {
       return;
     }
 
@@ -622,44 +431,20 @@ export class BookingWizard {
     }
 
     this.submitting.set(true);
-    const values = this.form.getRawValue();
-
-    const request = {
-      // M-08 RN-DISPO-11: nulo = "cualquier profesional". Quién quedó asignado llega de vuelta en
-      // `created.barberName`, que es lo que pinta la pantalla de éxito.
-      barberId: barber?.id ?? null,
-      // El instante del hueco, sin recomponerlo desde día y hora (M-08 RN-DISPO-33). Con varios
-      // servicios es el inicio del bloque; el resto de citas las coloca el servidor (RN-DISPO-39).
-      startAtUtc: time,
-      customer: {
-        fullName: values.fullName.trim(),
-        email: values.email.trim(),
-        // El teléfono se guarda y cuenta para el límite de citas pendientes del backend, pero hoy
-        // ningún canal lo lee. Es deuda visible a propósito.
-        phone: values.phone.trim() || null,
-        notes: values.notes.trim() || null,
-      },
-      referralBarberId: this.referralBarberId(),
-    };
 
     try {
-      // Un servicio va por la reserva de siempre aunque la opción esté encendida; la ruta múltiple es
-      // solo para 2 o 3 y crea todas o ninguna (M-08 RN-DISPO-42).
-      const appointments =
-        services.length === 1
-          ? [await this.booking.createAppointment({ ...request, serviceId: services[0].id })]
-          : (
-              await this.booking.createMultipleAppointments({
-                ...request,
-                serviceIds: services.map((service) => service.id),
-              })
-            ).appointments;
-
-      this.bookedPrices.set(services.map((service) => service.price));
-      this.createdEmail.set(request.customer.email);
-      this.createdAll.set(appointments);
-      // Un solo código en la pantalla, el de la primera cita (ADR-0055).
-      this.created.set(appointments[0] ?? null);
+      this.created.set(
+        await this.booking.createAppointment({
+          serviceId: service.id,
+          // M-08 RN-DISPO-11: nulo = "cualquier profesional". Quién quedó asignado llega de vuelta en
+          // `created.barberName`, que es lo que pinta la pantalla de éxito.
+          barberId: barber?.id ?? null,
+          // El instante del hueco, sin recomponerlo desde día y hora (M-08 RN-DISPO-33).
+          startAtUtc: time,
+          customer: customerInput(this.form),
+          referralBarberId: this.referralBarberId(),
+        }),
+      );
     } catch (error) {
       this.handleBookingError(error);
     } finally {
@@ -695,12 +480,11 @@ export class BookingWizard {
 
       case 'restart':
         this.reset();
+        this.form.reset();
         break;
 
+      // La reserva de un servicio no recibe este rechazo: solo lo da la ruta múltiple.
       case 'single-service':
-        this.fallBackToSingleService();
-        break;
-
       case 'stay':
         break;
     }
@@ -708,7 +492,7 @@ export class BookingWizard {
 
   /**
    * Pide la disponibilidad de la selección actual y la aplica **solo si sigue siendo la elegida al
-   * llegar** (M-08 RN-DISPO-52). Si el cliente cambió de día, de barbero o de servicios con la anterior
+   * llegar** (M-08 RN-DISPO-52). Si el cliente cambió de día, de barbero o de servicio con la anterior
    * aún en vuelo, la respuesta tardía se descarta entera —horas, error y fin de carga—: la de la
    * selección nueva ya está pedida y es la que manda.
    */
@@ -726,9 +510,8 @@ export class BookingWizard {
     try {
       // Sin la zona de la barbería no se puede pintar un hueco (M-02 RN-TEN-20): si todavía no llegó,
       // `requireLocale()` la vuelve a pedir, y si falla cuenta como fallo de disponibilidad.
-      // Con varios servicios, cada hora es el inicio del bloque entero (M-08 RN-DISPO-40).
       const [response, locale] = await Promise.all([
-        this.booking.getAvailability(request.barberId, request.serviceIds, request.date),
+        this.booking.getAvailability(request.barberId, request.serviceId, request.date),
         this.settings.requireLocale(),
       ]);
       if (!stillChosen()) {
@@ -736,20 +519,12 @@ export class BookingWizard {
       }
       this.slots.set(flattenSlots(response, locale));
       this.slotsLoading.set(false);
-    } catch (error) {
+    } catch {
       if (!stillChosen()) {
         return;
       }
       this.slots.set([]);
       this.slotsLoading.set(false);
-
-      // La barbería apagó la opción con el asistente abierto: no es un fallo de red, es el mismo
-      // rechazo que al confirmar y tiene la misma salida.
-      if (error instanceof ApiError && error.code === 'MULTI_SERVICE_BOOKING_DISABLED') {
-        this.handleBookingError(error);
-        return;
-      }
-
       this.slotsFailed.set(true);
     }
   }
@@ -759,9 +534,7 @@ export class BookingWizard {
       return 1;
     }
     if (!this.barberChosen()) {
-      // M-08 RN-DISPO-37: con la múltiple, el servicio tocado ya es la primera línea y el cliente se
-      // queda en «Servicio» para poder añadir más; con la normal, al barbero, como siempre.
-      return this.multiEnabled() ? 1 : 2;
+      return 2;
     }
     return this.time() ? 4 : 3;
   }
@@ -770,6 +543,7 @@ export class BookingWizard {
     this.time.set(null);
   }
 
+  /** Vuelve al estado de una apertura. El formulario lo vacía quien llama: tras un error se conserva. */
   private reset(): void {
     this.step.set(1);
     this.service.set(null);
@@ -785,20 +559,8 @@ export class BookingWizard {
     this.slotsLoading.set(false);
     this.slotsFailed.set(false);
     this.created.set(null);
-    this.createdAll.set([]);
-    this.bookedPrices.set([]);
-    this.createdEmail.set('');
     this.submitting.set(false);
-    this.form.reset();
     // `multiRevoked` no se toca: un reinicio tras un error sigue en la misma apertura, y si el servidor
     // ya rechazó la múltiple no se vuelve a ofrecer. Lo limpia `open()`.
-    this.lines.set([]);
   }
-}
-
-/** Instante en que termina una cita creada: su inicio más su duración real. */
-function endOf(appointment: AppointmentCreatedResponse): string {
-  return new Date(
-    new Date(appointment.startAtUtc).getTime() + appointment.durationMin * 60_000,
-  ).toISOString();
 }

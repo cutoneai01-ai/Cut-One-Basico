@@ -1,31 +1,21 @@
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { BookingService, serviceParams } from './booking.service';
+import { ApiError, apiErrorInterceptor } from '../core/api-error';
+import { BookingService } from './booking.service';
 import { ManageBookingService } from './manage-booking.service';
 
-// M-08 RN-DISPO-37 a RN-DISPO-40: con un servicio las peticiones son byte a byte las de siempre
-// (`serviceId`, `POST /appointments`); con varios, `serviceIds` repetido y en orden, y la ruta múltiple.
+// M-08 RN-DISPO-54 a RN-DISPO-59 (ADR-0060): la disponibilidad pide siempre un servicio; la reserva
+// múltiple manda un item por cita; la gestión es por cita, con `confirm-all` y `cancel-all` aparte.
 
-describe('serviceParams', () => {
-  it('con un servicio manda serviceId, venga suelto o en lista', () => {
-    expect(serviceParams('cut')).toEqual({ serviceId: 'cut' });
-    expect(serviceParams(['cut'])).toEqual({ serviceId: 'cut' });
-  });
-
-  it('con varios manda serviceIds en el orden recibido, con repeticiones', () => {
-    expect(serviceParams(['cut', 'beard', 'cut'])).toEqual({ serviceIds: ['cut', 'beard', 'cut'] });
-  });
-});
-
-describe('BookingService y ManageBookingService: reserva múltiple', () => {
+describe('BookingService y ManageBookingService', () => {
   let http: HttpTestingController;
   let booking: BookingService;
   let manage: ManageBookingService;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(withInterceptors([apiErrorInterceptor])), provideHttpClientTesting()],
     });
     http = TestBed.inject(HttpTestingController);
     booking = TestBed.inject(BookingService);
@@ -36,12 +26,12 @@ describe('BookingService y ManageBookingService: reserva múltiple', () => {
 
   const emptyAvailability = { date: '2026-10-01', periods: [] };
 
-  it('disponibilidad con un servicio: la consulta de siempre, sin serviceIds', async () => {
-    const pending = booking.getAvailability('barber-1', ['cut'], '2026-10-01');
+  it('disponibilidad: un serviceId, el barbero y la fecha, y nada más', async () => {
+    const pending = booking.getAvailability('barber-1', 'cut', '2026-10-01');
 
     const request = http.expectOne((r) => r.url === '/api/v1/public/availability');
+    expect(request.request.params.keys().sort()).toEqual(['barberId', 'date', 'serviceId']);
     expect(request.request.params.get('serviceId')).toBe('cut');
-    expect(request.request.params.has('serviceIds')).toBe(false);
     expect(request.request.params.get('barberId')).toBe('barber-1');
     expect(request.request.params.get('date')).toBe('2026-10-01');
     request.flush(emptyAvailability);
@@ -49,25 +39,22 @@ describe('BookingService y ManageBookingService: reserva múltiple', () => {
     await expect(pending).resolves.toEqual(emptyAvailability);
   });
 
-  it('disponibilidad con varios servicios: serviceIds repetido y en orden, sin serviceId', async () => {
-    const pending = booking.getAvailability(null, ['cut', 'beard', 'cut'], '2026-10-01');
+  it('disponibilidad con «cualquier profesional»: el barbero se omite, no se manda vacío', async () => {
+    const pending = booking.getAvailability(null, 'cut', '2026-10-01');
 
     const request = http.expectOne((r) => r.url === '/api/v1/public/availability');
-    expect(request.request.params.getAll('serviceIds')).toEqual(['cut', 'beard', 'cut']);
-    expect(request.request.params.has('serviceId')).toBe(false);
-    // «Cualquier profesional»: el barbero se omite, no se manda vacío.
     expect(request.request.params.has('barberId')).toBe(false);
-    expect(request.request.urlWithParams).toContain('serviceIds=cut&serviceIds=beard&serviceIds=cut');
     request.flush(emptyAvailability);
 
     await pending;
   });
 
-  it('createMultipleAppointments hace POST a /appointments/multiple con la lista', async () => {
+  it('createMultipleAppointments hace POST a /appointments/multiple con los items', async () => {
     const input = {
-      serviceIds: ['cut', 'beard'],
-      barberId: 'barber-1',
-      startAtUtc: '2026-10-01T14:00:00Z',
+      items: [
+        { serviceId: 'cut', barberId: 'barber-1', startAtUtc: '2026-10-01T14:00:00Z' },
+        { serviceId: 'beard', barberId: null, startAtUtc: '2026-10-03T19:00:00Z' },
+      ],
       customer: { fullName: 'Cliente', email: 'c@correo.com', phone: null, notes: null },
       referralBarberId: null,
     };
@@ -83,6 +70,26 @@ describe('BookingService y ManageBookingService: reserva múltiple', () => {
     await expect(pending).resolves.toEqual(response);
   });
 
+  it('el 409 BOOKING_ITEMS_FAILED llega con sus fallos en ApiError.details', async () => {
+    const failures = [{ index: 1, code: 'SLOT_TAKEN', message: 'Ocupado.' }];
+    const pending = booking.createMultipleAppointments({
+      items: [],
+      customer: { fullName: 'C', email: 'c@correo.com', phone: null, notes: null },
+    });
+
+    http
+      .expectOne('/api/v1/public/appointments/multiple')
+      .flush(
+        { title: '1 de tus 2 citas ya no se puede reservar.', code: 'BOOKING_ITEMS_FAILED', details: { failures } },
+        { status: 409, statusText: 'Conflict' },
+      );
+
+    const error = await pending.catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).code).toBe('BOOKING_ITEMS_FAILED');
+    expect((error as ApiError).details).toEqual({ failures });
+  });
+
   it('la política sin multiServiceBookingEnabled (backend anterior) llega tal cual, sin inventar el campo', async () => {
     const pending = booking.getBookingWindow();
 
@@ -94,34 +101,22 @@ describe('BookingService y ManageBookingService: reserva múltiple', () => {
     expect((await pending).multiServiceBookingEnabled).toBeUndefined();
   });
 
-  it('gestión: disponibilidad con varios servicios manda serviceIds', async () => {
-    const pending = manage.getAvailability('appt-1', 'barber-1', ['cut', 'beard'], '2026-10-01');
-
-    const request = http.expectOne(
-      (r) => r.url === '/api/v1/public/appointments/appt-1/manage/availability',
-    );
-    expect(request.request.params.getAll('serviceIds')).toEqual(['cut', 'beard']);
-    expect(request.request.params.has('serviceId')).toBe(false);
-    request.flush(emptyAvailability);
-
-    await pending;
-  });
-
-  it('gestión: disponibilidad con un servicio manda serviceId, como siempre', async () => {
+  it('gestión: la disponibilidad de una cita pide un serviceId', async () => {
     const pending = manage.getAvailability('appt-1', 'barber-1', 'cut', '2026-10-01');
 
     const request = http.expectOne(
       (r) => r.url === '/api/v1/public/appointments/appt-1/manage/availability',
     );
     expect(request.request.params.get('serviceId')).toBe('cut');
-    expect(request.request.params.has('serviceIds')).toBe(false);
+    expect(request.request.params.get('barberId')).toBe('barber-1');
+    expect(request.request.params.keys().sort()).toEqual(['barberId', 'date', 'serviceId']);
     request.flush(emptyAvailability);
 
     await pending;
   });
 
-  it('gestión: el PUT reenvía el cuerpo tal cual, con serviceIds', async () => {
-    const body = { barberId: 'barber-1', serviceIds: ['cut', 'beard'], startAtUtc: '2026-10-01T14:00:00Z' };
+  it('gestión: el PUT manda los tres campos', async () => {
+    const body = { serviceId: 'cut', barberId: 'barber-1', startAtUtc: '2026-10-01T14:00:00Z' };
     const pending = manage.reschedule('appt-1', body);
 
     const request = http.expectOne('/api/v1/public/appointments/appt-1/manage');
@@ -130,5 +125,22 @@ describe('BookingService y ManageBookingService: reserva múltiple', () => {
     request.flush({});
 
     await pending;
+  });
+
+  it('gestión: confirm-all sin cuerpo y cancel-all con el motivo', async () => {
+    const result = { manage: {}, changedAppointmentIds: ['a'], skipped: [] };
+
+    const confirming = manage.confirmAll('appt-1');
+    const confirmRequest = http.expectOne('/api/v1/public/appointments/appt-1/confirm-all');
+    expect(confirmRequest.request.method).toBe('POST');
+    expect(confirmRequest.request.body).toBeNull();
+    confirmRequest.flush(result);
+    await expect(confirming).resolves.toEqual(result);
+
+    const cancelling = manage.cancelAll('appt-1', 'No puedo');
+    const cancelRequest = http.expectOne('/api/v1/public/appointments/appt-1/cancel-all');
+    expect(cancelRequest.request.body).toEqual({ reason: 'No puedo' });
+    cancelRequest.flush(result);
+    await cancelling;
   });
 });

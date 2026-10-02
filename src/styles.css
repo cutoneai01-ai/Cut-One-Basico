@@ -216,6 +216,23 @@ p {
   min-width: 0;
 }
 
+/* El diálogo del asistente de reserva ocupa la pantalla entera en móvil (M-08 RN-DISPO-60): con las
+   tarjetas, el resumen y «Continuar» fijos al pie, un diálogo flotante dejaba media pantalla para
+   elegir hora. `!important` porque el ancho llega en línea desde `[style]` del componente. `100vh` va
+   antes de `100dvh` como respaldo para quien no conozca la unidad dinámica. */
+@media (max-width: 47.99rem) {
+  .p-dialog.cob-booking-dialog {
+    width: 100vw !important;
+    max-width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
+    margin: 0;
+    border-radius: 0;
+  }
+}
+
 /* Link individual por barbero (?barbero={id}): aviso al llegar por él, tanto en la landing como
    dentro del modal del wizard — comparte esta clase en los dos sitios. */
 .cob-referral-banner {

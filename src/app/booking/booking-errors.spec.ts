@@ -1,5 +1,5 @@
 import { ApiError } from '../core/api-error';
-import { planForBookingError } from './booking-errors';
+import { bookingItemFailures, planForBookingError } from './booking-errors';
 
 function apiError(code: string, message = 'mensaje del servidor', status = 409): ApiError {
   return new ApiError(status, message, code);
@@ -101,5 +101,32 @@ describe('planForBookingError', () => {
       expect(plan.summary.length).toBeGreaterThan(0);
       expect(plan.detail.length).toBeGreaterThan(0);
     }
+  });
+});
+
+// M-08 RN-DISPO-56: los fallos por cita viajan en `details.failures` del 409 BOOKING_ITEMS_FAILED.
+describe('bookingItemFailures', () => {
+  it('lee los fallos del 409 BOOKING_ITEMS_FAILED', () => {
+    const failures = [
+      { index: 0, code: 'SLOT_TAKEN', message: 'Ese horario acaba de ocuparse.' },
+      { index: 2, code: 'BOOKING_ITEMS_OVERLAP', message: 'Choca con tu cita 1.', overlapsIndex: 0 },
+    ];
+    const error = new ApiError(409, '2 de tus 3 citas ya no se pueden reservar.', 'BOOKING_ITEMS_FAILED', undefined, { failures });
+
+    expect(bookingItemFailures(error)).toEqual(failures);
+  });
+
+  it('con otro error no hay fallos por cita', () => {
+    expect(bookingItemFailures(new ApiError(409, 'x', 'SLOT_TAKEN'))).toBeNull();
+    expect(bookingItemFailures(new Error('red'))).toBeNull();
+  });
+
+  it('descarta lo que no tiene forma de fallo, y sin details devuelve la lista vacía', () => {
+    const error = new ApiError(409, 'x', 'BOOKING_ITEMS_FAILED', undefined, {
+      failures: [{ index: 1, code: 'PAST_SLOT', message: 'Ya pasó.' }, { index: '0', message: 'x' }, null],
+    });
+
+    expect(bookingItemFailures(error)).toEqual([{ index: 1, code: 'PAST_SLOT', message: 'Ya pasó.' }]);
+    expect(bookingItemFailures(new ApiError(409, 'x', 'BOOKING_ITEMS_FAILED'))).toEqual([]);
   });
 });
