@@ -5,10 +5,11 @@ import { Button } from 'primeng/button';
 import { Rating } from 'primeng/rating';
 import { resolveImage } from '../core/images';
 import type { Branding } from '../data/branding';
+import { SectionLink } from './section-link';
 
 @Component({
   selector: 'cob-hero-section',
-  imports: [Button, FormsModule, Rating],
+  imports: [Button, FormsModule, Rating, SectionLink],
   templateUrl: './hero-section.html',
   styleUrl: './hero-section.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -246,9 +246,9 @@ describe('CardBooking: asistente de tarjetas', () => {
       expect(booking.getAvailability).toHaveBeenLastCalledWith('andres', 'corte', '2026-10-02');
     });
 
-    it('el servicio tocado en la portada entra como primera línea, y el barbero del enlace llega elegido', async () => {
+    it('el servicio tocado en la portada entra como primera línea, y el barbero del perfil llega elegido', async () => {
       fixture.componentRef.setInput('initialService', beard);
-      fixture.componentRef.setInput('fixedBarber', andres);
+      fixture.componentRef.setInput('lockedBarber', andres);
       fixture.detectChanges();
 
       expect(flow['lines']().map((line) => line.service.id)).toEqual(['barba']);

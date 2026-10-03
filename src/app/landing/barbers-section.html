@@ -51,14 +51,14 @@
               }
             </div>
 
+            <!-- M-08 RN-DISPO-66: lleva al perfil del barbero, dentro de la SPA y sin preseleccionar nada
+                 en la reserva. Es un enlace y no un botón porque navega: se puede abrir en otra pestaña
+                 o copiar, y un lector de pantalla lo anuncia como enlace. -->
             <ng-template #footer>
-              <p-button
-                [label]="'Agendar con ' + name(barber)"
-                icon="pi pi-calendar-plus"
-                [outlined]="true"
-                [fluid]="true"
-                (onClick)="barberSelected.emit(barber)"
-              />
+              <a pButton [routerLink]="['/profile', barber.id]" [outlined]="true" [fluid]="true">
+                <i class="pi pi-calendar-plus" pButtonIcon></i>
+                <span pButtonLabel>Agendar con {{ name(barber) }}</span>
+              </a>
             </ng-template>
           </p-card>
         }

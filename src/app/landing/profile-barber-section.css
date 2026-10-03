@@ -1,0 +1,109 @@
+/* M-08 RN-DISPO-64: la tarjeta de `barbers-section` a mayor escala. Apilada y centrada en móvil; en
+   fila, con la foto a la izquierda, desde 48rem. Los colores salen del tema del tenant. */
+.mybarber {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  max-width: 52rem;
+  margin-inline: auto;
+  padding: clamp(0.5rem, 3vw, 1.5rem);
+  text-align: center;
+}
+
+.mybarber__photo {
+  flex: none;
+  width: 9rem;
+  height: 9rem;
+  object-fit: cover;
+  border-radius: 999px;
+  border: 2px solid var(--cob-border);
+  /* El aro: un anillo del fondo de la tarjeta y otro del acento, sin tocar el tamaño de la foto. */
+  box-shadow:
+    0 0 0 4px var(--cob-panel-bg),
+    0 0 0 6px var(--cob-accent);
+}
+
+.mybarber__initials {
+  display: grid;
+  place-items: center;
+  font-family: var(--cob-font-display, inherit);
+  font-size: 3rem;
+  font-weight: 600;
+  color: var(--cob-accent);
+  background: color-mix(in srgb, var(--cob-accent) 14%, var(--cob-panel-bg));
+}
+
+.mybarber__info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.mybarber__name {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  overflow-wrap: anywhere;
+}
+
+.mybarber__specialty {
+  color: var(--cob-accent);
+  font-size: 0.8125rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.mybarber__rating {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.mybarber__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem 1.25rem;
+  max-width: 100%;
+  margin-top: 0.5rem;
+}
+
+/* Un nombre largo no desborda a 360 px: el botón no pasa del ancho y su etiqueta parte línea (el
+   `.p-button` de Aura no fija `nowrap`). */
+.mybarber__actions p-button {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.mybarber__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  color: var(--cob-accent);
+  font-weight: 600;
+}
+
+.mybarber__link:hover {
+  text-decoration: underline;
+}
+
+@media (min-width: 48rem) {
+  .mybarber {
+    flex-direction: row;
+    gap: 2.5rem;
+    text-align: left;
+  }
+
+  .mybarber__photo {
+    width: 11rem;
+    height: 11rem;
+  }
+
+  .mybarber__info,
+  .mybarber__actions {
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+}

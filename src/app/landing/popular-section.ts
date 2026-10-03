@@ -1,9 +1,9 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { Button } from 'primeng/button';
 import { Card } from 'primeng/card';
 import { resolveImage } from '../core/images';
 import { formatMoney } from '../core/locale';
-import type { PopularService } from '../data/public-api.models';
+import { durationFor, type PopularService } from '../data/public-api.models';
 
 /**
  * "Lo más pedido aquí": los tres servicios más reservados del último mes (RF-MP01, serie 030).
@@ -32,9 +32,20 @@ import type { PopularService } from '../data/public-api.models';
 })
 export class PopularSection {
   readonly services = input.required<readonly PopularService[]>();
+  /**
+   * En el perfil del barbero, su id (M-08 RN-DISPO-64): cada tarjeta enseña lo que tarda **él**
+   * (M-08 RN-DISPO-35). Nulo en la landing: el base del servicio.
+   */
+  readonly durationBarberId = input<string | null>(null);
 
   /** Mismo nombre y mismo motivo que en `ServicesSection`: `select` colisiona con el evento nativo. */
   readonly serviceSelected = output<PopularService>();
+
+  /** Cada servicio con la duración que se le muestra, resuelta una vez y no en cada pasada. */
+  protected readonly cards = computed(() => {
+    const barberId = this.durationBarberId();
+    return this.services().map((service) => ({ service, durationMin: durationFor(service, barberId) }));
+  });
 
   protected readonly formatPrice = formatMoney;
 

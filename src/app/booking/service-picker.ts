@@ -43,6 +43,8 @@ export class ServicePicker {
    * es lo que dice «A partir de».
    */
   readonly durationBarberId = input<string | null>(null);
+  /** El barbero bloqueado del perfil (M-08 RN-DISPO-65): el aviso del Resumen lo nombra. */
+  readonly lockedBarberName = input<string | null>(null);
 
   readonly serviceAdded = output<PublicService>();
   readonly lineRemoved = output<number>();

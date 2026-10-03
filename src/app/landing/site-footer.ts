@@ -1,16 +1,19 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { resolveImage } from '../core/images';
 import type { Branding } from '../data/branding';
+import { SectionLink } from './section-link';
 
 @Component({
   selector: 'cob-site-footer',
-  imports: [],
+  imports: [SectionLink],
   templateUrl: './site-footer.html',
   styleUrl: './site-footer.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SiteFooter {
   readonly branding = input.required<Branding>();
+  /** Pie del perfil del barbero (M-08 RN-DISPO-64): sin el enlace a la sección de equipo. */
+  readonly profile = input(false);
 
   protected readonly logo = computed(() => resolveImage(this.branding().logo_url));
 

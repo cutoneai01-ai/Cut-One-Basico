@@ -1,6 +1,18 @@
 <header class="header">
   <div class="cob-container header__inner">
-    <a class="brand" href="#top">
+    <!-- En el perfil (M-08 RN-DISPO-62) la marca vuelve a la landing de la barbería sin recargar; en la
+         landing, sube al principio de la página. -->
+    @if (profile()) {
+      <a class="brand" routerLink="/">
+        <ng-container *ngTemplateOutlet="brand" />
+      </a>
+    } @else {
+      <a class="brand" cobSectionLink="top">
+        <ng-container *ngTemplateOutlet="brand" />
+      </a>
+    }
+
+    <ng-template #brand>
       @if (logo(); as src) {
         <img class="brand__logo" [src]="src" [alt]="branding().shop_name || 'Logo'" />
       }
@@ -14,13 +26,16 @@
           <span class="brand__slogan cob-muted">Desde {{ branding().est_year }}</span>
         }
       </span>
-    </a>
+    </ng-template>
 
     <nav class="nav" aria-label="Secciones">
-      <a href="#servicios">Servicios</a>
-      <a href="#barberos">Barberos</a>
-      <a href="#nosotros">Sobre Nosotros</a>
-      <a href="#contacto">Contacto</a>
+      <a cobSectionLink="servicios">Servicios</a>
+      <!-- M-08 RN-DISPO-64: el perfil no tiene sección de equipo, así que no hay a dónde llevar. -->
+      @if (!profile()) {
+        <a cobSectionLink="barberos">Barberos</a>
+      }
+      <a cobSectionLink="nosotros">Sobre Nosotros</a>
+      <a cobSectionLink="contacto">Contacto</a>
     </nav>
 
     <p-button label="Reservar Cita" icon="pi pi-calendar-plus" (onClick)="book.emit()" />

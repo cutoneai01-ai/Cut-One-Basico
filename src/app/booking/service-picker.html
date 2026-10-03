@@ -108,7 +108,12 @@
       <!-- M-08 RN-DISPO-54: cada servicio es una cita independiente. -->
       <p class="summary__notice">
         <i class="pi pi-calendar" aria-hidden="true"></i>
-        <span>Cada servicio será una cita, con su propio barbero, día y hora.</span>
+        @if (lockedBarberName(); as name) {
+          <!-- M-08 RN-DISPO-65: desde el perfil, todas con su barbero. -->
+          <span>Cada servicio será una cita, con {{ name }}, en su propio día y hora.</span>
+        } @else {
+          <span>Cada servicio será una cita, con su propio barbero, día y hora.</span>
+        }
       </p>
     }
 

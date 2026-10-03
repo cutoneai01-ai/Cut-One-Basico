@@ -3,6 +3,7 @@ import { BookingPolicyService } from './data/booking-policy.service';
 import { BookingService } from './data/booking.service';
 import { legacyManageLinkGuard } from './manage/legacy-links';
 import { CatalogService } from './data/catalog.service';
+import { legacyBarberLinkGuard } from './landing/legacy-barber-link';
 import { PopularServicesService } from './data/popular.service';
 import { SettingsService } from './data/settings.service';
 import { TestimonialsService } from './data/testimonials.service';
@@ -19,6 +20,15 @@ import { PreviewTestimonialsService } from './preview/preview-testimonials.servi
 export const routes: Routes = [
   {
     path: '',
+    // M-08 RN-DISPO-68: el enlace viejo `/?barbero={id}` redirige al perfil antes de pintar nada.
+    canActivate: [legacyBarberLinkGuard],
+    loadComponent: () => import('./landing/landing-page').then((m) => m.LandingPage),
+  },
+  {
+    // M-08 RN-DISPO-62 (ADR-0061): el perfil del barbero es la MISMA landing en modo perfil, no una
+    // página aparte; `LandingPage` lee `barberId` de la ruta. Sin slug: el id es el GUID del barbero.
+    // Va antes del comodín `**`.
+    path: 'profile/:barberId',
     loadComponent: () => import('./landing/landing-page').then((m) => m.LandingPage),
   },
   {

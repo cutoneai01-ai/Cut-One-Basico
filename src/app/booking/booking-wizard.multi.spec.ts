@@ -194,7 +194,7 @@ describe('BookingWizard: reserva de varios servicios', () => {
 
     it('con la opción en false, abrir desde una tarjeta salta al barbero, como siempre', async () => {
       bookingWindow = { ...WINDOW, multiServiceBookingEnabled: false };
-      wizard.open(cut, null);
+      wizard.open(cut);
       await settle();
 
       expect(wizard['step']()).toBe(2);
@@ -204,7 +204,9 @@ describe('BookingWizard: reserva de varios servicios', () => {
     it('un servicio con la opción apagada crea con POST /appointments y serviceId', async () => {
       bookingWindow = { ...WINDOW };
       booking.createAppointment.mockResolvedValue(created(1));
-      wizard.open(cut, juan);
+      // Desde el perfil de Juan (M-08 RN-DISPO-65): servicio y barbero dados, arranca en el Horario.
+      fixture.componentRef.setInput('lockedBarber', juan);
+      wizard.open(cut);
       await settle();
 
       wizard['chooseTime']({ startAtUtc: '2026-10-01T14:00:00Z', label: '09:00', available: true, period: 'Morning' });
@@ -224,7 +226,7 @@ describe('BookingWizard: reserva de varios servicios', () => {
       fixture.debugElement.query(By.directive(CardBooking)).componentInstance as CardBooking;
 
     it('monta el asistente de tarjetas con el servicio tocado ya añadido', async () => {
-      wizard.open(cut, null);
+      wizard.open(cut);
       await settle();
 
       expect(host().querySelector('cob-card-booking cob-service-picker')).not.toBeNull();
@@ -237,7 +239,7 @@ describe('BookingWizard: reserva de varios servicios', () => {
       booking.createMultipleAppointments.mockRejectedValue(
         new ApiError(409, 'La barbería no permite varios servicios.', 'MULTI_SERVICE_BOOKING_DISABLED'),
       );
-      wizard.open(cut, null);
+      wizard.open(cut);
       await settle();
 
       // Dos tarjetas completas, datos escritos y confirmar.

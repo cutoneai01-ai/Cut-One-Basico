@@ -40,8 +40,9 @@
       <span class="cob-visually-hidden">Preparando tu reserva…</span>
     </div>
   } @else {
-    @if (referralBarberName(); as name) {
-      <p class="cob-referral-banner" role="status">Reservando con {{ name }}</p>
+    <!-- M-08 RN-DISPO-65: desde el perfil, el aviso de con quién va la reserva, en los dos asistentes. -->
+    @if (lockedBarber(); as locked) {
+      <p class="cob-referral-banner" role="status">Reservando con {{ barberName(locked) }}</p>
     }
     @if (multiEnabled()) {
       <!-- M-08 RN-DISPO-60: con la múltiple, el asistente de tarjetas. Se monta de nuevo en cada
@@ -51,19 +52,24 @@
           [services]="services()"
           [barbers]="barbers()"
           [initialService]="service()"
-          [fixedBarber]="barber()"
-          [referralBarberId]="referralBarberId()"
+          [lockedBarber]="lockedBarber()"
           (finished)="close()"
           (singleServiceFallback)="fallBackToSingleService($event)"
         />
       }
     } @else {
-    <p-stepper [(value)]="step" [linear]="false" styleClass="wizard">
+    <!-- El stepper trabaja con el número visible de cada paso; `step` guarda el interno (1 Servicio,
+         2 Barbero, 3 Horario, 4 Tus datos). Con barbero bloqueado no hay paso 2 y el Horario se ve como
+         paso 2 (M-08 RN-DISPO-65). -->
+    @let numbers = stepNumbers();
+    <p-stepper [value]="stepNumber()" (valueChange)="goToStep($event)" [linear]="false" styleClass="wizard">
       <p-step-list>
         <p-step [value]="1">Servicio</p-step>
-        <p-step [value]="2" [disabled]="step() < 2">Barbero</p-step>
-        <p-step [value]="3" [disabled]="step() < 3">Horario</p-step>
-        <p-step [value]="4" [disabled]="step() < 4">Tus datos</p-step>
+        @if (!lockedBarber()) {
+          <p-step [value]="numbers.barber" [disabled]="step() < 2">Barbero</p-step>
+        }
+        <p-step [value]="numbers.schedule" [disabled]="step() < 3">Horario</p-step>
+        <p-step [value]="numbers.details" [disabled]="step() < 4">Tus datos</p-step>
       </p-step-list>
 
       <p-step-panels>
@@ -71,7 +77,7 @@
         <p-step-panel [value]="1">
           <ng-template #content>
             @if (visibleServices().length === 0) {
-              <p-message severity="info" [text]="barber() ? barberName(barber()) + ' no tiene servicios configurados. Elige otro profesional.' : 'Este negocio todavía no publicó servicios.'" />
+              <p-message severity="info" [text]="noServicesText()" />
             } @else {
               <div class="options">
                 @for (entry of serviceOptions(); track entry.service.id) {
@@ -98,8 +104,9 @@
           </ng-template>
         </p-step-panel>
 
-        <!-- Paso 2 — Barbero -->
-        <p-step-panel [value]="2">
+        <!-- Paso 2 — Barbero. No existe con barbero bloqueado (M-08 RN-DISPO-65). -->
+        @if (!lockedBarber()) {
+        <p-step-panel [value]="numbers.barber">
           <ng-template #content>
             @if (visibleBarbers().length === 0) {
               <p-message severity="info" [text]="service() ? 'Ningún profesional presta este servicio ahora mismo. Elige otro servicio.' : 'Este negocio todavía no publicó profesionales.'" />
@@ -159,9 +166,10 @@
             </div>
           </ng-template>
         </p-step-panel>
+        }
 
         <!-- Paso 3 — Horario -->
-        <p-step-panel [value]="3">
+        <p-step-panel [value]="numbers.schedule">
           <ng-template #content>
             <div class="days" role="group" aria-label="Elige el día">
               @for (day of days(); track day) {
@@ -212,7 +220,7 @@
         </p-step-panel>
 
         <!-- Paso 4 — Tus datos -->
-        <p-step-panel [value]="4">
+        <p-step-panel [value]="numbers.details">
           <ng-template #content>
             <div class="checkout">
               <form class="form" [formGroup]="form" (ngSubmit)="confirm()">

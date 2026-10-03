@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Button } from 'primeng/button';
+import { RouterLink } from '@angular/router';
+import { ButtonDirective, ButtonIcon, ButtonLabel } from 'primeng/button';
 import { Card } from 'primeng/card';
 import { Message } from 'primeng/message';
 import { Rating } from 'primeng/rating';
@@ -11,7 +12,18 @@ import type { PublicBarber } from '../data/public-api.models';
 
 @Component({
   selector: 'cob-barbers-section',
-  imports: [Button, Card, FormsModule, Message, Rating, Skeleton, Tag],
+  imports: [
+    ButtonDirective,
+    ButtonIcon,
+    ButtonLabel,
+    Card,
+    FormsModule,
+    Message,
+    Rating,
+    RouterLink,
+    Skeleton,
+    Tag,
+  ],
   templateUrl: './barbers-section.html',
   styleUrl: './barbers-section.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -20,9 +32,6 @@ export class BarbersSection {
   readonly barbers = input.required<readonly PublicBarber[]>();
   readonly loading = input(false);
   readonly failed = input(false);
-
-  /** No se llama `select`: colisionaría con el evento nativo del DOM (`@angular-eslint/no-output-native`). */
-  readonly barberSelected = output<PublicBarber>();
 
   protected readonly placeholders = [0, 1, 2];
 

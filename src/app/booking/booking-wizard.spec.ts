@@ -149,7 +149,7 @@ describe('BookingWizard: tiempo de cada barbero', () => {
 
   it('paso 2: cada tarjeta muestra el tiempo de su barbero y «cualquiera» el base', async () => {
     const host = await render([service()]);
-    wizard.open(service(), null);
+    wizard.open(service());
     await refresh();
 
     expect(texts(host, '.option__duration')).toEqual(['30 min', '20 min', '45 min', '30 min']);
@@ -157,7 +157,7 @@ describe('BookingWizard: tiempo de cada barbero', () => {
 
   it('elegir barbero pone su tiempo en el resumen, y cambiar de barbero lo cambia', async () => {
     const host = await render([service()]);
-    wizard.open(service(), null);
+    wizard.open(service());
     await refresh();
 
     wizard['chooseBarber'](fast);
@@ -175,7 +175,7 @@ describe('BookingWizard: tiempo de cada barbero', () => {
 
   it('al volver al paso 1 con barbero elegido, el servicio seleccionado muestra su tiempo', async () => {
     const host = await render([service(), beard]);
-    wizard.open(service(), null);
+    wizard.open(service());
     await refresh();
 
     wizard['chooseBarber'](slow);
@@ -189,7 +189,7 @@ describe('BookingWizard: tiempo de cada barbero', () => {
 
   it('«cualquier profesional»: el resumen muestra el base marcado como aproximado', async () => {
     const host = await render([service()]);
-    wizard.open(service(), null);
+    wizard.open(service());
     await refresh();
 
     wizard['chooseAnyBarber']();
@@ -200,7 +200,7 @@ describe('BookingWizard: tiempo de cada barbero', () => {
 
   it('pasar de «cualquiera» a un barbero concreto quita el «(aprox.)»', async () => {
     const host = await render([service()]);
-    wizard.open(service(), null);
+    wizard.open(service());
     wizard['chooseAnyBarber']();
     wizard['chooseBarber'](fast);
     await goToRecap();
@@ -208,9 +208,10 @@ describe('BookingWizard: tiempo de cada barbero', () => {
     expect(texts(host, '.summary__duration dd')).toEqual(['20 min']);
   });
 
-  it('con ?barbero= fijado, el selector de servicio muestra el tiempo de ese barbero', async () => {
+  it('con el barbero bloqueado del perfil, el selector de servicio muestra el tiempo de ese barbero', async () => {
     const host = await render([service(), beard]);
-    wizard.open(null, fast);
+    fixture.componentRef.setInput('lockedBarber', fast);
+    wizard.open();
     await refresh();
 
     expect(texts(host, '.option__duration')).toEqual(['20 min', '10 min']);
@@ -227,7 +228,7 @@ describe('BookingWizard: tiempo de cada barbero', () => {
   it('sin barberDurations (backend anterior) todo se muestra con el base', async () => {
     const legacy = service({ barberDurations: undefined });
     const host = await render([legacy]);
-    wizard.open(legacy, null);
+    wizard.open(legacy);
     await refresh();
 
     expect(texts(host, '.option__duration')).toEqual(['30 min', '30 min', '30 min', '30 min']);
@@ -248,7 +249,7 @@ describe('BookingWizard: tiempo de cada barbero', () => {
       offset_label: 'UTC-5',
     });
     const host = await render([service()]);
-    wizard.open(service(), null);
+    wizard.open(service());
     wizard['chooseAnyBarber']();
     wizard['created'].set({
       appointmentId: 'a-1',

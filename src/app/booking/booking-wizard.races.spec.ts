@@ -191,8 +191,14 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
       await settle();
     });
 
+    /** Desde el perfil de Juan (M-08 RN-DISPO-65): con servicio y barbero dados, arranca en el Horario. */
+    function openFromJuansProfile(): void {
+      fixture.componentRef.setInput('lockedBarber', juan);
+      wizard.open(cut);
+    }
+
     it('dos días que responden en orden inverso: quedan los del día elegido y se reserva ese día', async () => {
-      wizard.open(cut, juan);
+      openFromJuansProfile();
       await settle();
       expect(booking.getAvailability).toHaveBeenLastCalledWith('juan', 'corte', '2026-10-01');
 
@@ -223,7 +229,7 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
     });
 
     it('la respuesta tardía no apaga la carga de la que sigue en vuelo, y su error no se pinta', async () => {
-      wizard.open(cut, juan);
+      openFromJuansProfile();
       await settle();
       wizard['chooseDate']('2026-10-02');
       await settle();
@@ -250,7 +256,8 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
       ]);
       booking.getAvailability.mockImplementation((barberId: string) => firstValueFrom(byBarber.get(barberId)!));
 
-      wizard.open(cut, juan);
+      wizard.open(cut);
+      wizard['chooseBarber'](juan);
       await settle();
       wizard['chooseBarber'](andres);
       await settle();
@@ -265,7 +272,7 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
     });
 
     it('el éxito pinta el día y la hora de la cita creada, no los del selector', async () => {
-      wizard.open(cut, juan);
+      openFromJuansProfile();
       await settle();
       await respond('2026-10-01');
 
@@ -297,7 +304,7 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
     }
 
     it('con la múltiple y la política tardía: carga, y después Servicios con el servicio añadido, sin más cambios', async () => {
-      wizard.open(cut, null);
+      wizard.open(cut);
       const steps = recordSteps();
       await settle();
 
@@ -318,7 +325,7 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
     });
 
     it('con la normal y la política tardía: carga, y después Barbero con ese servicio, sin más cambios', async () => {
-      wizard.open(cut, null);
+      wizard.open(cut);
       const steps = recordSteps();
       await settle();
       expect(host().querySelector('p-stepper')).toBeNull();
@@ -333,7 +340,7 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
     });
 
     it('si la política falla: modo un servicio, paso Barbero y sin tira de días', async () => {
-      wizard.open(cut, null);
+      wizard.open(cut);
       const steps = recordSteps();
       await settle();
 
@@ -347,15 +354,15 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
     });
 
     it('la política se pide una sola vez aunque el asistente se abra varias veces', async () => {
-      wizard.open(cut, null);
+      wizard.open(cut);
       wizard['close']();
-      wizard.open(beard, null);
+      wizard.open(beard);
       await settle();
       policy$.next({ ...WINDOW, multiServiceBookingEnabled: true });
       await settle();
 
       wizard['close']();
-      wizard.open(cut, null);
+      wizard.open(cut);
       wizard['close']();
       wizard.open();
       await settle();
@@ -364,9 +371,9 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
     });
 
     it('reabrir mientras carga solo aplica la última apertura', async () => {
-      wizard.open(cut, null);
+      wizard.open(cut);
       wizard['close']();
-      wizard.open(beard, null);
+      wizard.open(beard);
       await settle();
 
       policy$.next({ ...WINDOW, multiServiceBookingEnabled: true });
@@ -377,11 +384,11 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
 
     it('con la política ya cargada, el asistente se monta al abrir y no hay indicador de carga', async () => {
       policy$.next({ ...WINDOW, multiServiceBookingEnabled: true });
-      wizard.open(beard, null);
+      wizard.open(beard);
       await settle();
 
       wizard['close']();
-      wizard.open(cut, null);
+      wizard.open(cut);
 
       // Síncrono: el primer pintado ya es el definitivo.
       expect(wizard['starting']()).toBe(false);

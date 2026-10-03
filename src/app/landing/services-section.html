@@ -10,7 +10,7 @@
     <div class="cob-section__head">
       <span class="cob-eyebrow">Nuestros servicios</span>
       <h2 class="cob-title">Catálogo de servicios</h2>
-      <p class="cob-subtitle">Elige el servicio que buscas y reserva en menos de un minuto.</p>
+      <p class="cob-subtitle">{{ subtitle() }}</p>
     </div>
 
     @if (chips().length > 0) {
@@ -60,7 +60,8 @@
       <p-message severity="info" text="Todavía no hay servicios publicados." />
     } @else {
       <div class="cob-grid">
-        @for (service of visible(); track service.id) {
+        @for (card of visible(); track card.service.id) {
+          @let service = card.service;
           <p-card styleClass="service-card">
             <ng-template #header>
               <div class="service-card__media">
@@ -79,7 +80,7 @@
 
             <div class="service-card__body">
               <div class="service-card__meta">
-                <span><i class="pi pi-clock" aria-hidden="true"></i> {{ service.durationMin }} min</span>
+                <span><i class="pi pi-clock" aria-hidden="true"></i> {{ card.durationMin }} min</span>
                 @if (service.category) {
                   <span class="service-card__category">{{ service.category }}</span>
                 }

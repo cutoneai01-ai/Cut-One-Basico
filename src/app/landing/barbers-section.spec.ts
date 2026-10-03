@@ -1,4 +1,7 @@
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { NavigationEnd, Router, provideRouter } from '@angular/router';
+import { filter, firstValueFrom } from 'rxjs';
 import type { PublicBarber } from '../data/public-api.models';
 import { BarbersSection } from './barbers-section';
 
@@ -24,9 +27,15 @@ function render(item: PublicBarber): HTMLElement {
   return fixture.nativeElement as HTMLElement;
 }
 
+@Component({ template: '' })
+class ProfileStub {}
+
 describe('BarbersSection: tag «Nuevo» y nota', () => {
   beforeEach(() => {
-    TestBed.configureTestingModule({ imports: [BarbersSection] });
+    TestBed.configureTestingModule({
+      imports: [BarbersSection],
+      providers: [provideRouter([{ path: 'profile/:barberId', component: ProfileStub }])],
+    });
   });
 
   it('«Nuevo» sin reseñas: pinta el tag y ninguna estrella', () => {
@@ -55,5 +64,30 @@ describe('BarbersSection: tag «Nuevo» y nota', () => {
 
     expect(host.querySelector('p-tag')).toBeNull();
     expect(host.querySelector('p-rating')).not.toBeNull();
+  });
+});
+
+// M-08 RN-DISPO-66: la tarjeta lleva al perfil del barbero, dentro de la SPA; ya no abre la reserva.
+describe('BarbersSection: la tarjeta lleva al perfil', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [BarbersSection],
+      providers: [provideRouter([{ path: 'profile/:barberId', component: ProfileStub }])],
+    });
+  });
+
+  it('«Agendar con {nombre}» es un enlace a /profile/{id}, y navega sin recargar', async () => {
+    const host = render(barber({ id: '3f2b8c1e-5d4a-4c3b-9a8e-7f6d5c4b3a21' }));
+    const link = host.querySelector<HTMLAnchorElement>('a[pButton]')!;
+
+    expect(link.textContent?.trim()).toBe('Agendar con Barbero Ejemplo');
+    expect(link.getAttribute('href')).toBe('/profile/3f2b8c1e-5d4a-4c3b-9a8e-7f6d5c4b3a21');
+
+    const router = TestBed.inject(Router);
+    const navigated = firstValueFrom(router.events.pipe(filter((event) => event instanceof NavigationEnd)));
+    link.click();
+    await navigated;
+
+    expect(TestBed.inject(Router).url).toBe('/profile/3f2b8c1e-5d4a-4c3b-9a8e-7f6d5c4b3a21');
   });
 });

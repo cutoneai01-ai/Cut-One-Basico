@@ -24,6 +24,14 @@ import { CardBooking, type SingleServiceFallback } from './card-booking';
 import { CustomerFields, createCustomerForm, customerInput } from './customer-fields';
 
 /**
+ * Los pasos del asistente de un servicio por su número interno: 1 Servicio, 2 Barbero, 3 Horario y
+ * 4 Tus datos. El stepper pinta la posición en la lista, así que sin el 2 el Horario se ve como paso 2.
+ */
+const ALL_STEPS: readonly number[] = [1, 2, 3, 4];
+/** Con barbero bloqueado no hay paso «Barbero» (M-08 RN-DISPO-65). */
+const LOCKED_STEPS: readonly number[] = [1, 3, 4];
+
+/**
  * Wizard de reserva dentro de un diálogo modal (M-08, reserva pública).
  *
  * Es el **diálogo** y el asistente de **un** servicio, en cuatro pasos. Con la reserva múltiple
@@ -71,10 +79,13 @@ export class BookingWizard {
 
   readonly services = input.required<readonly PublicService[]>();
   readonly barbers = input.required<readonly PublicBarber[]>();
-  /** Nombre del barbero cuyo link originó esta apertura (link individual), para el aviso dentro del modal. */
-  readonly referralBarberName = input<string | null>(null);
-  /** Id crudo del barbero del link — viaja a la creación de la cita como dato de atribución. */
-  readonly referralBarberId = input<string | null>(null);
+  /**
+   * El barbero del perfil (M-08 RN-DISPO-65): la reserva va con él y **no se puede cambiar**. No es una
+   * preselección: sin paso «Barbero» (Servicio → Horario → Tus datos), sin «Cualquier profesional» y
+   * solo con sus servicios, y ningún camino del asistente lo cambia ni lo borra porque `barber` se
+   * deriva de aquí. Viaja también como `referralBarberId`, el dato de atribución de la cita.
+   */
+  readonly lockedBarber = input<PublicBarber | null>(null);
 
   protected readonly visible = signal(false);
   protected readonly step = signal(1);
@@ -95,7 +106,25 @@ export class BookingWizard {
 
   /** El servicio de la apertura: el elegido en el asistente de un servicio, o el tocado en la portada. */
   protected readonly service = signal<PublicService | null>(null);
-  protected readonly barber = signal<PublicBarber | null>(null);
+
+  /** El barbero elegido en el paso 2. Con barbero bloqueado no se lee: manda `lockedBarber`. */
+  private readonly pickedBarber = signal<PublicBarber | null>(null);
+  /** El de la reserva: el bloqueado del perfil (M-08 RN-DISPO-65) o, si no hay, el elegido. */
+  protected readonly barber = computed(() => this.lockedBarber() ?? this.pickedBarber());
+
+  /** Pasos que se ven, por su número interno (M-08 RN-DISPO-65): con barbero bloqueado, sin «Barbero». */
+  protected readonly steps = computed(() => (this.lockedBarber() ? LOCKED_STEPS : ALL_STEPS));
+  /** El número que pinta el stepper para el paso en curso: su posición entre los que se ven. */
+  protected readonly stepNumber = computed(() => this.steps().indexOf(this.step()) + 1);
+  /** El número visible de cada paso (el de «Barbero» no se usa con barbero bloqueado). */
+  protected readonly stepNumbers = computed(() => {
+    const steps = this.steps();
+    return {
+      barber: steps.indexOf(2) + 1,
+      schedule: steps.indexOf(3) + 1,
+      details: steps.indexOf(4) + 1,
+    };
+  });
 
   /**
    * El servidor rechazó la reserva múltiple en esta apertura (`409 MULTI_SERVICE_BOOKING_DISABLED`).
@@ -126,7 +155,9 @@ export class BookingWizard {
    * y el fallo aparecería lejos de aquí. Con dos señales, `barber() === null && anyBarber()` es un
    * estado que el compilador obliga a considerar en cada sitio que lea el barbero.
    */
-  protected readonly anyBarber = signal(false);
+  private readonly pickedAnyBarber = signal(false);
+  /** Con barbero bloqueado nunca es «cualquiera» (M-08 RN-DISPO-65). */
+  protected readonly anyBarber = computed(() => !this.lockedBarber() && this.pickedAnyBarber());
 
   /** El paso 2 está resuelto tanto con un barbero concreto como con "cualquiera". */
   protected readonly barberChosen = computed(() => this.barber() !== null || this.anyBarber());
@@ -190,9 +221,8 @@ export class BookingWizard {
    * RF-BS03 §5 (serie 023): las dos listas del wizard se filtran la una a la otra, en memoria y sin
    * ninguna petición extra — `barberIds` viaja dentro de cada servicio del catálogo.
    *
-   * `visibleServices` solo recorta cuando el barbero viene **fijado desde su link personal**
-   * `?barbero={id}`, que es el único camino por el que este wizard se recorre al revés. Elegir barbero
-   * en el paso 2 ya implica haber elegido servicio en el 1, así que ahí no hay nada que filtrar.
+   * `visibleServices` recorta con barbero: el bloqueado del perfil (M-08 RN-DISPO-65), con el que el
+   * asistente se recorre al revés, o el elegido en el paso 2 si se vuelve al 1.
    */
   protected readonly visibleServices = computed(() => {
     const chosenBarber = this.barber();
@@ -201,6 +231,20 @@ export class BookingWizard {
     }
 
     return this.services().filter((s) => s.barberIds.includes(chosenBarber.id));
+  });
+
+  /**
+   * Paso 1 sin servicios. Con el barbero bloqueado del perfil no se le puede sugerir otro profesional
+   * (M-08 RN-DISPO-65).
+   */
+  protected readonly noServicesText = computed(() => {
+    const barber = this.barber();
+    if (!barber) {
+      return 'Este negocio todavía no publicó servicios.';
+    }
+    return this.lockedBarber()
+      ? `${this.barberName(barber)} todavía no tiene servicios para reservar.`
+      : `${this.barberName(barber)} no tiene servicios configurados. Elige otro profesional.`;
   });
 
   /** Los que prestan el servicio elegido; sin servicio todavía, todos. */
@@ -214,7 +258,7 @@ export class BookingWizard {
   });
 
   /**
-   * Barbero cuyo tiempo se muestra (M-08 RN-DISPO-35): el elegido o el fijado por `?barbero=`, y nulo
+   * Barbero cuyo tiempo se muestra (M-08 RN-DISPO-35): el elegido o el bloqueado del perfil, y nulo
    * con «cualquier profesional» o sin barbero todavía — entonces se muestra el base del servicio.
    */
   private readonly durationBarberId = computed(() =>
@@ -222,7 +266,7 @@ export class BookingWizard {
   );
 
   /**
-   * Paso 1 con su duración ya resuelta. Con un barbero fijado (link `?barbero=`, o de vuelta desde el
+   * Paso 1 con su duración ya resuelta. Con un barbero (el bloqueado del perfil, o de vuelta desde el
    * paso 2) cada servicio enseña el tiempo de **ese** barbero, que es el que durará la cita (ADR-0044).
    */
   protected readonly serviceOptions = computed(() => {
@@ -271,12 +315,11 @@ export class BookingWizard {
    * no llegó, el diálogo se abre con su indicador de carga y el paso se fija cuando llegue; no se pide
    * otra vez: se espera la misma petición que lanzó la página.
    */
-  open(service: PublicService | null = null, barber: PublicBarber | null = null): void {
+  open(service: PublicService | null = null): void {
     this.reset();
     this.form.reset();
     this.multiRevoked.set(false);
     this.service.set(service);
-    this.barber.set(barber);
     this.visible.set(true);
 
     // M-08 RN-DISPO-31. `CatalogService.ensureLoaded()` se ejecuta una vez por carga de página, así que
@@ -304,7 +347,7 @@ export class BookingWizard {
   /**
    * Fija el paso inicial con la política ya resuelta (M-08 RN-DISPO-37). Con la múltiple no hay nada
    * que fijar aquí: `CardBooking` arranca en «Servicios» con el servicio tocado ya añadido. Con la
-   * normal, o si la política falló, salta al barbero como siempre.
+   * normal, o si la política falló, salta al barbero como siempre, o al Horario si está bloqueado.
    */
   private start(): void {
     this.starting.set(false);
@@ -358,9 +401,12 @@ export class BookingWizard {
     //
     // "Cualquiera" sobrevive siempre al cambio de servicio (RF-CP01 §8): es válido para todo servicio
     // que el catálogo llegue a listar, porque el catálogo ya esconde los que no presta nadie.
-    const chosenBarber = this.barber();
-    if (chosenBarber && !service.barberIds.includes(chosenBarber.id)) {
-      this.barber.set(null);
+    //
+    // Solo afecta al elegido: el bloqueado del perfil no se descarta nunca, y su paso 1 solo ofrece
+    // sus servicios (M-08 RN-DISPO-65).
+    const picked = this.pickedBarber();
+    if (picked && !service.barberIds.includes(picked.id)) {
+      this.pickedBarber.set(null);
     }
 
     this.step.set(this.barberChosen() ? 3 : 2);
@@ -371,8 +417,8 @@ export class BookingWizard {
   }
 
   protected chooseBarber(barber: PublicBarber): void {
-    this.barber.set(barber);
-    this.anyBarber.set(false);
+    this.pickedBarber.set(barber);
+    this.pickedAnyBarber.set(false);
     this.clearTime();
     this.step.set(3);
     void this.loadAvailability();
@@ -380,8 +426,8 @@ export class BookingWizard {
 
   /** "Cualquier profesional": se descarta el barbero concreto y se pide la disponibilidad conjunta. */
   protected chooseAnyBarber(): void {
-    this.barber.set(null);
-    this.anyBarber.set(true);
+    this.pickedBarber.set(null);
+    this.pickedAnyBarber.set(true);
     this.clearTime();
     this.step.set(3);
     void this.loadAvailability();
@@ -407,8 +453,18 @@ export class BookingWizard {
     this.step.set(4);
   }
 
+  /** Al paso anterior de los que se ven: con barbero bloqueado, del Horario al Servicio. */
   protected back(): void {
-    this.step.update((current) => Math.max(1, current - 1));
+    const steps = this.steps();
+    this.step.set(steps[Math.max(0, steps.indexOf(this.step()) - 1)] ?? 1);
+  }
+
+  /** Clic en una cabecera del stepper: llega su número visible, no el interno. */
+  protected goToStep(stepNumber: number | undefined): void {
+    const step = stepNumber === undefined ? undefined : this.steps()[stepNumber - 1];
+    if (step !== undefined) {
+      this.step.set(step);
+    }
   }
 
   protected async confirm(): Promise<void> {
@@ -442,7 +498,8 @@ export class BookingWizard {
           // El instante del hueco, sin recomponerlo desde día y hora (M-08 RN-DISPO-33).
           startAtUtc: time,
           customer: customerInput(this.form),
-          referralBarberId: this.referralBarberId(),
+          // M-08 RN-DISPO-65: la cita reservada desde el perfil se atribuye a su barbero.
+          referralBarberId: this.lockedBarber()?.id ?? null,
         }),
       );
     } catch (error) {
@@ -547,8 +604,8 @@ export class BookingWizard {
   private reset(): void {
     this.step.set(1);
     this.service.set(null);
-    this.barber.set(null);
-    this.anyBarber.set(false);
+    this.pickedBarber.set(null);
+    this.pickedAnyBarber.set(false);
     // El primer día reservable, que el backend ya calcula en la zona de la barbería. Si la política
     // todavía no llegó queda vacío y lo siembra `start()`.
     this.date.set(this.days()[0] ?? '');

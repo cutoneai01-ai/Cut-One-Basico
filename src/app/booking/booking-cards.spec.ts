@@ -39,6 +39,7 @@ function card(overrides: Partial<BookingCard> & Pick<BookingCard, 'key'>): Booki
     service: cut,
     barberId: 'juan',
     anyBarber: false,
+    barberLocked: false,
     date: '2026-10-01',
     startAtUtc: null,
     failure: null,
@@ -47,10 +48,19 @@ function card(overrides: Partial<BookingCard> & Pick<BookingCard, 'key'>): Booki
 }
 
 describe('tarjetas de la reserva múltiple', () => {
-  it('una tarjeta nueva no tiene hora; el barbero del enlace solo si presta el servicio', () => {
+  it('una tarjeta nueva no tiene hora; el barbero del perfil, bloqueado, solo si presta el servicio', () => {
     expect(newCard(1, cut, '2026-10-01', null)).toEqual(card({ key: 1, barberId: null }));
-    expect(newCard(1, cut, '2026-10-01', 'andres').barberId).toBe('andres');
-    expect(newCard(1, beard, '2026-10-01', 'andres').barberId).toBeNull();
+    expect(newCard(1, cut, '2026-10-01', 'andres')).toMatchObject({ barberId: 'andres', barberLocked: true });
+    expect(newCard(1, beard, '2026-10-01', 'andres')).toMatchObject({ barberId: null, barberLocked: false });
+  });
+
+  it('M-08 RN-DISPO-65: el barbero bloqueado no cambia, ni a otro ni a «Cualquier profesional»', () => {
+    const locked = { ...newCard(1, cut, '2026-10-01', 'andres'), startAtUtc: '2026-10-01T14:00:00Z' };
+
+    for (const barberId of ['juan', null]) {
+      const [after] = chooseCardBarber([locked], 0, barberId);
+      expect(after).toBe(locked);
+    }
   });
 
   it('las tarjetas siguen a la selección: conservan lo elegido y las nuevas entran sin hora', () => {

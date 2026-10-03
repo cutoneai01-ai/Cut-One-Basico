@@ -37,6 +37,11 @@ export class SchedulePicker {
   readonly anyDurationMin = input<number | null>(null);
   readonly barberId = input<string | null>(null);
   readonly anyBarber = input(false);
+  /**
+   * El barbero es el del perfil y no se puede cambiar (M-08 RN-DISPO-65): se enseña como una tarjeta
+   * informativa, no pulsable, con borde punteado y candado.
+   */
+  readonly barberLocked = input(false);
 
   readonly days = input.required<readonly string[]>();
   readonly date = input<string | null>(null);

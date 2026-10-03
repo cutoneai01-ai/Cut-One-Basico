@@ -4,10 +4,12 @@ import {
   computed,
   effect,
   inject,
-  signal,
+  linkedSignal,
   viewChild,
 } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
+import { map } from 'rxjs';
 import { applyPageMetadata } from '../core/page-metadata';
 import { BookingWizard } from '../booking/booking-wizard';
 import { BookingPolicyService } from '../data/booking-policy.service';
@@ -20,10 +22,14 @@ import { AboutSection } from './about-section';
 import { BarbersSection } from './barbers-section';
 import { HeroSection } from './hero-section';
 import { PopularSection } from './popular-section';
+import { ProfileBarberSection } from './profile-barber-section';
 import { ServicesSection } from './services-section';
 import { SiteFooter } from './site-footer';
 import { SiteHeader } from './site-header';
 import { TestimonialsSection } from './testimonials-section';
+
+/** El id del barbero en `/profile/:barberId` es su GUID, sin slug (M-08 RN-DISPO-62). */
+const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * La página `/`. Orquesta las siete secciones y el wizard; no pinta ningún dato por su cuenta.
@@ -32,6 +38,10 @@ import { TestimonialsSection } from './testimonials-section';
  * consumen sus señales, así que `/services` y `/barbers` se piden **una vez** por carga de página
  * (RF-G02 §5 RN-07). Añadir aquí un componente que cargue lo suyo por su cuenta reintroduciría la
  * regresión que se midió en producción en `pz-personalizado` el 2026-07-28.
+ *
+ * En `/profile/:barberId` es también el perfil del barbero (M-08 RN-DISPO-62, ADR-0061): la **misma**
+ * landing filtrada por él, no una página aparte. Pasar de la landing al perfil y volver no recarga la
+ * página, así que tampoco vuelve a pedir nada.
  */
 @Component({
   selector: 'cob-landing-page',
@@ -41,6 +51,7 @@ import { TestimonialsSection } from './testimonials-section';
     BookingWizard,
     HeroSection,
     PopularSection,
+    ProfileBarberSection,
     ServicesSection,
     SiteFooter,
     SiteHeader,
@@ -56,23 +67,104 @@ export class LandingPage {
   private readonly testimonialsService = inject(TestimonialsService);
   private readonly bookingPolicy = inject(BookingPolicyService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   private readonly wizard = viewChild.required(BookingWizard);
 
-  /** Link individual por barbero (?barbero={id}): id crudo, capturado una sola vez al cargar — sobrevive
-   * aunque el catálogo tarde o el barbero ya no sea elegible, porque también es el dato de atribución
-   * que viaja hacia la creación de la cita. */
-  protected readonly referralBarberId = signal<string | null>(null);
-  protected readonly referralBarberName = signal<string | null>(null);
-  private wizardOpenedFromLink = false;
-
   protected readonly branding = this.settings.branding;
-  protected readonly services = this.catalog.services;
   protected readonly barbers = this.catalog.barbers;
   protected readonly catalogLoading = this.catalog.loading;
   protected readonly catalogFailed = this.catalog.failed;
-  protected readonly popularServices = this.popular.items;
   protected readonly testimonials = this.testimonialsService.items;
+
+  /**
+   * El id de `/profile/:barberId`, o nulo en `/`. Se lee del **parámetro de ruta** y no con
+   * `withComponentInputBinding`, que también ataría un `?barberId=` de la query y pondría `/` en modo
+   * perfil.
+   */
+  private readonly profileId = toSignal(
+    this.route.paramMap.pipe(map((params) => params.get('barberId'))),
+    { initialValue: this.route.snapshot.paramMap.get('barberId') },
+  );
+
+  /** M-08 RN-DISPO-62: la landing está en modo perfil. */
+  protected readonly profile = computed(() => this.profileId() !== null);
+
+  /**
+   * Quién es el barbero del perfil (M-08 RN-DISPO-63), resuelto **una sola vez por id**: con la primera
+   * respuesta buena del catálogo, y fijo desde entonces mientras la página siga en ese perfil.
+   * `undefined` = todavía sin resolver (en `/`, o el catálogo cargando o caído); `null` = resuelto y no
+   * es público; si no, el barbero tal como lo publica `GET /public/barbers`.
+   *
+   * Fijo porque el asistente vuelve a pedir el catálogo al abrirse (`revalidate`, M-08 RN-DISPO-31): si
+   * el barbero hubiera dejado de estar disponible, recalcular aquí mandaría a `/` con el diálogo
+   * abierto. Así esa revalidación —y una fallida, que conserva lo que había— no cambia el perfil; la
+   * reserva con un barbero que ya no atiende la rechaza el servidor y el asistente muestra su error.
+   * Al cambiar de id (otro perfil en la misma instancia) se resuelve de nuevo.
+   *
+   * Se compara sin distinguir mayúsculas: un GUID lo es igual escrito de cualquiera de las dos formas.
+   */
+  private readonly resolvedBarber = linkedSignal<
+    { readonly id: string | null; readonly barbers: readonly PublicBarber[]; readonly ready: boolean },
+    PublicBarber | null | undefined
+  >({
+    source: () => ({
+      id: this.profileId()?.toLowerCase() ?? null,
+      barbers: this.barbers(),
+      ready: !this.catalogLoading() && !this.catalogFailed(),
+    }),
+    computation: (source, previous) => {
+      if (source.id === null) {
+        return undefined;
+      }
+      if (previous && previous.source.id === source.id && previous.value !== undefined) {
+        return previous.value;
+      }
+      if (!source.ready) {
+        return undefined;
+      }
+      return source.barbers.find((barber) => barber.id.toLowerCase() === source.id) ?? null;
+    },
+  });
+
+  /** El barbero del perfil ya resuelto; nulo en `/`, mientras no se sabe quién es o si no es público. */
+  protected readonly profileBarber = computed(() => this.resolvedBarber() ?? null);
+
+  /**
+   * M-08 RN-DISPO-64: en el perfil, solo los servicios que presta el barbero. Mientras no se sabe quién
+   * es (catálogo cargando o caído), ninguno: no se enseña un servicio que quizá no haga.
+   */
+  protected readonly services = computed<readonly PublicService[]>(() => {
+    const all = this.catalog.services();
+    if (!this.profile()) {
+      return all;
+    }
+    const barber = this.profileBarber();
+    return barber ? all.filter((service) => service.barberIds.includes(barber.id)) : [];
+  });
+
+  /**
+   * M-08 RN-DISPO-64: los populares del barbero **con su puesto de la barbería** (n.º 1, n.º 2, n.º 4…):
+   * se filtra sin renumerar, porque el puesto dice cuánto se pide en la barbería, no con él.
+   */
+  protected readonly popularServices = computed(() => {
+    const all = this.popular.items();
+    if (!this.profile()) {
+      return all;
+    }
+    const barber = this.profileBarber();
+    return barber ? all.filter((service) => service.barberIds.includes(barber.id)) : [];
+  });
+
+  /**
+   * El catálogo se pinta siempre en la landing: sin dato dice que no lo hay, porque alimenta el wizard.
+   * En el perfil, una sección vacía no aparece (M-08 RN-DISPO-64), salvo mientras carga, con sus
+   * esqueletos, o si falló, para decirlo.
+   */
+  protected readonly showServices = computed(
+    () =>
+      !this.profile() || this.catalogLoading() || this.catalogFailed() || this.services().length > 0,
+  );
 
   /**
    * RF-G03 §5 RN-02: la sección Nosotros solo existe si hay texto. Vaciar título y texto desde el panel
@@ -84,11 +176,15 @@ export class LandingPage {
     return Boolean(branding.about_us_title || branding.about_us_text);
   });
 
+  /** M-08 RN-DISPO-64: en el perfil, los testimonios de toda la barbería, sin filtrar. */
   protected readonly showTestimonials = computed(() => this.testimonials().length > 0);
 
   protected readonly canLoadMoreTestimonials = computed(
     () => !this.testimonialsService.exhausted() && !this.testimonialsService.loading(),
   );
+
+  /** Una sola salida al perfil inexistente, aunque el efecto vuelva a correr antes de navegar. */
+  private leavingProfile = false;
 
   constructor() {
     this.settings.ensureLoaded();
@@ -102,22 +198,20 @@ export class LandingPage {
     // a todos los subdominios y no puede llevar el nombre de ningún tenant.
     effect(() => applyPageMetadata(this.branding()));
 
-    this.referralBarberId.set(this.route.snapshot.queryParamMap.get('barbero'));
-
-    // Fail-open: sin match (no existe, desactivado, o sin horario — el catálogo público ya solo trae
-    // los elegibles) no pasa nada, landing normal. Con match, abre el wizard solo — sin clic previo —
-    // saltando el paso de barbero (decisión ya resuelta en BookingWizard.firstIncompleteStep).
+    // M-08 RN-DISPO-63: un perfil que no es de un barbero público —inactivo, sin horario, inexistente o
+    // con un id que ni siquiera es un GUID— se sustituye por `/`, sin aviso: falla abierto, a la landing
+    // de la barbería. El GUID malo se va sin esperar al catálogo; el resto, si la PRIMERA respuesta buena
+    // del catálogo no lo trae (`resolvedBarber`). Si el catálogo cayó antes de cargar, el perfil se queda
+    // (con el aviso de su sección): no se sabe si el barbero existe, y mandarlo a `/` le haría perder el
+    // enlace por un fallo de red. Una vez resuelto, ninguna revalidación lo recalcula ni redirige.
     effect(() => {
-      const id = this.referralBarberId();
-      const list = this.barbers();
-      if (!id || this.wizardOpenedFromLink || list.length === 0) {
+      const id = this.profileId();
+      if (id === null || this.leavingProfile) {
         return;
       }
-      const match = list.find((b) => b.id === id);
-      if (match) {
-        this.wizardOpenedFromLink = true;
-        this.referralBarberName.set(match.displayName);
-        this.wizard().open(null, match);
+      if (!GUID.test(id) || this.resolvedBarber() === null) {
+        this.leavingProfile = true;
+        void this.router.navigateByUrl('/', { replaceUrl: true });
       }
     });
   }
@@ -127,11 +221,7 @@ export class LandingPage {
   }
 
   protected bookService(service: PublicService): void {
-    this.wizard().open(service, null);
-  }
-
-  protected bookBarber(barber: PublicBarber): void {
-    this.wizard().open(null, barber);
+    this.wizard().open(service);
   }
 
   protected loadMoreTestimonials(): void {

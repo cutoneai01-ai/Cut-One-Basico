@@ -1,37 +1,52 @@
-<cob-site-header [branding]="branding()" (book)="openWizard()" />
+<cob-site-header [branding]="branding()" [profile]="profile()" (book)="openWizard()" />
 
 <main>
+  <!-- M-08 RN-DISPO-64: el hero de la barbería, también en el perfil; sus botones abren la reserva, que
+       en el perfil va con el barbero bloqueado. -->
   <cob-hero-section
     [branding]="branding()"
     [showRating]="showTestimonials()"
     (book)="openWizard()"
   />
 
+  <!-- M-08 RN-DISPO-64: «Tu barbero», justo debajo del hero. M-08 RN-DISPO-63: no se pinta mientras el
+       catálogo carga —todavía no se sabe quién es—. -->
+  @if (profileBarber(); as barber) {
+    <cob-profile-barber-section
+      [barber]="barber"
+      [hasServices]="services().length > 0"
+      (book)="openWizard()"
+    />
+  }
+
   <!-- RF-MP01 (serie 030): va ANTES del catálogo completo porque es un atajo a él. Se oculta sola
        cuando no hay ranking, así que la alternancia de fondos aguanta las dos formas de la página:
        con ella queda alt → plano → alt → plano → alt, y sin ella la de siempre. -->
   <cob-popular-section
     [services]="popularServices()"
+    [durationBarberId]="profileBarber()?.id ?? null"
     (serviceSelected)="bookService($event)"
   />
 
-  <cob-services-section
-    [services]="services()"
-    [loading]="catalogLoading()"
-    [failed]="catalogFailed()"
-    (serviceSelected)="bookService($event)"
-  />
-
-  @if (referralBarberName(); as name) {
-    <p class="cob-referral-banner" role="status">Reservando con {{ name }}</p>
+  @if (showServices()) {
+    <cob-services-section
+      [services]="services()"
+      [barber]="profileBarber()"
+      [loading]="catalogLoading()"
+      [failed]="catalogFailed()"
+      (serviceSelected)="bookService($event)"
+    />
   }
 
-  <cob-barbers-section
-    [barbers]="barbers()"
-    [loading]="catalogLoading()"
-    [failed]="catalogFailed()"
-    (barberSelected)="bookBarber($event)"
-  />
+  <!-- M-08 RN-DISPO-64: el perfil no tiene sección de equipo. M-08 RN-DISPO-66: en la landing, cada
+       tarjeta lleva al perfil de su barbero. -->
+  @if (!profile()) {
+    <cob-barbers-section
+      [barbers]="barbers()"
+      [loading]="catalogLoading()"
+      [failed]="catalogFailed()"
+    />
+  }
 
   <!-- Una sección sin dato no se pinta (RF-G03 §5 RN-02). Cada una declara su propio fondo, así que
        ninguna asume la posición ni el fondo de su vecina. -->
@@ -49,11 +64,11 @@
   }
 </main>
 
-<cob-site-footer [branding]="branding()" />
+<cob-site-footer [branding]="branding()" [profile]="profile()" />
 
+<!-- M-08 RN-DISPO-65: en el perfil, la reserva va con el barbero bloqueado y solo con sus servicios. -->
 <cob-booking-wizard
   [services]="services()"
   [barbers]="barbers()"
-  [referralBarberName]="referralBarberName()"
-  [referralBarberId]="referralBarberId()"
+  [lockedBarber]="profileBarber()"
 />

@@ -102,10 +102,11 @@ export class CardBooking {
   readonly barbers = input.required<readonly PublicBarber[]>();
   /** El servicio tocado en la portada: entra como primera línea (M-08 RN-DISPO-37). */
   readonly initialService = input<PublicService | null>(null);
-  /** El barbero del enlace personal `?barbero=`: filtra los servicios y llega elegido en cada tarjeta. */
-  readonly fixedBarber = input<PublicBarber | null>(null);
-  /** Id crudo del barbero del enlace: viaja a la creación como dato de atribución. */
-  readonly referralBarberId = input<string | null>(null);
+  /**
+   * El barbero del perfil (M-08 RN-DISPO-65): solo sus servicios, cada tarjeta nace con él **bloqueado**
+   * —sin selector ni «Cualquier profesional»— y las citas se le atribuyen (`referralBarberId`).
+   */
+  readonly lockedBarber = input<PublicBarber | null>(null);
 
   /** «Listo» en la pantalla de éxito. */
   readonly finished = output<void>();
@@ -147,14 +148,14 @@ export class CardBooking {
     return policy.status === 'ready' ? bookingWindow(policy.policy) : [];
   });
 
-  /** Con el barbero del enlace fijado, solo los servicios que presta (como el asistente de un servicio). */
+  /** Con el barbero bloqueado, solo los servicios que presta (como el asistente de un servicio). */
   private readonly visibleServices = computed(() => {
-    const fixed = this.fixedBarber();
-    return fixed ? this.services().filter((s) => s.barberIds.includes(fixed.id)) : this.services();
+    const locked = this.lockedBarber();
+    return locked ? this.services().filter((s) => s.barberIds.includes(locked.id)) : this.services();
   });
 
   protected readonly pickerOptions = computed(() => {
-    const barberId = this.fixedBarber()?.id ?? null;
+    const barberId = this.lockedBarber()?.id ?? null;
     return this.visibleServices().map((service) => ({
       service,
       durationMin: durationFor(service, barberId),
@@ -176,8 +177,11 @@ export class CardBooking {
     return cards.map((card, index) => {
       const key = cardAvailabilityKey(card);
       const slots = key !== null && availability.get(card.key)?.key === key ? availability.get(card.key) : undefined;
+      // Con el barbero bloqueado (M-08 RN-DISPO-65) la única opción es él, que se enseña sin poder pulsarse.
       const barberOptions = this.barbers()
-        .filter((barber) => card.service.barberIds.includes(barber.id))
+        .filter((barber) =>
+          card.barberLocked ? barber.id === card.barberId : card.service.barberIds.includes(barber.id),
+        )
         .map((barber) => ({ barber, durationMin: durationFor(card.service, barber.id) }));
 
       return {
@@ -188,7 +192,8 @@ export class CardBooking {
         durationMin: cardDuration(card),
         summary: this.cardSummary(card),
         barberOptions,
-        // «Cualquier profesional» solo con dos o más que presten el servicio (M-08 RN-DISPO-60).
+        // «Cualquier profesional» solo con dos o más que presten el servicio (M-08 RN-DISPO-60), y nunca
+        // con el barbero bloqueado: entonces la opción es una sola.
         showAny: barberOptions.length > 1,
         slots: slots?.slots ?? [],
         slotsLoading: slots?.loading ?? key !== null,
@@ -245,9 +250,9 @@ export class CardBooking {
     }
 
     const firstDay = this.days()[0] ?? '';
-    const fixedId = this.fixedBarber()?.id ?? null;
+    const lockedId = this.lockedBarber()?.id ?? null;
     const cards = cardsForLines(this.lines(), this.cards(), (line) =>
-      newCard(line.key, line.service, firstDay, fixedId),
+      newCard(line.key, line.service, firstDay, lockedId),
     );
     this.cards.set(cards);
     this.step.set(2);
@@ -265,6 +270,10 @@ export class CardBooking {
   }
 
   protected chooseBarber(index: number, barber: PublicBarber | null): void {
+    // M-08 RN-DISPO-65: el barbero del perfil no cambia, y no hay disponibilidad que volver a pedir.
+    if (this.cards()[index]?.barberLocked) {
+      return;
+    }
     this.cards.update((cards) => chooseCardBarber(cards, index, barber?.id ?? null));
     this.reloadCard(index);
   }
@@ -314,7 +323,8 @@ export class CardBooking {
 
     this.submitting.set(true);
     const customer = customerInput(this.form);
-    const referralBarberId = this.referralBarberId();
+    // M-08 RN-DISPO-65: las citas reservadas desde el perfil se atribuyen a su barbero.
+    const referralBarberId = this.lockedBarber()?.id ?? null;
 
     try {
       // Una tarjeta va por la reserva de siempre; la ruta múltiple es para 2 o 3, todas o ninguna

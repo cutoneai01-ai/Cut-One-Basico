@@ -17,9 +17,12 @@
 
     <nav class="footer__nav" aria-label="Navegación">
       <h3 class="footer__heading">Navegación</h3>
-      <a href="#servicios">Servicios</a>
-      <a href="#barberos">Barberos</a>
-      <a href="#nosotros">Sobre Nosotros</a>
+      <a cobSectionLink="servicios">Servicios</a>
+      <!-- M-08 RN-DISPO-64: el perfil no tiene sección de equipo, así que no hay a dónde llevar. -->
+      @if (!profile()) {
+        <a cobSectionLink="barberos">Barberos</a>
+      }
+      <a cobSectionLink="nosotros">Sobre Nosotros</a>
     </nav>
 
     <div class="footer__contact">

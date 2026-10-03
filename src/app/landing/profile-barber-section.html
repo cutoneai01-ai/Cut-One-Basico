@@ -1,0 +1,47 @@
+<section class="cob-section" id="tu-barbero" aria-labelledby="tu-barbero-nombre">
+  <div class="cob-container">
+    <p-card>
+      <div class="mybarber">
+        @if (photo(); as src) {
+          <img class="mybarber__photo" [src]="src" [alt]="name()" />
+        } @else {
+          <div class="mybarber__photo mybarber__initials" role="img" [attr.aria-label]="name()">
+            {{ initials() }}
+          </div>
+        }
+
+        <div class="mybarber__info">
+          <span class="cob-eyebrow">Tu barbero</span>
+          <h2 class="mybarber__name" id="tu-barbero-nombre">{{ name() }}</h2>
+
+          @if (barber().specialty) {
+            <span class="mybarber__specialty">{{ barber().specialty }}</span>
+          }
+
+          <!-- M-08 RN-DISPO-64 y M-23 RN-CAL-11: una nota nula es «nuevo y sin reseñas»; no se pinta
+               como cinco ni como cero estrellas. -->
+          @if (barber().rating !== null) {
+            <div class="mybarber__rating">
+              <p-rating [ngModel]="barber().rating" [readonly]="true" [stars]="5" />
+              <span class="cob-muted">{{ barber().rating }} / 5</span>
+            </div>
+          } @else {
+            <p-tag value="Nuevo" icon="pi pi-sparkles" severity="info" />
+          }
+
+          <div class="mybarber__actions">
+            <p-button
+              [label]="'Reservar con ' + name()"
+              icon="pi pi-calendar-plus"
+              size="large"
+              (onClick)="book.emit()"
+            />
+            @if (hasServices()) {
+              <a class="mybarber__link" cobSectionLink="servicios">Ver sus servicios</a>
+            }
+          </div>
+        </div>
+      </div>
+    </p-card>
+  </div>
+</section>

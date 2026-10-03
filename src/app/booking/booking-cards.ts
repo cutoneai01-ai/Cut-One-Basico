@@ -15,6 +15,11 @@ export interface BookingCard {
   /** Barbero concreto elegido, o nulo: con `anyBarber`, «cualquier profesional»; sin él, sin elegir. */
   readonly barberId: string | null;
   readonly anyBarber: boolean;
+  /**
+   * El barbero es el del perfil y no se puede cambiar (M-08 RN-DISPO-65): `chooseCardBarber` no toca
+   * esta tarjeta, y el selector lo enseña sin poder pulsarse.
+   */
+  readonly barberLocked: boolean;
   /** Día elegido, `yyyy-MM-dd` de la barbería. */
   readonly date: string;
   /** El `startAtUtc` del hueco elegido, tal cual llegó del API (M-08 RN-DISPO-33). */
@@ -27,17 +32,28 @@ export interface BookingCard {
 }
 
 /**
- * Una tarjeta nueva, sin hora, en el primer día reservable. Con el barbero fijado por su enlace
- * personal (`?barbero=`) ya elegido, si presta el servicio.
+ * Una tarjeta nueva, sin hora, en el primer día reservable. Con el barbero del perfil, ya elegido y
+ * **bloqueado** (M-08 RN-DISPO-65). El asistente solo ofrece sus servicios, así que siempre presta el de
+ * la tarjeta; si no lo prestara, la tarjeta nace sin barbero y sin bloquear antes que con una pareja que
+ * el servidor rechazaría.
  */
 export function newCard(
   key: number,
   service: PublicService,
   date: string,
-  fixedBarberId: string | null,
+  lockedBarberId: string | null,
 ): BookingCard {
-  const barberId = fixedBarberId && service.barberIds.includes(fixedBarberId) ? fixedBarberId : null;
-  return { key, service, barberId, anyBarber: false, date, startAtUtc: null, failure: null };
+  const barberId = lockedBarberId && service.barberIds.includes(lockedBarberId) ? lockedBarberId : null;
+  return {
+    key,
+    service,
+    barberId,
+    anyBarber: false,
+    barberLocked: barberId !== null,
+    date,
+    startAtUtc: null,
+    failure: null,
+  };
 }
 
 /**
@@ -122,14 +138,19 @@ export function chooseCardTime(
   });
 }
 
-/** Cambiar el barbero borra la hora: con otro barbero el hueco y la duración son otros. */
+/**
+ * Cambiar el barbero borra la hora: con otro barbero el hueco y la duración son otros. Una tarjeta con
+ * el barbero bloqueado no cambia (M-08 RN-DISPO-65).
+ */
 export function chooseCardBarber(
   cards: readonly BookingCard[],
   index: number,
   barberId: string | null,
 ): BookingCard[] {
   return cards.map((card, j) =>
-    j === index ? { ...card, barberId, anyBarber: barberId === null, startAtUtc: null } : card,
+    j === index && !card.barberLocked
+      ? { ...card, barberId, anyBarber: barberId === null, startAtUtc: null }
+      : card,
   );
 }
 

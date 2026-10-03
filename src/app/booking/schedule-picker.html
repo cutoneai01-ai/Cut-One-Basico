@@ -3,12 +3,29 @@
     <p class="row__label" [id]="idPrefix() + '-barber'">Barbero</p>
     @if (barberOptions().length === 0) {
       <p-message severity="info" text="Ningún profesional presta este servicio ahora mismo." />
+    } @else if (barberLocked()) {
+      <div class="pills">
+        @for (option of barberOptions(); track option.barber.id) {
+          <!-- M-08 RN-DISPO-65: no es un botón porque no hace nada; el candado y su texto dicen por qué. -->
+          <div class="pill pill--fixed" [class.pill--media]="image(option.barber.photoUrl)">
+            @if (image(option.barber.photoUrl); as src) {
+              <img class="pill__avatar" [src]="src" alt="" loading="lazy" />
+            }
+            <span class="pill__text">
+              <strong>{{ barberName(option.barber) }}</strong>
+              <span class="cob-muted">{{ option.durationMin }} min</span>
+            </span>
+            <i class="pi pi-lock pill__lock" aria-hidden="true" title="No se puede cambiar en este enlace"></i>
+            <span class="cob-visually-hidden">(barbero fijo, no se puede cambiar)</span>
+          </div>
+        }
+      </div>
     } @else {
       <div class="pills">
         @if (showAnyOption()) {
           <button
             type="button"
-            class="pill"
+            class="pill pill--media"
             [attr.aria-pressed]="anyBarber()"
             (click)="barberChosen.emit(null)"
           >
@@ -22,9 +39,11 @@
           </button>
         }
         @for (option of barberOptions(); track option.barber.id) {
+          <!-- M-08 RN-DISPO-67: con foto, el avatar con aro a la izquierda; sin foto, como siempre. -->
           <button
             type="button"
             class="pill"
+            [class.pill--media]="image(option.barber.photoUrl)"
             [attr.aria-pressed]="!anyBarber() && barberId() === option.barber.id"
             (click)="barberChosen.emit(option.barber)"
           >

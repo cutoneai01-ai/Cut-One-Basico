@@ -6,7 +6,7 @@ import { Skeleton } from 'primeng/skeleton';
 import { Tag } from 'primeng/tag';
 import { resolveImage } from '../core/images';
 import { formatMoney } from '../core/locale';
-import type { PublicService } from '../data/public-api.models';
+import { durationFor, type PublicBarber, type PublicService } from '../data/public-api.models';
 import { ClampedText } from './clamped-text';
 import { ALL_CHIP_KEY, deriveCategoryChips, filterServices } from './service-filters';
 
@@ -21,6 +21,11 @@ export class ServicesSection {
   readonly services = input.required<readonly PublicService[]>();
   readonly loading = input(false);
   readonly failed = input(false);
+  /**
+   * El barbero del perfil (M-08 RN-DISPO-64): cada tarjeta enseña lo que tarda **él** (M-08
+   * RN-DISPO-35) y el subtítulo lo nombra. Nulo en la landing.
+   */
+  readonly barber = input<PublicBarber | null>(null);
 
   /** No se llama `select`: colisionaría con el evento nativo del DOM (`@angular-eslint/no-output-native`). */
   readonly serviceSelected = output<PublicService>();
@@ -38,7 +43,21 @@ export class ServicesSection {
 
   protected readonly categoryChips = computed(() => this.chips().filter((chip) => chip.kind !== 'all'));
 
-  protected readonly visible = computed(() => filterServices(this.services(), this.activeChip()));
+  /** Los del chip activo, cada uno con la duración que se le muestra. */
+  protected readonly visible = computed(() => {
+    const barberId = this.barber()?.id ?? null;
+    return filterServices(this.services(), this.activeChip()).map((service) => ({
+      service,
+      durationMin: durationFor(service, barberId),
+    }));
+  });
+
+  protected readonly subtitle = computed(() => {
+    const barber = this.barber();
+    return barber
+      ? `Los servicios que hace ${barber.displayName ?? 'este profesional'}, con su tiempo.`
+      : 'Elige el servicio que buscas y reserva en menos de un minuto.';
+  });
 
   /** Geometría de los esqueletos: tres tarjetas, que es lo que ocupa una fila en escritorio. */
   protected readonly placeholders = [0, 1, 2];

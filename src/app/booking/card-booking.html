@@ -28,7 +28,8 @@
   <p-stepper [(value)]="step" [linear]="false" styleClass="wizard">
     <p-step-list>
       <p-step [value]="1">Servicios</p-step>
-      <p-step [value]="2" [disabled]="step() < 2">Barbero, día y hora</p-step>
+      <!-- M-08 RN-DISPO-65: con el barbero bloqueado no hay barbero que elegir. -->
+      <p-step [value]="2" [disabled]="step() < 2">{{ lockedBarber() ? 'Día y hora' : 'Barbero, día y hora' }}</p-step>
       <p-step [value]="3" [disabled]="step() < 3">Tus datos</p-step>
     </p-step-list>
 
@@ -39,7 +40,8 @@
           <cob-service-picker
             [options]="pickerOptions()"
             [lines]="lines()"
-            [durationBarberId]="fixedBarber()?.id ?? null"
+            [durationBarberId]="lockedBarber()?.id ?? null"
+            [lockedBarberName]="lockedBarber()?.displayName ?? null"
             (serviceAdded)="addService($event)"
             (lineRemoved)="removeService($event)"
             (proceed)="continueToCards()"
@@ -103,6 +105,7 @@
                         [anyDurationMin]="view.card.service.durationMin"
                         [barberId]="view.card.barberId"
                         [anyBarber]="view.card.anyBarber"
+                        [barberLocked]="view.card.barberLocked"
                         [days]="days()"
                         [date]="view.card.date"
                         [slots]="view.slots"

@@ -12,7 +12,8 @@
       </div>
 
       <div class="popular-grid">
-        @for (service of services(); track service.id) {
+        @for (card of cards(); track card.service.id) {
+          @let service = card.service;
           <p-card styleClass="popular-card">
             <ng-template #header>
               <div class="popular-card__media">
@@ -28,7 +29,8 @@
 
             <div class="popular-card__body">
               <!-- RN-09: la posición se dice con TEXTO, no solo con color ni con un icono. Se lee
-                   igual en un lector de pantalla y en blanco y negro. -->
+                   igual en un lector de pantalla y en blanco y negro. En el perfil del barbero es el
+                   puesto en la barbería, sin renumerar (M-08 RN-DISPO-64). -->
               <span class="popular-card__rank">
                 <i class="pi pi-chart-line" aria-hidden="true"></i>
                 N.º {{ service.rank }} en reservas
@@ -40,7 +42,7 @@
                 @if (service.category) {
                   <span class="popular-card__category">{{ service.category }}</span>
                 }
-                <span><i class="pi pi-clock" aria-hidden="true"></i> {{ service.durationMin }} min</span>
+                <span><i class="pi pi-clock" aria-hidden="true"></i> {{ card.durationMin }} min</span>
               </div>
 
               <strong class="popular-card__price">{{ formatPrice(service.price) }}</strong>
