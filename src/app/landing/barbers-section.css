@@ -1,15 +1,55 @@
-/* A diferencia de `.popular-grid` (auto-fit, se estira para llenar la fila), aquí NUNCA queremos que
-   la tarjeta crezca: con un solo barbero, `auto-fit`/`1fr` la dejaría ocupando toda la sección. Se
-   fuerza flexbox con `justify-content: center` para que 1, 2 o N tarjetas queden centradas manteniendo
-   su ancho natural (~17rem), igual que la pista mínima de `.cob-grid`. */
+/* M-08 RN-DISPO-69: todas las tarjetas miden siempre lo mismo, también entre filas distintas.
+   Grid y no flex-wrap: con flex-wrap solo se igualaba cada fila, y una descripción larga en la
+   segunda la dejaba más alta que la primera. `grid-auto-rows: 1fr` iguala todas las filas a la más
+   alta (al abrir «Ver más» crecen todas), y las columnas de ancho fijo con `justify-content: center`
+   conservan lo de antes: con un solo barbero la tarjeta no se estira a toda la sección, y 1, 2 o N
+   quedan centradas con su ancho de ~17rem. */
 .barbers-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, min(100%, 17rem));
+  grid-auto-rows: 1fr;
   justify-content: center;
+  gap: 1.5rem;
 }
 
-.barbers-grid > * {
-  flex: 0 1 min(100%, 17rem);
+/* La tarjeta ya ocupa la celda entera (`stretch`); lo que falta es que su cuerpo la llene para que el
+   pie «Agendar con…» quede alineado al fondo en todas. `.p-card-body` y `.p-card-content` son del DOM
+   interno de PrimeNG (fuera del árbol de este componente), de ahí el `::ng-deep`, acotado a la
+   tarjeta del equipo, como en `services-section.css`.
+
+   El borde de 1 px es transparente siempre, y no solo al pasar el ratón, para que el hover no desplace
+   nada. */
+.barber-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid transparent;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.barber-card ::ng-deep .p-card-body {
+  flex: 1 1 auto;
+}
+
+.barber-card ::ng-deep .p-card-content {
+  flex: 1 1 auto;
+}
+
+/* M-08 RN-DISPO-69 (ADR-0062): solo la tarjeta con color propio cambia, con el ratón y con el foco de
+   teclado dentro (el enlace «Agendar con…» o «Ver más»). Halo suave, al 30 %. */
+.barber-card--colored:hover,
+.barber-card--colored:focus-within {
+  border-color: var(--barber-color);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--barber-color) 30%, transparent),
+    0 12px 32px -14px color-mix(in srgb, var(--barber-color) 30%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barber-card {
+    transition: none;
+  }
 }
 
 .barber-card__body {
@@ -37,6 +77,12 @@
   font-size: 0.8125rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+.barber-card__desc {
+  width: 100%;
+  font-size: 0.9375rem;
+  color: var(--cob-text-muted);
 }
 
 .skeleton-card {

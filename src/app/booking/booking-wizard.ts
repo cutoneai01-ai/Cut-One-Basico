@@ -6,6 +6,7 @@ import { Dialog } from 'primeng/dialog';
 import { Message } from 'primeng/message';
 import { ProgressSpinner } from 'primeng/progressspinner';
 import { Step, StepList, StepPanel, StepPanels, Stepper } from 'primeng/stepper';
+import { barberColor, barberInitials } from '../core/barber-identity';
 import { resolveImage } from '../core/images';
 import { dayLabels, formatLongDate, formatMoney, utcToZoned } from '../core/locale';
 import { BookingPolicyService } from '../data/booking-policy.service';
@@ -286,6 +287,11 @@ export class BookingWizard {
     return this.visibleBarbers().map((barber) => ({
       barber,
       durationMin: chosen ? durationFor(chosen, barber.id) : null,
+      // M-08 RN-DISPO-71: siempre hay círculo —la foto o las iniciales— y el color propio, si lo tiene,
+      // llega a la opción como `--barber-color`.
+      photo: resolveImage(barber.photoUrl),
+      initials: barberInitials(barber.displayName),
+      color: barberColor(barber),
     }));
   });
 

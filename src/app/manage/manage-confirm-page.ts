@@ -50,17 +50,18 @@ import { OtherAppointments } from './other-appointments';
             <h1 class="card__title">Confirmar tu cita</h1>
             <p class="cob-muted lead">Abrir este enlace no confirma nada: confirma el botón.</p>
             <cob-appointment-card [appointment]="booking">
-              <div class="actions">
+              <!-- M-08 RN-DISPO-72: el botón y «Ver mi reserva» en el mismo contenedor. -->
+              <div class="actions actions--with-back">
                 <button type="button" class="btn btn--primary" [disabled]="busy()" (click)="confirm()">
                   {{ busy() ? 'Confirmando…' : 'Confirmar esta cita' }}
                 </button>
+                <a class="back" [routerLink]="['/reserva', booking.appointmentId]">Ver mi reserva</a>
               </div>
             </cob-appointment-card>
             @if (failure(); as message) {
               <p class="banner banner--err" role="alert">{{ message }}</p>
             }
             <cob-other-appointments [appointments]="others()" />
-            <a class="back" [routerLink]="['/reserva', booking.appointmentId]">Ver mi reserva</a>
           </section>
         }
       }

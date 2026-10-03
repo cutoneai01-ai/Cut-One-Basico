@@ -166,9 +166,11 @@ describe('LandingPage: perfil del barbero', () => {
     loadMore: vi.fn(),
   };
   let booking: { getBookingWindow: ReturnType<typeof vi.fn>; getAvailability: ReturnType<typeof vi.fn> };
+  const branding = signal<Branding>(DEFAULTS);
 
   beforeEach(async () => {
     withoutJsdomStyleEngine();
+    branding.set({ ...DEFAULTS, shop_name: 'Cut Test' });
     setTenantLocale(LOCALE);
     catalog.services.set([fade, dye, brows]);
     catalog.barbers.set([felipe, ana]);
@@ -197,7 +199,7 @@ describe('LandingPage: perfil del barbero', () => {
         {
           provide: SettingsService,
           useValue: {
-            branding: signal<Branding>({ ...DEFAULTS, shop_name: 'Cut Test' }),
+            branding,
             ensureLoaded: vi.fn(),
             requireLocale: () => Promise.resolve(LOCALE),
           },
@@ -237,6 +239,41 @@ describe('LandingPage: perfil del barbero', () => {
   function navigationEnd(): Promise<unknown> {
     return firstValueFrom(router.events.pipe(filter((event) => event instanceof NavigationEnd)));
   }
+
+  // M-20 RN-CFG-80: el título es el nombre de la barbería y el favicon su logo.
+  describe('título y favicon', () => {
+    let icon: HTMLLinkElement;
+
+    beforeEach(() => {
+      icon = document.createElement('link');
+      icon.rel = 'icon';
+      icon.setAttribute('href', 'favicon.ico');
+      document.head.appendChild(icon);
+    });
+
+    afterEach(() => {
+      document.head.querySelectorAll("link[rel='icon'], link[rel='apple-touch-icon']").forEach((link) => link.remove());
+    });
+
+    it('con logo: el nombre en la pestaña y el logo de icono y apple-touch-icon', async () => {
+      branding.set({ ...DEFAULTS, shop_name: 'Cut Test', logo_url: 'https://cdn.example/logo.png' });
+      await harness.navigateByUrl('/');
+
+      expect(document.title).toBe('Cut Test');
+      expect(icon.getAttribute('href')).toBe('https://cdn.example/logo.png');
+      expect(document.head.querySelector("link[rel='apple-touch-icon']")?.getAttribute('href')).toBe(
+        'https://cdn.example/logo.png',
+      );
+    });
+
+    it('sin logo: el nombre en la pestaña y el favicon de index.html', async () => {
+      await harness.navigateByUrl('/');
+
+      expect(document.title).toBe('Cut Test');
+      expect(icon.getAttribute('href')).toBe('favicon.ico');
+      expect(document.head.querySelector("link[rel='apple-touch-icon']")).toBeNull();
+    });
+  });
 
   describe('landing normal', () => {
     it('enseña el equipo con su enlace, todo el catálogo y ningún bloque de barbero', async () => {

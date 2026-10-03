@@ -2,7 +2,7 @@ import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { providePrimeNG } from 'primeng/config';
 import type { PublicBarber } from '../data/public-api.models';
-import { ProfileBarberSection, barberInitials } from './profile-barber-section';
+import { ProfileBarberSection } from './profile-barber-section';
 
 // M-08 RN-DISPO-64: el bloque «Tu barbero» del perfil — foto o iniciales, nombre, especialidad, su
 // calificación o «Nuevo», y el botón que abre la reserva con él.
@@ -17,19 +17,6 @@ function barber(overrides: Partial<PublicBarber> = {}): PublicBarber {
     ...overrides,
   };
 }
-
-describe('barberInitials', () => {
-  it('dos iniciales en mayúsculas, como mucho', () => {
-    expect(barberInitials('Felipe Zapata')).toBe('FZ');
-    expect(barberInitials('  ana   maría rojas ')).toBe('AM');
-    expect(barberInitials('Camilo')).toBe('C');
-  });
-
-  it('sin nombre, la de «Profesional»', () => {
-    expect(barberInitials(null)).toBe('P');
-    expect(barberInitials('   ')).toBe('P');
-  });
-});
 
 describe('ProfileBarberSection: «Tu barbero»', () => {
   let fixture: ComponentFixture<ProfileBarberSection>;
@@ -102,6 +89,48 @@ describe('ProfileBarberSection: «Tu barbero»', () => {
 
     expect(text(host, 'h2')).toBe('Profesional');
     expect(host.querySelector('.mybarber__link')).toBeNull();
+  });
+
+  // M-08 RN-DISPO-70: la presentación recortada con «Ver más», sin hover ni color.
+  describe('descripción', () => {
+    beforeEach(() => {
+      // jsdom no trae `ResizeObserver`, que `cob-clamped-text` usa para volver a medir.
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          observe = vi.fn();
+          disconnect = vi.fn();
+        },
+      );
+    });
+
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('con descripción: se pinta recortada bajo la especialidad', () => {
+      const host = render(barber({ description: 'Doce años detrás de la silla.' }));
+
+      const desc = host.querySelector('cob-clamped-text.mybarber__desc');
+      expect(desc).not.toBeNull();
+      expect(text(host, '.mybarber__desc .clamped-text')).toBe('Doce años detrás de la silla.');
+      expect(host.querySelector('.mybarber__desc .clamped-text--clamped')).not.toBeNull();
+      // Va después de la especialidad, como en la tarjeta del equipo.
+      const specialty = host.querySelector('.mybarber__specialty')!;
+      expect(specialty.compareDocumentPosition(desc!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('sin descripción (nula, en blanco o ausente) no se pinta nada', () => {
+      for (const description of [null, '   ', undefined]) {
+        const host = render(barber({ description }));
+        expect(host.querySelector('cob-clamped-text')).toBeNull();
+      }
+    });
+
+    it('el color del barbero no tiñe el bloque', () => {
+      const host = render(barber({ color: '#e11d48', description: 'Corta.' }));
+
+      expect(host.innerHTML).not.toContain('--barber-color');
+      expect(host.innerHTML).not.toContain('#e11d48');
+    });
   });
 
   it('con servicios, «Ver sus servicios» lleva a su sección', () => {

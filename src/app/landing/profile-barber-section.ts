@@ -5,19 +5,11 @@ import { Card } from 'primeng/card';
 // `p-rating` es un ControlValueAccessor: incluso en modo lectura el valor entra por `ngModel`.
 import { Rating } from 'primeng/rating';
 import { Tag } from 'primeng/tag';
+import { barberInitials } from '../core/barber-identity';
 import { resolveImage } from '../core/images';
 import type { PublicBarber } from '../data/public-api.models';
+import { ClampedText } from './clamped-text';
 import { SectionLink } from './section-link';
-
-/**
- * Hasta dos iniciales del nombre, en mayúsculas («Felipe Zapata» → «FZ»). Sin nombre, «P» de
- * «Profesional», el mismo rótulo que usa el resto de la landing para un barbero sin `displayName`.
- */
-export function barberInitials(displayName: string | null): string {
-  const words = (displayName ?? '').trim().split(/\s+/).filter(Boolean);
-  const letters = words.slice(0, 2).map((word) => word.charAt(0).toLocaleUpperCase('es'));
-  return letters.length > 0 ? letters.join('') : 'P';
-}
 
 /**
  * Bloque «Tu barbero» del perfil (M-08 RN-DISPO-64): justo debajo del hero y antes de populares, con
@@ -30,7 +22,7 @@ export function barberInitials(displayName: string | null): string {
  */
 @Component({
   selector: 'cob-profile-barber-section',
-  imports: [Button, Card, FormsModule, Rating, SectionLink, Tag],
+  imports: [Button, Card, ClampedText, FormsModule, Rating, SectionLink, Tag],
   templateUrl: './profile-barber-section.html',
   styleUrl: './profile-barber-section.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -45,4 +37,6 @@ export class ProfileBarberSection {
   protected readonly name = computed(() => this.barber().displayName ?? 'Profesional');
   protected readonly photo = computed(() => resolveImage(this.barber().photoUrl));
   protected readonly initials = computed(() => barberInitials(this.barber().displayName));
+  /** M-08 RN-DISPO-70: ausente (backend anterior), nula o en blanco es «sin descripción». */
+  protected readonly description = computed(() => this.barber().description?.trim() || null);
 }

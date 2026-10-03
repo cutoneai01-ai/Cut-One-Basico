@@ -39,6 +39,15 @@
   background: var(--cob-panel-bg);
   border: 1px solid var(--cob-border);
   border-radius: var(--cob-radius);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill {
+    transition: none;
+  }
 }
 
 .pill:hover,
@@ -46,13 +55,27 @@
   border-color: var(--cob-accent);
 }
 
+/* La sombra de «elegida» va en una variable para que el halo del color (abajo) la conserve debajo. */
 .pill[aria-pressed='true'] {
-  box-shadow: inset 0 0 0 1px var(--cob-accent);
+  --pill-selected: inset 0 0 0 1px var(--cob-accent);
+  box-shadow: var(--pill-selected);
 }
 
-/* M-08 RN-DISPO-67: avatar de 2.5rem con aro del color principal del tema. El aro es una sombra (un
-   anillo del fondo y otro del acento), así que no cambia el tamaño de la foto; el margen le deja sitio
-   dentro de la tarjeta. «Cualquier profesional» conserva su icono, al mismo tamaño para que alineen. */
+/* M-08 RN-DISPO-71 (ADR-0062): con color propio, el hover y el foco toman el color del barbero —borde
+   y halo suave al 30 %— en vez del acento. La selección sigue siendo el acento del tema: el color
+   vive en el aro y en el hover, no en «elegida». */
+.pill--colored:hover,
+.pill--colored:focus-visible {
+  border-color: var(--barber-color);
+  box-shadow:
+    var(--pill-selected, 0 0 #0000),
+    0 0 0 3px color-mix(in srgb, var(--barber-color) 30%, transparent);
+}
+
+/* M-08 RN-DISPO-71: avatar de 2.5rem, siempre —la foto o las iniciales—, con aro del color propio del
+   barbero, o del borde neutro si no tiene. El aro es una sombra (un anillo del fondo y otro del color),
+   así que no cambia el tamaño de la foto; el margen le deja sitio dentro de la tarjeta. «Cualquier
+   profesional» conserva su icono, al mismo tamaño para que alineen. */
 .pill--media {
   gap: 0.625rem;
   padding: 0.375rem 0.875rem 0.375rem 0.5rem;
@@ -71,7 +94,19 @@
 .pill__avatar {
   box-shadow:
     0 0 0 2px var(--cob-panel-bg),
-    0 0 0 4px var(--cob-accent);
+    0 0 0 4px var(--barber-color, var(--cob-border));
+}
+
+/* Sin foto, las iniciales en el mismo círculo: texto del tema sobre un tinte del color (o del gris del
+   tema), así el contraste no depende del color que elija la barbería. */
+.pill__avatar--initials {
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+  letter-spacing: 0.02em;
+  color: var(--cob-text);
+  background: color-mix(in srgb, var(--barber-color, var(--cob-text-muted)) 22%, var(--cob-panel-bg));
 }
 
 .pill--media strong {

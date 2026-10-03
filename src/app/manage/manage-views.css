@@ -68,6 +68,39 @@
   }
 }
 
+/* M-08 RN-DISPO-72: el botón de la acción y «Ver mi reserva» en el mismo contenedor. Desde 640 px,
+   lado a lado y separados 1.5rem; por debajo, el botón a todo el ancho y el enlace centrado debajo.
+   El enlace también mide 44 px de alto: es un objetivo táctil más. */
+.actions--with-back {
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+}
+
+.actions--with-back .back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  margin-top: 0;
+}
+
+@media (max-width: 39.99rem) {
+  .actions--with-back {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  /* `flex: none` anula el `flex: 1 1 100%` de arriba (< 30rem), que en columna sería una altura. */
+  .actions--with-back .btn {
+    flex: none;
+    width: 100%;
+  }
+
+  .actions--with-back .back {
+    align-self: center;
+  }
+}
+
 .banner {
   margin: 0.75rem 0 0;
   padding: 0.75rem;
@@ -84,6 +117,8 @@
   background: color-mix(in srgb, var(--p-red-500, #b3261e) 12%, transparent);
 }
 
+/* Suelto (las vistas sin botón de acción), con su propio margen; dentro de `.actions--with-back` el
+   margen lo pone el contenedor. */
 .back {
   display: inline-block;
   margin-top: 1rem;

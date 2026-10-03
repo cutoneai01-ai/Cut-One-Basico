@@ -5,14 +5,17 @@
       <p-message severity="info" text="Ningún profesional presta este servicio ahora mismo." />
     } @else if (barberLocked()) {
       <div class="pills">
-        @for (option of barberOptions(); track option.barber.id) {
-          <!-- M-08 RN-DISPO-65: no es un botón porque no hace nada; el candado y su texto dicen por qué. -->
-          <div class="pill pill--fixed" [class.pill--media]="image(option.barber.photoUrl)">
-            @if (image(option.barber.photoUrl); as src) {
+        @for (option of options(); track option.barber.id) {
+          <!-- M-08 RN-DISPO-65: no es un botón porque no hace nada; el candado y su texto dicen por qué.
+               M-08 RN-DISPO-71: el mismo círculo con aro que las demás, sin hover porque no se pulsa. -->
+          <div class="pill pill--media pill--fixed" [style.--barber-color]="option.color">
+            @if (option.photo; as src) {
               <img class="pill__avatar" [src]="src" alt="" loading="lazy" />
+            } @else {
+              <span class="pill__avatar pill__avatar--initials" aria-hidden="true">{{ option.initials }}</span>
             }
             <span class="pill__text">
-              <strong>{{ barberName(option.barber) }}</strong>
+              <strong>{{ option.name }}</strong>
               <span class="cob-muted">{{ option.durationMin }} min</span>
             </span>
             <i class="pi pi-lock pill__lock" aria-hidden="true" title="No se puede cambiar en este enlace"></i>
@@ -38,20 +41,25 @@
             </span>
           </button>
         }
-        @for (option of barberOptions(); track option.barber.id) {
-          <!-- M-08 RN-DISPO-67: con foto, el avatar con aro a la izquierda; sin foto, como siempre. -->
+        @for (option of options(); track option.barber.id) {
+          <!-- M-08 RN-DISPO-71: siempre con círculo —la foto o las iniciales— y aro del color propio del
+               barbero (neutro sin él). Con color, el hover y el foco toman ese color; la selección
+               conserva el acento del tema. -->
           <button
             type="button"
-            class="pill"
-            [class.pill--media]="image(option.barber.photoUrl)"
+            class="pill pill--media"
+            [class.pill--colored]="option.color !== null"
+            [style.--barber-color]="option.color"
             [attr.aria-pressed]="!anyBarber() && barberId() === option.barber.id"
             (click)="barberChosen.emit(option.barber)"
           >
-            @if (image(option.barber.photoUrl); as src) {
+            @if (option.photo; as src) {
               <img class="pill__avatar" [src]="src" alt="" loading="lazy" />
+            } @else {
+              <span class="pill__avatar pill__avatar--initials" aria-hidden="true">{{ option.initials }}</span>
             }
             <span class="pill__text">
-              <strong>{{ barberName(option.barber) }}</strong>
+              <strong>{{ option.name }}</strong>
               <!-- M-08 RN-DISPO-35: lo que tarda este barbero en el servicio de la cita. -->
               <span class="cob-muted">{{ option.durationMin }} min</span>
             </span>

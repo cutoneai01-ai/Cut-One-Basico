@@ -137,14 +137,20 @@
                 }
                 @for (entry of barberOptions(); track entry.barber.id) {
                   @let option = entry.barber;
+                  <!-- M-08 RN-DISPO-71: siempre con círculo y aro del color propio (neutro sin él); con
+                       color, el hover y el foco lo toman. La elegida conserva el acento del tema. -->
                   <button
                     type="button"
                     class="option"
                     [class.option--active]="barber()?.id === option.id"
+                    [class.option--colored]="entry.color !== null"
+                    [style.--barber-color]="entry.color"
                     (click)="chooseBarber(option)"
                   >
-                    @if (image(option.photoUrl); as src) {
+                    @if (entry.photo; as src) {
                       <img class="option__avatar" [src]="src" [alt]="barberName(option)" loading="lazy" />
+                    } @else {
+                      <span class="option__avatar option__avatar--initials" aria-hidden="true">{{ entry.initials }}</span>
                     }
                     <span class="option__text">
                       <strong>{{ barberName(option) }}</strong>

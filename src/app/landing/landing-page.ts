@@ -11,6 +11,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
 import { applyPageMetadata } from '../core/page-metadata';
+import { resolveImage } from '../core/images';
 import { BookingWizard } from '../booking/booking-wizard';
 import { BookingPolicyService } from '../data/booking-policy.service';
 import { CatalogService } from '../data/catalog.service';
@@ -196,7 +197,10 @@ export class LandingPage {
 
     // Título y favicon en cuanto llega el branding (RF-G02 §8): `index.html` es un shell único servido
     // a todos los subdominios y no puede llevar el nombre de ningún tenant.
-    effect(() => applyPageMetadata(this.branding()));
+    effect(() => {
+      const branding = this.branding();
+      applyPageMetadata({ title: branding.shop_name, logoUrl: resolveImage(branding.logo_url) });
+    });
 
     // M-08 RN-DISPO-63: un perfil que no es de un barbero público —inactivo, sin horario, inexistente o
     // con un id que ni siquiera es un GUID— se sustituye por `/`, sin aviso: falla abierto, a la landing

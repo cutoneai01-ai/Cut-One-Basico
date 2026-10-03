@@ -155,6 +155,42 @@ describe('BookingWizard: tiempo de cada barbero', () => {
     expect(texts(host, '.option__duration')).toEqual(['30 min', '20 min', '45 min', '30 min']);
   });
 
+  // M-08 RN-DISPO-71: siempre hay círculo (foto o iniciales), con aro y hover del color propio.
+  it('paso 2: foto o iniciales en el círculo, y el color propio solo en quien lo tiene', async () => {
+    const host = await render([service()]);
+    fixture.componentRef.setInput('barbers', [
+      { ...fast, photoUrl: 'https://cdn.example/felipe.webp', color: '#e11d48' },
+      { ...slow, color: '#2563eb' },
+      plain,
+    ]);
+    wizard.open(service());
+    await refresh();
+
+    const option = (name: string): HTMLButtonElement =>
+      Array.from(host.querySelectorAll<HTMLButtonElement>('button.option')).find(
+        (button) => button.querySelector('strong')?.textContent?.trim() === name,
+      )!;
+
+    const felipe = option('Felipe');
+    expect(felipe.querySelector('img.option__avatar')?.getAttribute('src')).toBe('https://cdn.example/felipe.webp');
+    expect(felipe.style.getPropertyValue('--barber-color')).toBe('#e11d48');
+    expect(felipe.classList).toContain('option--colored');
+
+    const andres = option('Andrés');
+    expect(andres.querySelector('img')).toBeNull();
+    expect(andres.querySelector('.option__avatar--initials')?.textContent?.trim()).toBe('A');
+    expect(andres.querySelector('.option__avatar--initials')?.getAttribute('aria-hidden')).toBe('true');
+    expect(andres.style.getPropertyValue('--barber-color')).toBe('#2563eb');
+
+    const camilo = option('Camilo');
+    expect(camilo.querySelector('.option__avatar--initials')?.textContent?.trim()).toBe('C');
+    expect(camilo.style.getPropertyValue('--barber-color')).toBe('');
+    expect(camilo.classList).not.toContain('option--colored');
+
+    // «Cualquier profesional» conserva su icono.
+    expect(option('Cualquier profesional').querySelector('.option__glyph .pi-sparkles')).not.toBeNull();
+  });
+
   it('elegir barbero pone su tiempo en el resumen, y cambiar de barbero lo cambia', async () => {
     const host = await render([service()]);
     wizard.open(service());

@@ -22,8 +22,14 @@
       <p-message severity="info" text="Todavía no hay profesionales publicados." />
     } @else {
       <div class="cob-grid barbers-grid">
-        @for (barber of barbers(); track barber.id) {
-          <p-card styleClass="barber-card">
+        @for (card of cards(); track card.barber.id) {
+          @let barber = card.barber;
+          <!-- M-08 RN-DISPO-69: el color propio llega como variable CSS y solo la tarjeta que lo tiene
+               cambia al pasar el ratón o al enfocar algo dentro; sin color, como siempre. -->
+          <p-card
+            [styleClass]="card.color ? 'barber-card barber-card--colored' : 'barber-card'"
+            [style.--barber-color]="card.color"
+          >
             <div class="barber-card__body">
               @if (image(barber); as src) {
                 <img class="barber-card__photo" [src]="src" [alt]="name(barber)" loading="lazy" />
@@ -43,6 +49,11 @@
 
               @if (barber.specialty) {
                 <span class="barber-card__specialty">{{ barber.specialty }}</span>
+              }
+
+              <!-- M-08 RN-DISPO-69: la presentación, a 3 renglones con «Ver más» solo si desborda. -->
+              @if (card.description; as text) {
+                <cob-clamped-text class="barber-card__desc" [text]="text" />
               }
 
               <!-- M-23 RN-CAL-11: una nota nula no se pinta, ni como cinco ni como cero estrellas. -->

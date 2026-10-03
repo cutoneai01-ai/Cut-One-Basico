@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { Message } from 'primeng/message';
 import { ProgressSpinner } from 'primeng/progressspinner';
+import { barberColor, barberInitials } from '../core/barber-identity';
 import { resolveImage } from '../core/images';
 import { dayLabels, sameInstant } from '../core/locale';
 import type { PublicBarber } from '../data/public-api.models';
@@ -61,6 +62,21 @@ export class SchedulePicker {
   readonly dateChosen = output<string>();
   readonly timeChosen = output<FlatSlot>();
 
+  /**
+   * Cada opción con lo que pinta su pastilla (M-08 RN-DISPO-71), resuelto una vez por cambio de la
+   * lista: la foto o, sin ella, las iniciales —siempre hay círculo— y el color propio, que llega a la
+   * pastilla como `--barber-color` y tiñe el aro, el hover y el foco. La selección no lo usa.
+   */
+  protected readonly options = computed(() =>
+    this.barberOptions().map((option) => ({
+      ...option,
+      name: option.barber.displayName ?? 'Profesional',
+      photo: resolveImage(option.barber.photoUrl),
+      initials: barberInitials(option.barber.displayName),
+      color: barberColor(option.barber),
+    })),
+  );
+
   protected readonly barberSelected = computed(() => this.barberId() !== null || this.anyBarber());
   protected readonly state = computed(() => slotsState([...this.slots()]));
 
@@ -85,14 +101,6 @@ export class SchedulePicker {
   protected readonly dayOptions = computed(() =>
     this.days().map((day) => ({ day, labels: dayLabels(day) })),
   );
-
-  protected image(url: string | null): string | undefined {
-    return resolveImage(url);
-  }
-
-  protected barberName(barber: PublicBarber): string {
-    return barber.displayName ?? 'Profesional';
-  }
 
   protected isChosen(slot: FlatSlot): boolean {
     return sameInstant(this.time(), slot.startAtUtc);

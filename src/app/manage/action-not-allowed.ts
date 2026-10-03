@@ -22,14 +22,16 @@ import { AppointmentCard } from './appointment-card';
       @if (showAppointment()) {
         <cob-appointment-card [appointment]="appointment()" />
       }
-      @if (contact(); as link) {
-        <div class="actions">
+      <!-- M-08 RN-DISPO-72: el contacto (si la barbería lo publicó) y «Ver mi reserva» en el mismo
+           contenedor. -->
+      <div class="actions actions--with-back">
+        @if (contact(); as link) {
           <a class="btn" [href]="link.href" target="_blank" rel="noopener">
             <i [class]="link.icon" aria-hidden="true"></i>&nbsp;{{ link.label }}
           </a>
-        </div>
-      }
-      <a class="back" [routerLink]="['/reserva', appointment().appointmentId]">Ver mi reserva</a>
+        }
+        <a class="back" [routerLink]="['/reserva', appointment().appointmentId]">Ver mi reserva</a>
+      </div>
     </section>
   `,
   styleUrl: './manage-views.css',

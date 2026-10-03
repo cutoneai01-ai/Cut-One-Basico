@@ -18,6 +18,12 @@
             <span class="mybarber__specialty">{{ barber().specialty }}</span>
           }
 
+          <!-- M-08 RN-DISPO-70: la presentación, recortada a 3 renglones como en el equipo, sin hover ni
+               color. Sin descripción no se pinta nada. -->
+          @if (description(); as text) {
+            <cob-clamped-text class="mybarber__desc" [text]="text" />
+          }
+
           <!-- M-08 RN-DISPO-64 y M-23 RN-CAL-11: una nota nula es «nuevo y sin reseñas»; no se pinta
                como cinco ni como cero estrellas. -->
           @if (barber().rating !== null) {

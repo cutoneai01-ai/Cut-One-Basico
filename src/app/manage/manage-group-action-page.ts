@@ -64,7 +64,11 @@ const COPY = {
                   }
                 </ul>
               }
-              <a class="back" [routerLink]="['/reserva', booking.appointmentId]">Ver mi reserva</a>
+              <!-- M-08 RN-DISPO-72: el mismo contenedor que en la vista de la acción, aunque aquí ya no
+                   haya botón, para que «Ver mi reserva» no salte de sitio al terminar. -->
+              <div class="actions actions--with-back">
+                <a class="back" [routerLink]="['/reserva', booking.appointmentId]">Ver mi reserva</a>
+              </div>
             </section>
           } @else if (actionable() === 0) {
             <cob-action-not-allowed
@@ -95,7 +99,8 @@ const COPY = {
                 ></textarea>
               }
 
-              <div class="actions">
+              <!-- M-08 RN-DISPO-72: el botón y «Ver mi reserva» en el mismo contenedor. -->
+              <div class="actions actions--with-back">
                 <button
                   type="button"
                   class="btn"
@@ -106,11 +111,11 @@ const COPY = {
                 >
                   {{ busy() ? copy().busy : copy().button(actionable()) }}
                 </button>
+                <a class="back" [routerLink]="['/reserva', booking.appointmentId]">Ver mi reserva</a>
               </div>
               @if (failure(); as message) {
                 <p class="banner banner--err" role="alert">{{ message }}</p>
               }
-              <a class="back" [routerLink]="['/reserva', booking.appointmentId]">Ver mi reserva</a>
             </section>
           }
         }

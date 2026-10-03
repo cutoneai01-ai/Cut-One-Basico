@@ -22,9 +22,21 @@
   border-color: var(--cob-accent);
 }
 
+/* La sombra de «elegida» va en una variable para que el halo del color (abajo) la conserve debajo. */
 .option--active {
+  --option-selected: inset 0 0 0 1px var(--cob-accent);
   border-color: var(--cob-accent);
-  box-shadow: inset 0 0 0 1px var(--cob-accent);
+  box-shadow: var(--option-selected);
+}
+
+/* M-08 RN-DISPO-71 (ADR-0062): con color propio, el hover y el foco toman el color del barbero —borde
+   y halo suave al 30 %—; la elegida sigue marcada con el acento del tema. */
+.option--colored:hover,
+.option--colored:focus-visible {
+  border-color: var(--barber-color);
+  box-shadow:
+    var(--option-selected, 0 0 #0000),
+    0 0 0 3px color-mix(in srgb, var(--barber-color) 30%, transparent);
 }
 
 .option__thumb {
@@ -35,12 +47,28 @@
   flex: none;
 }
 
+/* M-08 RN-DISPO-71: aro del color propio del barbero, o del borde neutro si no tiene; es una sombra,
+   así que no cambia el tamaño, y el margen le deja sitio dentro de la tarjeta. */
 .option__avatar {
   width: 3rem;
   height: 3rem;
+  margin: 4px;
   object-fit: cover;
   border-radius: 999px;
   flex: none;
+  box-shadow:
+    0 0 0 2px var(--cob-panel-bg),
+    0 0 0 4px var(--barber-color, var(--cob-border));
+}
+
+/* Sin foto, las iniciales en el mismo círculo: texto del tema sobre un tinte del color (o del gris del
+   tema), así el contraste no depende del color que elija la barbería. */
+.option__avatar--initials {
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: var(--cob-text);
+  background: color-mix(in srgb, var(--barber-color, var(--cob-text-muted)) 22%, var(--cob-panel-bg));
 }
 
 /*
@@ -52,6 +80,7 @@
   place-items: center;
   width: 3rem;
   height: 3rem;
+  margin: 4px;
   border-radius: 999px;
   flex: none;
   color: var(--cob-accent);

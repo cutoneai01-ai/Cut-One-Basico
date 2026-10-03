@@ -54,6 +54,14 @@
   text-transform: uppercase;
 }
 
+/* M-08 RN-DISPO-70: ancho de lectura cómodo; centrada en móvil y alineada a la izquierda en fila,
+   como el resto del bloque. */
+.mybarber__desc {
+  width: 100%;
+  max-width: 60ch;
+  color: var(--cob-text-muted);
+}
+
 .mybarber__rating {
   display: flex;
   align-items: center;

@@ -103,6 +103,17 @@ export interface PublicBarber {
    * lo manda: ausente equivale a sin tag.
    */
   isNew?: boolean;
+  /**
+   * M-08 RN-DISPO-69 y RN-DISPO-70: presentación del barbero, hasta 300 caracteres. Opcional porque un
+   * backend anterior no la manda: ausente equivale a `null`, y sin ella no se pinta nada.
+   */
+  description?: string | null;
+  /**
+   * M-08 RN-DISPO-69 y RN-DISPO-71 (ADR-0062): `#rrggbb` si el admin eligió un color a mano; `null` es
+   * «sin color propio». Opcional por la misma razón que `description`. Se lee siempre por
+   * `barberColor()`, que descarta lo que no sea un hexadecimal de seis dígitos.
+   */
+  color?: string | null;
 }
 
 /** RF-F05: testimonios reales y paginados. **Sin fecha** — no existe en el contrato (decisión 9). */

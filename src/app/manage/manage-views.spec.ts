@@ -173,9 +173,11 @@ describe('Gestión de la cita desde el correo', () => {
     reschedule: ReturnType<typeof vi.fn>;
   };
   let addMessage: ReturnType<typeof vi.spyOn>;
+  const catalogBarbers = signal<PublicBarber[]>([]);
 
   beforeEach(() => {
     setTenantLocale(LOCALE);
+    catalogBarbers.set([juan, camilo]);
     manage = {
       getAppointment: vi.fn(() => Promise.resolve(BASE)),
       getAvailability: vi.fn((_id: string, _barber: string, _service: string, date: string) =>
@@ -204,7 +206,7 @@ describe('Gestión de la cita desde el correo', () => {
           provide: CatalogService,
           useValue: {
             services: signal([cut, beard]).asReadonly(),
-            barbers: signal([juan, camilo]).asReadonly(),
+            barbers: catalogBarbers.asReadonly(),
             ensureLoaded: () => undefined,
           },
         },
@@ -496,6 +498,121 @@ describe('Gestión de la cita desde el correo', () => {
     });
   });
 
+  // M-08 RN-DISPO-72: el botón de la acción y «Ver mi reserva» en el mismo contenedor.
+  describe('botón y «Ver mi reserva» juntos', () => {
+    /** El contenedor de «Ver mi reserva», y lo que hay dentro, en orden. */
+    function backContainer(host: HTMLElement): { container: HTMLElement; items: string[] } {
+      const back = host.querySelector<HTMLAnchorElement>('a.back')!;
+      expect(back.getAttribute('href')).toBe('/reserva/appt-2');
+      const container = back.parentElement!;
+      return { container, items: Array.from(container.children).map((child) => clean(child.textContent)) };
+    }
+
+    it('confirmar: «Confirmar esta cita» y el enlace, en ese orden', async () => {
+      const { host } = await render(ManageConfirmPage, BASE);
+
+      const { container, items } = backContainer(host);
+      expect(container.classList).toContain('actions');
+      expect(container.classList).toContain('actions--with-back');
+      expect(items).toEqual(['Confirmar esta cita', 'Ver mi reserva']);
+    });
+
+    it('cancelar: «Cancelar esta cita» y el enlace', async () => {
+      const { host } = await render(ManageCancelPage, BASE);
+
+      const { container, items } = backContainer(host);
+      expect(container.classList).toContain('actions--with-back');
+      expect(items).toEqual(['Cancelar esta cita', 'Ver mi reserva']);
+    });
+
+    it('confirmar todas: el botón con N y el enlace; y en el resultado el enlace sigue en el contenedor', async () => {
+      const { fixture, host } = await render(ManageGroupActionPage, grouped(), { action: 'confirm' });
+
+      expect(backContainer(host).items).toEqual(['Confirmar las 2 citas', 'Ver mi reserva']);
+
+      manage.confirmAll.mockResolvedValue({ manage: grouped(), changedAppointmentIds: ['appt-2'], skipped: [] });
+      button(host, 'Confirmar las 2 citas').click();
+      await settle(fixture as ComponentFixture<unknown>);
+
+      const result = backContainer(host);
+      expect(result.container.classList).toContain('actions--with-back');
+      expect(result.items).toEqual(['Ver mi reserva']);
+    });
+
+    it('cancelar todas: el botón destructivo y el enlace; el error sale debajo del contenedor', async () => {
+      const { fixture, host } = await render(ManageGroupActionPage, grouped(), { action: 'cancel' });
+
+      expect(backContainer(host).items).toEqual(['Cancelar las 3 citas', 'Ver mi reserva']);
+
+      manage.cancelAll.mockRejectedValue(new Error('sin red'));
+      button(host, 'Cancelar las 3 citas').click();
+      await settle(fixture as ComponentFixture<unknown>);
+
+      const { container } = backContainer(host);
+      expect(container.nextElementSibling?.getAttribute('role')).toBe('alert');
+    });
+
+    it('no permitida: el contacto y el enlace juntos; sin contacto, el enlace solo en el contenedor', async () => {
+      const withContact = await render(ManageConfirmPage, {
+        ...BASE,
+        confirmable: false,
+        notConfirmableReason: 'Esta cita ya pasó.',
+        publicPhone: '601 555 0000',
+      });
+      const contact = backContainer(withContact.host);
+      expect(contact.container.classList).toContain('actions--with-back');
+      expect(contact.items).toEqual(['Llamar a la barbería', 'Ver mi reserva']);
+
+      const withoutContact = await render(ManageCancelPage, { ...BASE, cancelable: false, notCancelableReason: 'No.' });
+      const alone = backContainer(withoutContact.host);
+      expect(alone.container.classList).toContain('actions--with-back');
+      expect(alone.items).toEqual(['Ver mi reserva']);
+    });
+  });
+
+  // M-20 RN-CFG-80: el favicon es el logo de la barbería en las vistas de `/reserva`, sin tocar el título.
+  describe('favicon', () => {
+    let icon: HTMLLinkElement;
+
+    beforeEach(() => {
+      icon = document.createElement('link');
+      icon.rel = 'icon';
+      icon.setAttribute('href', 'favicon.ico');
+      document.head.appendChild(icon);
+      document.title = 'Reserva tu cita';
+    });
+
+    afterEach(() => {
+      document.head.querySelectorAll("link[rel='icon'], link[rel='apple-touch-icon']").forEach((link) => link.remove());
+    });
+
+    const touchIcon = (): HTMLLinkElement | null =>
+      document.head.querySelector<HTMLLinkElement>("link[rel='apple-touch-icon']");
+
+    it('con logo: icono y apple-touch-icon apuntan al logo; el título es el de la vista', async () => {
+      await render(ManageGroupActionPage, grouped({ logoUrl: 'https://cdn.example/logo.png' }), { action: 'confirm' });
+
+      expect(icon.getAttribute('href')).toBe('https://cdn.example/logo.png');
+      expect(touchIcon()?.getAttribute('href')).toBe('https://cdn.example/logo.png');
+      expect(document.title).toBe('Tu reserva · Barbería Ejemplo');
+    });
+
+    it('sin logo: el favicon de index.html y ningún apple-touch-icon', async () => {
+      await render(ManageDetailPage, BASE);
+
+      expect(icon.getAttribute('href')).toBe('favicon.ico');
+      expect(touchIcon()).toBeNull();
+      expect(document.title).toBe('Tu reserva · Barbería Ejemplo');
+    });
+
+    it('cita no encontrada: no toca el favicon', async () => {
+      await render(ManageConfirmPage, notFound);
+
+      expect(icon.getAttribute('href')).toBe('favicon.ico');
+      expect(touchIcon()).toBeNull();
+    });
+  });
+
   describe('editar', () => {
     const slotButtons = (host: HTMLElement): HTMLButtonElement[] =>
       Array.from(host.querySelectorAll<HTMLButtonElement>('button.slot'));
@@ -514,6 +631,20 @@ describe('Gestión de la cita desde el correo', () => {
       // Camilo no presta la barba: deja de ofrecerse.
       expect(all(host, '.pill strong')).toEqual(['Juan']);
       expect(manage.getAvailability).toHaveBeenLastCalledWith('appt-2', 'juan', 'barba', '2026-10-01');
+    });
+
+    // M-08 RN-DISPO-71: los barberos salen del catálogo público, con su foto y su color.
+    it('las opciones de barbero llevan el color y la foto del catálogo, o las iniciales', async () => {
+      catalogBarbers.set([{ ...juan, color: '#e11d48' }, { ...camilo, photoUrl: 'https://cdn.example/camilo.webp' }]);
+      const { host } = await render(ManageEditPage, BASE);
+
+      const pills = Array.from(host.querySelectorAll<HTMLElement>('cob-schedule-picker .pill'));
+      expect(pills.map((pill) => clean(pill.querySelector('strong')?.textContent))).toEqual(['Juan', 'Camilo']);
+      const [juanPill, camiloPill] = pills;
+      expect(juanPill!.style.getPropertyValue('--barber-color')).toBe('#e11d48');
+      expect(juanPill!.querySelector('.pill__avatar--initials')?.textContent?.trim()).toBe('J');
+      expect(camiloPill!.style.getPropertyValue('--barber-color')).toBe('');
+      expect(camiloPill!.querySelector('img.pill__avatar')?.getAttribute('src')).toBe('https://cdn.example/camilo.webp');
     });
 
     it('las horas que pisan otra cita viva del grupo con el mismo barbero salen deshabilitadas', async () => {

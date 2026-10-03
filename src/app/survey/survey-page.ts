@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Button } from 'primeng/button';
@@ -7,6 +8,7 @@ import { Skeleton } from 'primeng/skeleton';
 import { Textarea } from 'primeng/textarea';
 import { ApiError } from '../core/api-error';
 import { resolveImage } from '../core/images';
+import { applyPageMetadata } from '../core/page-metadata';
 import { SurveysService } from '../data/surveys.service';
 import type { SurveyInfo } from '../data/public-api.models';
 
@@ -35,6 +37,7 @@ type SurveyState = 'loading' | 'form' | 'thanks' | 'error';
 })
 export class SurveyPage {
   private readonly surveys = inject(SurveysService);
+  private readonly doc = inject(DOCUMENT);
 
   /** Llega por `withComponentInputBinding()`, sin inyectar `ActivatedRoute`. */
   readonly appointmentId = input.required<string>();
@@ -100,6 +103,9 @@ export class SurveyPage {
       if (info.shopName) {
         document.title = `Tu opinión · ${info.shopName}`;
       }
+      // M-20 RN-CFG-80: el favicon, el logo de la barbería que trae la respuesta; sin él, el de
+      // `index.html`. El título de arriba no se toca.
+      applyPageMetadata({ logoUrl: resolveImage(info.logoUrl) }, this.doc);
 
       // `alreadySubmitted` se resuelve en el GET, no esperando un 409 en el POST: volver a pulsar el
       // link de un correo viejo es el caso normal, y el cliente no debe ver un formulario que va a

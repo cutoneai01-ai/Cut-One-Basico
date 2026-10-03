@@ -13,8 +13,12 @@
   overflow: hidden;
 }
 
+/* 44 px de alto como mínimo: es un objetivo táctil más de la tarjeta (M-08 RN-DISPO-69). El alto lo
+   pone el propio botón, centrando el texto, en lugar del antiguo `margin-top`. */
 .clamped-text__toggle {
-  margin-top: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
   padding: 0;
   border: none;
   background: none;

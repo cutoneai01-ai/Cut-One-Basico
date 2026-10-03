@@ -1,8 +1,10 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Message } from 'primeng/message';
 import { Skeleton } from 'primeng/skeleton';
 import { resolveImage } from '../core/images';
+import { applyPageMetadata } from '../core/page-metadata';
 import type { ManageAppointment } from '../data/public-api.models';
 import type { ManageLoadState } from './manage-appointment';
 
@@ -120,4 +122,16 @@ export class ManageFrame {
   readonly errorMessage = input('');
 
   protected readonly logo = computed(() => resolveImage(this.appointment()?.logoUrl ?? null));
+
+  constructor() {
+    const doc = inject(DOCUMENT);
+    // M-20 RN-CFG-80: el favicon es el logo de la barbería también aquí, con el `logoUrl` de la propia
+    // respuesta; sin logo, el de `index.html`. Solo el icono: el título lo pone cada vista al cargar la
+    // cita («Tu reserva · …») y no se toca.
+    effect(() => {
+      if (this.appointment()) {
+        applyPageMetadata({ logoUrl: this.logo() }, doc);
+      }
+    });
+  }
 }
