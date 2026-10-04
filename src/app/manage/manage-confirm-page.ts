@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ApiError } from '../core/api-error';
+import { ApiError, isNetworkError } from '../core/api-error';
 import { utcToZoned } from '../core/locale';
 import { ManageBookingService } from '../data/manage-booking.service';
 import { ActionNotAllowed } from './action-not-allowed';
@@ -109,8 +109,9 @@ export class ManageConfirmPage {
       if (error instanceof ApiError && error.code === 'APPOINTMENT_NOT_CONFIRMABLE') {
         this.rejection.set(error.message);
       } else {
+        // CB-07 RN-CBBAS-02
         this.failure.set(
-          error instanceof ApiError
+          error instanceof ApiError && !isNetworkError(error)
             ? error.message
             : 'No pudimos confirmar tu cita. Revisa tu conexión e inténtalo de nuevo.',
         );

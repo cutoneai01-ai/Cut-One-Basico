@@ -5,7 +5,13 @@
   display: block;
 }
 
+/* CB-05 RN-CBGES-04: la tarjeta reparte 1,5 rem entre sus bloques (cita, acciones, «Tus otras citas»);
+   ningún bloque trae margen propio. */
 .card {
+  --stack-gap: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--stack-gap);
   padding: clamp(1rem, 4vw, 1.75rem);
   background: var(--cob-panel-bg);
   border: 1px solid var(--cob-border);
@@ -13,19 +19,31 @@
 }
 
 .card__title {
-  margin: 0 0 0.25rem;
   font-size: 1.25rem;
 }
 
-.lead {
-  margin: 0 0 0.75rem;
+/* Lo que va pegado a su bloque y no se separa como otro: la bajada a su título, el campo a su etiqueta. */
+.card__title + .lead,
+.card > .field__label + .field__input {
+  margin-top: calc(0.25rem - var(--stack-gap));
+}
+
+/* Un enlace suelto no ocupa la fila entera de la tarjeta. */
+.card > .back {
+  align-self: flex-start;
+}
+
+/* Un aviso y lo que lo acompaña (el contacto, la lista de saltadas): un solo bloque. */
+.notice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-top: 1rem;
 }
 
 /* Botones-enlace y botones con la misma forma: 44 px de alto como mínimo. En móvil, uno por fila. */
@@ -68,8 +86,7 @@
   }
 }
 
-/* M-08 RN-DISPO-72: el botón de la acción y «Ver mi reserva» en el mismo contenedor. Desde 640 px,
-   lado a lado y separados 1.5rem; por debajo, el botón a todo el ancho y el enlace centrado debajo.
+/* M-08 RN-DISPO-72 y CB-05 RN-CBGES-03: el botón y «Ver mi reserva» juntos; en móvil, apilados a .75rem.
    El enlace también mide 44 px de alto: es un objetivo táctil más. */
 .actions--with-back {
   align-items: center;
@@ -80,14 +97,13 @@
   display: inline-flex;
   align-items: center;
   min-height: 2.75rem;
-  margin-top: 0;
 }
 
 @media (max-width: 39.99rem) {
   .actions--with-back {
     flex-direction: column;
     align-items: stretch;
-    gap: 0.5rem;
+    gap: 0.75rem;
   }
 
   /* `flex: none` anula el `flex: 1 1 100%` de arriba (< 30rem), que en columna sería una altura. */
@@ -102,7 +118,6 @@
 }
 
 .banner {
-  margin: 0.75rem 0 0;
   padding: 0.75rem;
   border-radius: var(--cob-radius);
 }
@@ -117,17 +132,20 @@
   background: color-mix(in srgb, var(--p-red-500, #b3261e) 12%, transparent);
 }
 
-/* Suelto (las vistas sin botón de acción), con su propio margen; dentro de `.actions--with-back` el
-   margen lo pone el contenedor. */
 .back {
   display: inline-block;
-  margin-top: 1rem;
   color: var(--cob-accent);
+}
+
+/* Una etiqueta con su campo. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .field__label {
   display: block;
-  margin: 0.75rem 0 0.25rem;
   font-size: 0.875rem;
 }
 
@@ -145,10 +163,6 @@
 }
 
 .results {
-  margin: 0.75rem 0 0;
+  margin: 0;
   padding-left: 1.25rem;
-}
-
-.schedule {
-  margin-top: 1rem;
 }

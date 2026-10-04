@@ -1,4 +1,3 @@
-import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Button } from 'primeng/button';
@@ -6,13 +5,16 @@ import { Message } from 'primeng/message';
 import { Rating } from 'primeng/rating';
 import { Skeleton } from 'primeng/skeleton';
 import { Textarea } from 'primeng/textarea';
-import { ApiError } from '../core/api-error';
+import { ApiError, isNetworkError } from '../core/api-error';
 import { resolveImage } from '../core/images';
-import { applyPageMetadata } from '../core/page-metadata';
 import { SurveysService } from '../data/surveys.service';
 import type { SurveyInfo } from '../data/public-api.models';
 
+/** `error` es solo la encuesta que no cargó: un envío fallido se queda en `form` (CB-06 RN-CBENC-02). */
 type SurveyState = 'loading' | 'form' | 'thanks' | 'error';
+
+/** El tope del backend: con uno mayor, el envío fallaría siempre (CB-06 RN-CBENC-03). */
+const COMMENT_MAX = 600;
 
 /**
  * `/encuesta/:appointmentId` (RF-G05).
@@ -37,7 +39,6 @@ type SurveyState = 'loading' | 'form' | 'thanks' | 'error';
 })
 export class SurveyPage {
   private readonly surveys = inject(SurveysService);
-  private readonly doc = inject(DOCUMENT);
 
   /** Llega por `withComponentInputBinding()`, sin inyectar `ActivatedRoute`. */
   readonly appointmentId = input.required<string>();
@@ -48,6 +49,9 @@ export class SurveyPage {
   protected readonly rating = signal(0);
   protected readonly comment = signal('');
   protected readonly submitting = signal(false);
+  /** El fallo del último envío, encima del botón, que pasa a «Reintentar». */
+  protected readonly submitError = signal<string | null>(null);
+  protected readonly commentMax = COMMENT_MAX;
 
   constructor() {
     // No se usa `effect` sobre el input: el `appointmentId` de esta ruta no cambia sin recrear el
@@ -86,10 +90,12 @@ export class SurveyPage {
         return;
       }
 
-      this.errorMessage.set(
-        error instanceof ApiError ? error.message : 'No pudimos registrar tu opinión.',
+      // CB-06 RN-CBENC-02: las estrellas y el comentario se quedan para reintentar.
+      this.submitError.set(
+        error instanceof ApiError && !isNetworkError(error)
+          ? error.message
+          : 'No pudimos registrar tu opinión. Revisa tu conexión.',
       );
-      this.state.set('error');
     } finally {
       this.submitting.set(false);
     }
@@ -103,9 +109,6 @@ export class SurveyPage {
       if (info.shopName) {
         document.title = `Tu opinión · ${info.shopName}`;
       }
-      // M-20 RN-CFG-80: el favicon, el logo de la barbería que trae la respuesta; sin él, el de
-      // `index.html`. El título de arriba no se toca.
-      applyPageMetadata({ logoUrl: resolveImage(info.logoUrl) }, this.doc);
 
       // `alreadySubmitted` se resuelve en el GET, no esperando un 409 en el POST: volver a pulsar el
       // link de un correo viejo es el caso normal, y el cliente no debe ver un formulario que va a
@@ -118,7 +121,8 @@ export class SurveyPage {
   }
 
   private messageFor(error: unknown): string {
-    if (!(error instanceof ApiError)) {
+    // CB-07 RN-CBBAS-02
+    if (!(error instanceof ApiError) || isNetworkError(error)) {
       return 'No pudimos cargar esta encuesta. Revisa tu conexión.';
     }
 

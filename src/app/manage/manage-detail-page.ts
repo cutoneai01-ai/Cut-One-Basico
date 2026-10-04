@@ -4,6 +4,7 @@ import { AppointmentCard } from './appointment-card';
 import { injectManageAppointment, isLive, otherAppointments } from './manage-appointment';
 import { ManageFrame } from './manage-frame';
 import { OtherAppointments } from './other-appointments';
+import { shopContact } from './shop-contact';
 
 /**
  * `/reserva/:id`: el **detalle**, de solo lectura (M-08 RN-DISPO-61). La cita con su estado y un
@@ -43,8 +44,17 @@ import { OtherAppointments } from './other-appointments';
           @if (!live()) {
             <a class="back" routerLink="/">Reservar otra cita</a>
           } @else if (!booking.editable && booking.notEditableReason) {
-            <!-- El motivo lo redacta el backend; la pantalla solo lo pinta. -->
-            <p class="banner banner--err">{{ booking.notEditableReason }}</p>
+            <!-- El motivo lo redacta el backend; junto a él, a quién pedir el cambio (CB-05 RN-CBGES-06). -->
+            <div class="notice">
+              <p class="banner banner--err">{{ booking.notEditableReason }}</p>
+              @if (contact(); as link) {
+                <div class="actions">
+                  <a class="btn" [href]="link.href" target="_blank" rel="noopener">
+                    <i [class]="link.icon" aria-hidden="true"></i>&nbsp;{{ link.label }}
+                  </a>
+                </div>
+              }
+            </div>
           }
 
           <cob-other-appointments
@@ -82,4 +92,9 @@ export class ManageDetailPage {
   });
 
   protected readonly live = computed(() => isLive(this.ref.appointment()?.status ?? ''));
+
+  protected readonly contact = computed(() => {
+    const booking = this.ref.appointment();
+    return booking ? shopContact(booking) : null;
+  });
 }

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { RouterLink } from '@angular/router';
 import type { ManageAppointment } from '../data/public-api.models';
 import { AppointmentCard } from './appointment-card';
+import { shopContact } from './shop-contact';
 
 /**
  * «Acción no permitida», **una sola vez** para todas las vistas de `/reserva/:id` (M-08 RN-DISPO-61):
@@ -44,18 +45,5 @@ export class ActionNotAllowed {
   /** Las acciones sobre el grupo no tienen una cita que enseñar. */
   readonly showAppointment = input(true);
 
-  /**
-   * WhatsApp gana sobre el teléfono: es el canal por el que una barbería contesta fuera del mostrador,
-   * y en móvil —que es donde se abre un correo— abre la conversación directamente.
-   */
-  protected readonly contact = computed(() => {
-    const booking = this.appointment();
-    const whatsapp = booking.whatsappNumber.replace(/[^0-9]/g, '');
-    if (whatsapp) {
-      return { href: `https://wa.me/${whatsapp}`, label: 'Escribir por WhatsApp', icon: 'pi pi-whatsapp' };
-    }
-
-    const phone = booking.publicPhone.replace(/[^0-9+]/g, '');
-    return phone ? { href: `tel:${phone}`, label: 'Llamar a la barbería', icon: 'pi pi-phone' } : null;
-  });
+  protected readonly contact = computed(() => shopContact(this.appointment()));
 }

@@ -1,7 +1,7 @@
 import { inject, signal, type Signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { catchError, from, map, of, switchMap, tap } from 'rxjs';
-import { ApiError } from '../core/api-error';
+import { ApiError, isNetworkError } from '../core/api-error';
 import { dayLabels, utcToZoned } from '../core/locale';
 import { ManageBookingService } from '../data/manage-booking.service';
 import type { ManageAppointment, ManageGroupAppointment } from '../data/public-api.models';
@@ -73,8 +73,11 @@ export function injectManageAppointment(
         state.set('not-found');
         return;
       }
+      // CB-07 RN-CBBAS-02: sin red, «Revisa tu conexión»; un error del servidor, con su mensaje.
       errorMessage.set(
-        error instanceof ApiError ? error.message : 'No pudimos cargar tu reserva. Revisa tu conexión.',
+        error instanceof ApiError && !isNetworkError(error)
+          ? error.message
+          : 'No pudimos cargar tu reserva. Revisa tu conexión.',
       );
       state.set('error');
     });

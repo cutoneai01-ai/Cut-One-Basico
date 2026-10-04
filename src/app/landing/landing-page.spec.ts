@@ -240,14 +240,15 @@ describe('LandingPage: perfil del barbero', () => {
     return firstValueFrom(router.events.pipe(filter((event) => event instanceof NavigationEnd)));
   }
 
-  // M-20 RN-CFG-80: el título es el nombre de la barbería y el favicon su logo.
+  // M-20 RN-CFG-80: el título es el nombre de la barbería. El favicon tiene un solo dueño, el
+  // componente raíz (CB-07 RN-CBBAS-04): la landing no lo toca.
   describe('título y favicon', () => {
     let icon: HTMLLinkElement;
 
     beforeEach(() => {
       icon = document.createElement('link');
       icon.rel = 'icon';
-      icon.setAttribute('href', 'favicon.ico');
+      icon.setAttribute('href', 'https://cdn.example/del-raiz.png');
       document.head.appendChild(icon);
     });
 
@@ -255,23 +256,20 @@ describe('LandingPage: perfil del barbero', () => {
       document.head.querySelectorAll("link[rel='icon'], link[rel='apple-touch-icon']").forEach((link) => link.remove());
     });
 
-    it('con logo: el nombre en la pestaña y el logo de icono y apple-touch-icon', async () => {
+    it('con logo: el nombre en la pestaña, y el favicon que puso el raíz sigue igual', async () => {
       branding.set({ ...DEFAULTS, shop_name: 'Cut Test', logo_url: 'https://cdn.example/logo.png' });
       await harness.navigateByUrl('/');
 
       expect(document.title).toBe('Cut Test');
-      expect(icon.getAttribute('href')).toBe('https://cdn.example/logo.png');
-      expect(document.head.querySelector("link[rel='apple-touch-icon']")?.getAttribute('href')).toBe(
-        'https://cdn.example/logo.png',
-      );
+      expect(icon.getAttribute('href')).toBe('https://cdn.example/del-raiz.png');
+      expect(document.head.querySelector("link[rel='apple-touch-icon']")).toBeNull();
     });
 
-    it('sin logo: el nombre en la pestaña y el favicon de index.html', async () => {
+    it('sin logo: el nombre en la pestaña, y tampoco vuelve el favicon a index.html', async () => {
       await harness.navigateByUrl('/');
 
       expect(document.title).toBe('Cut Test');
-      expect(icon.getAttribute('href')).toBe('favicon.ico');
-      expect(document.head.querySelector("link[rel='apple-touch-icon']")).toBeNull();
+      expect(icon.getAttribute('href')).toBe('https://cdn.example/del-raiz.png');
     });
   });
 

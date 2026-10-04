@@ -45,3 +45,16 @@
 .card__comment {
   width: 100%;
 }
+
+/* Pegado al campo que cuenta, alineado a su borde derecho. */
+.card__counter {
+  align-self: flex-end;
+  margin-top: -0.75rem;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.card__alert {
+  width: 100%;
+  text-align: left;
+}

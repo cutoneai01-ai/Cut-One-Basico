@@ -1,11 +1,9 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { providePrimeNG } from 'primeng/config';
+import { ApiError, NETWORK_ERROR } from '../core/api-error';
 import type { SurveyInfo } from '../data/public-api.models';
 import { SurveysService } from '../data/surveys.service';
 import { SurveyPage } from './survey-page';
-
-// M-20 RN-CFG-80: en `/encuesta/:id` el favicon es el logo de la barbería que trae la respuesta; sin
-// él, el de `index.html`. El título («Tu opinión · …») lo pone la página y no se toca.
 
 const INFO: SurveyInfo = {
   shopName: 'Barbería Ejemplo',
@@ -16,8 +14,11 @@ const INFO: SurveyInfo = {
   alreadySubmitted: false,
 };
 
-describe('SurveyPage: favicon', () => {
+const NETWORK = new ApiError(0, 'Revisa tu conexión e inténtalo de nuevo.', NETWORK_ERROR);
+
+describe('SurveyPage', () => {
   let getInfo: ReturnType<typeof vi.fn>;
+  let submit: ReturnType<typeof vi.fn>;
   let fixture: ComponentFixture<SurveyPage>;
   let icon: HTMLLinkElement;
 
@@ -29,11 +30,12 @@ describe('SurveyPage: favicon', () => {
     document.title = 'Reserva tu cita';
 
     getInfo = vi.fn();
+    submit = vi.fn();
     TestBed.configureTestingModule({
       imports: [SurveyPage],
       providers: [
         providePrimeNG({ theme: 'none' }),
-        { provide: SurveysService, useValue: { getInfo, submit: vi.fn() } },
+        { provide: SurveysService, useValue: { getInfo, submit } },
       ],
     });
   });
@@ -43,47 +45,165 @@ describe('SurveyPage: favicon', () => {
     document.head.querySelectorAll("link[rel='icon'], link[rel='apple-touch-icon']").forEach((link) => link.remove());
   });
 
-  async function render(info: SurveyInfo | Error): Promise<HTMLElement> {
-    getInfo.mockImplementation(() => (info instanceof Error ? Promise.reject(info) : Promise.resolve(info)));
-    fixture = TestBed.createComponent(SurveyPage);
-    fixture.componentRef.setInput('appointmentId', 'appt-1');
+  async function settle(): Promise<void> {
     fixture.detectChanges();
     await new Promise((resolve) => setTimeout(resolve));
     fixture.detectChanges();
     await fixture.whenStable();
+  }
+
+  async function render(info: SurveyInfo | Error): Promise<HTMLElement> {
+    getInfo.mockImplementation(() => (info instanceof Error ? Promise.reject(info) : Promise.resolve(info)));
+    fixture = TestBed.createComponent(SurveyPage);
+    fixture.componentRef.setInput('appointmentId', 'appt-1');
+    await settle();
     return fixture.nativeElement as HTMLElement;
   }
 
-  const touchIcon = (): HTMLLinkElement | null =>
-    document.head.querySelector<HTMLLinkElement>("link[rel='apple-touch-icon']");
+  const page = () => fixture.componentInstance;
+  const clean = (value: string | null | undefined): string => (value ?? '').replace(/\s+/g, ' ').trim();
+  const sendButton = (host: HTMLElement): HTMLButtonElement => host.querySelector<HTMLButtonElement>('p-button button')!;
+  const textarea = (host: HTMLElement): HTMLTextAreaElement => host.querySelector<HTMLTextAreaElement>('textarea')!;
 
-  it('con logo: icono y apple-touch-icon apuntan al logo, y el título es el de la encuesta', async () => {
-    await render(INFO);
+  async function type(host: HTMLElement, value: string): Promise<void> {
+    textarea(host).value = value;
+    textarea(host).dispatchEvent(new Event('input'));
+    await settle();
+  }
 
-    expect(getInfo).toHaveBeenCalledWith('appt-1');
-    expect(icon.getAttribute('href')).toBe('https://cdn.example/logo.png');
-    expect(touchIcon()?.getAttribute('href')).toBe('https://cdn.example/logo.png');
-    expect(document.title).toBe('Tu opinión · Barbería Ejemplo');
+  // CB-07 RN-CBBAS-04: el favicon lo pone el componente raíz con los ajustes públicos, no la encuesta.
+  describe('favicon', () => {
+    it('con logo en la respuesta no toca el favicon; el título es el de la encuesta', async () => {
+      await render(INFO);
+
+      expect(getInfo).toHaveBeenCalledWith('appt-1');
+      expect(icon.getAttribute('href')).toBe('favicon.ico');
+      expect(document.head.querySelector("link[rel='apple-touch-icon']")).toBeNull();
+      expect(document.title).toBe('Tu opinión · Barbería Ejemplo');
+    });
+
+    it('si la encuesta no carga, tampoco', async () => {
+      await render(new Error('sin red'));
+
+      expect(icon.getAttribute('href')).toBe('favicon.ico');
+    });
   });
 
-  it('un logo semilla se resuelve como en el resto de la página', async () => {
-    await render({ ...INFO, logoUrl: '/seed/barber-1.webp' });
+  // CB-06 RN-CBENC-04: la carga se anuncia y el comentario tiene nombre.
+  describe('accesibilidad', () => {
+    it('mientras carga: role="status" con el aviso y la tarjeta ocupada', async () => {
+      getInfo.mockReturnValue(new Promise(() => undefined));
+      fixture = TestBed.createComponent(SurveyPage);
+      fixture.componentRef.setInput('appointmentId', 'appt-1');
+      await settle();
+      const host = fixture.nativeElement as HTMLElement;
 
-    expect(icon.getAttribute('href')).toBe('/seed/barber-1.webp');
+      expect(clean(host.querySelector('[role="status"]')?.textContent)).toBe('Cargando la encuesta…');
+      expect(host.querySelector('.card')?.getAttribute('aria-busy')).toBe('true');
+    });
+
+    it('el comentario tiene su etiqueta y la descripción del contador', async () => {
+      const host = await render(INFO);
+
+      const field = textarea(host);
+      expect(clean(host.querySelector(`label[for="${field.id}"]`)?.textContent)).toBe('Comentario (opcional)');
+      expect(field.getAttribute('aria-describedby')).toBe('survey-comment-count');
+      expect(host.querySelector('.card')?.getAttribute('aria-busy')).toBe('false');
+    });
   });
 
-  it('sin logo: el favicon de index.html', async () => {
-    await render({ ...INFO, logoUrl: '' });
+  // CB-06 RN-CBENC-03: el tope del backend, con contador.
+  describe('comentario', () => {
+    it('tope de 600 con contador «N/600»', async () => {
+      const host = await render(INFO);
 
-    expect(icon.getAttribute('href')).toBe('favicon.ico');
-    expect(touchIcon()).toBeNull();
-    expect(document.title).toBe('Tu opinión · Barbería Ejemplo');
+      expect(textarea(host).getAttribute('maxlength')).toBe('600');
+      expect(clean(host.querySelector('#survey-comment-count')?.textContent)).toBe('0/600');
+
+      await type(host, 'Muy buen corte');
+      expect(clean(host.querySelector('#survey-comment-count')?.textContent)).toBe('14/600');
+    });
+
+    it('se envía recortado, y vacío no se envía', async () => {
+      const host = await render(INFO);
+      submit.mockResolvedValue(undefined);
+      page()['rating'].set(5);
+
+      await type(host, '   ');
+      sendButton(host).click();
+      await settle();
+      expect(submit).toHaveBeenLastCalledWith('appt-1', { rating: 5 });
+    });
   });
 
-  it('si la encuesta no carga, no toca el favicon', async () => {
-    await render(new Error('sin red'));
+  // CB-06 RN-CBENC-02: un fallo al enviar no borra lo escrito y permite reintentar.
+  describe('error al enviar', () => {
+    async function failOnce(error: unknown): Promise<HTMLElement> {
+      const host = await render(INFO);
+      page()['rating'].set(4);
+      await type(host, '  Excelente  ');
+      submit.mockRejectedValueOnce(error);
+      sendButton(host).click();
+      await settle();
+      return host;
+    }
 
-    expect(icon.getAttribute('href')).toBe('favicon.ico');
-    expect(touchIcon()).toBeNull();
+    it('conserva estrellas y comentario, pinta el error encima del botón y el botón pasa a «Reintentar»', async () => {
+      const host = await failOnce(new ApiError(500, 'El servidor no respondió.'));
+
+      expect(host.querySelector('p-message')?.textContent).toContain('El servidor no respondió.');
+      expect(host.querySelector('p-message')?.nextElementSibling?.tagName).toBe('P-BUTTON');
+      expect(clean(sendButton(host).textContent)).toBe('Reintentar');
+      expect(page()['rating']()).toBe(4);
+      expect(textarea(host).value).toBe('  Excelente  ');
+      expect(host.querySelector('p-rating')).not.toBeNull();
+      // La tarjeta de error de carga no aparece.
+      expect(host.querySelector('.card__icon')).toBeNull();
+    });
+
+    it('«Reintentar» vuelve a mandar lo mismo y, si sale bien, da las gracias', async () => {
+      const host = await failOnce(new ApiError(500, 'El servidor no respondió.'));
+      submit.mockResolvedValueOnce(undefined);
+
+      sendButton(host).click();
+      await settle();
+
+      expect(submit).toHaveBeenCalledTimes(2);
+      expect(submit).toHaveBeenLastCalledWith('appt-1', { rating: 4, text: 'Excelente' });
+      expect(clean(host.querySelector('h2')?.textContent)).toBe('¡Gracias por tu opinión!');
+      expect(host.querySelector('p-message')).toBeNull();
+    });
+
+    it('sin red: «Revisa tu conexión» (CB-07 RN-CBBAS-02)', async () => {
+      const host = await failOnce(NETWORK);
+
+      expect(clean(host.querySelector('p-message')?.textContent)).toContain(
+        'No pudimos registrar tu opinión. Revisa tu conexión.',
+      );
+    });
+
+    it('SURVEY_ALREADY_SUBMITTED cuenta como enviada', async () => {
+      const host = await failOnce(new ApiError(409, 'Ya respondida', 'SURVEY_ALREADY_SUBMITTED'));
+
+      expect(clean(host.querySelector('h2')?.textContent)).toBe('¡Gracias por tu opinión!');
+      expect(host.querySelector('p-message')).toBeNull();
+    });
+  });
+
+  describe('error de carga', () => {
+    it('sin red: la tarjeta de error con «Revisa tu conexión» (CB-07 RN-CBBAS-02)', async () => {
+      const host = await render(NETWORK);
+
+      expect(clean(host.querySelector('p-message')?.textContent)).toContain(
+        'No pudimos cargar esta encuesta. Revisa tu conexión.',
+      );
+      expect(host.querySelector('textarea')).toBeNull();
+    });
+
+    it('un error del servidor, con su mensaje', async () => {
+      const host = await render(new ApiError(500, 'Algo falló en la barbería.'));
+
+      expect(clean(host.querySelector('p-message')?.textContent)).toContain('Algo falló en la barbería.');
+    });
   });
 });

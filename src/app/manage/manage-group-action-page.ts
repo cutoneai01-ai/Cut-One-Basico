@@ -57,12 +57,14 @@ const COPY = {
                 <cob-other-appointments heading="Hechas" [appointments]="outcome.changed" [links]="true" />
               }
               @if (outcome.skipped.length > 0) {
-                <p class="banner banner--err" role="alert">{{ copy().skipped }}</p>
-                <ul class="results">
-                  @for (skip of outcome.skipped; track skip.id) {
-                    <li><strong>{{ skip.name }}</strong>: {{ skip.reason }}</li>
-                  }
-                </ul>
+                <div class="notice">
+                  <p class="banner banner--err" role="alert">{{ copy().skipped }}</p>
+                  <ul class="results">
+                    @for (skip of outcome.skipped; track skip.id) {
+                      <li><strong>{{ skip.name }}</strong>: {{ skip.reason }}</li>
+                    }
+                  </ul>
+                </div>
               }
               <!-- M-08 RN-DISPO-72: el mismo contenedor que en la vista de la acción, aunque aquí ya no
                    haya botón, para que «Ver mi reserva» no salte de sitio al terminar. -->
@@ -88,15 +90,17 @@ const COPY = {
               <cob-other-appointments heading="Tus citas" [appointments]="live()" />
 
               @if (action() === 'cancel') {
-                <label class="field__label" for="cancel-all-reason">Motivo (opcional)</label>
-                <textarea
-                  id="cancel-all-reason"
-                  class="field__input"
-                  rows="2"
-                  maxlength="300"
-                  [value]="reason()"
-                  (input)="reason.set($any($event.target).value)"
-                ></textarea>
+                <div class="field">
+                  <label class="field__label" for="cancel-all-reason">Motivo (opcional)</label>
+                  <textarea
+                    id="cancel-all-reason"
+                    class="field__input"
+                    rows="2"
+                    maxlength="300"
+                    [value]="reason()"
+                    (input)="reason.set($any($event.target).value)"
+                  ></textarea>
+                </div>
               }
 
               <!-- M-08 RN-DISPO-72: el botón y «Ver mi reserva» en el mismo contenedor. -->

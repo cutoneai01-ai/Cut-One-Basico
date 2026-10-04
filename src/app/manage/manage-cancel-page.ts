@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ApiError } from '../core/api-error';
+import { ApiError, isNetworkError } from '../core/api-error';
 import { ManageBookingService } from '../data/manage-booking.service';
 import { ActionNotAllowed } from './action-not-allowed';
 import { AppointmentCard } from './appointment-card';
@@ -67,15 +67,17 @@ import { OtherAppointments } from './other-appointments';
               }
             </p>
             <cob-appointment-card [appointment]="booking">
-              <label class="field__label" for="cancel-reason">Motivo (opcional)</label>
-              <textarea
-                id="cancel-reason"
-                class="field__input"
-                rows="2"
-                maxlength="300"
-                [value]="reason()"
-                (input)="reason.set($any($event.target).value)"
-              ></textarea>
+              <div class="field">
+                <label class="field__label" for="cancel-reason">Motivo (opcional)</label>
+                <textarea
+                  id="cancel-reason"
+                  class="field__input"
+                  rows="2"
+                  maxlength="300"
+                  [value]="reason()"
+                  (input)="reason.set($any($event.target).value)"
+                ></textarea>
+              </div>
               <!-- M-08 RN-DISPO-72: el botón y «Ver mi reserva» en el mismo contenedor. -->
               <div class="actions actions--with-back">
                 <button type="button" class="btn btn--danger" [disabled]="busy()" (click)="cancel()">
@@ -134,8 +136,9 @@ export class ManageCancelPage {
       if (error instanceof ApiError && error.code === 'APPOINTMENT_NOT_CANCELABLE') {
         this.rejection.set(error.message);
       } else {
+        // CB-07 RN-CBBAS-02
         this.failure.set(
-          error instanceof ApiError
+          error instanceof ApiError && !isNetworkError(error)
             ? error.message
             : 'No pudimos cancelar tu cita. Revisa tu conexión e inténtalo de nuevo.',
         );

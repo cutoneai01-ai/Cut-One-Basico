@@ -40,7 +40,7 @@ describe('applyPageMetadata', () => {
     expect(doc.title).toBe('Tu reserva · Barbería Ejemplo');
   });
 
-  it('sin logo —vacío, en blanco o ausente— deja el favicon de index.html y no crea nada', () => {
+  it('sin logo —vacío, en blanco, nulo o ausente— deja el favicon de index.html y no crea nada', () => {
     for (const logoUrl of ['', '   ', null, undefined]) {
       const doc = shell();
 
@@ -49,6 +49,18 @@ describe('applyPageMetadata', () => {
       expect(href(doc, 'icon')).toBe('favicon.ico');
       expect(doc.head.querySelector("link[rel='apple-touch-icon']")).toBeNull();
     }
+  });
+
+  // CB-07 RN-CBBAS-04: el favicon tiene un solo dueño; una vista que solo pone su título no lo pisa.
+  it('sin logoUrl (ausente) no toca los iconos que ya puso el dueño del favicon', () => {
+    const doc = shell();
+    applyPageMetadata({ logoUrl: 'https://cdn.example/logo.png' }, doc);
+
+    applyPageMetadata({ title: 'Cut Test' }, doc);
+
+    expect(doc.title).toBe('Cut Test');
+    expect(href(doc, 'icon')).toBe('https://cdn.example/logo.png');
+    expect(href(doc, 'apple-touch-icon')).toBe('https://cdn.example/logo.png');
   });
 
   it('aplicarlo dos veces no duplica el apple-touch-icon', () => {
