@@ -1,0 +1,32 @@
+# Pruebas unitarias con cobertura, a mano desde Actions → «Pruebas unitarias» → «Run workflow».
+# El resultado queda en el resumen de la ejecución, visible solo para quien tiene acceso al repo.
+name: Pruebas unitarias
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Pruebas y cobertura
+        id: pruebas
+        # `--output-file` solo aplica al primer reporter: por eso el JSON va antes que el de consola.
+        run: npx ng test --watch=false --coverage --reporters=json --reporters=default --output-file=test-results.json
+
+      - name: Resumen
+        if: always()
+        run: node scripts/resumen-pruebas.mjs test-results.json coverage/cut-one-basic/coverage-summary.json >> "$GITHUB_STEP_SUMMARY"

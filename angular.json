@@ -3,7 +3,9 @@
   "version": 1,
   "cli": {
     "packageManager": "npm",
-    "schematicCollections": ["angular-eslint"]
+    "schematicCollections": [
+      "angular-eslint"
+    ]
   },
   "newProjectRoot": "projects",
   "projects": {
@@ -25,7 +27,9 @@
                 "input": "public"
               }
             ],
-            "styles": ["src/styles.css"]
+            "styles": [
+              "src/styles.css"
+            ]
           },
           "configurations": {
             "production": {
@@ -105,7 +109,9 @@
           "options": {
             "port": 8082,
             "proxyConfig": "proxy.conf.json",
-            "allowedHosts": ["cut-test.localhost"]
+            "allowedHosts": [
+              "cut-test.localhost"
+            ]
           },
           "configurations": {
             "production": {
@@ -132,13 +138,37 @@
         "test": {
           "builder": "@angular/build:unit-test",
           "options": {
-            "runnerConfig": "vitest-base.config.ts"
+            "runnerConfig": "vitest-base.config.ts",
+            "coverageInclude": [
+              "src/**/*.ts",
+          "src/**/*.html"
+            ],
+            "coverageExclude": [
+              "src/**/*.spec.ts",
+              "src/main.ts",
+              "src/environments/**"
+            ],
+            "coverageReporters": [
+              "text-summary",
+              "html",
+              "json-summary"
+            ],
+            "coverageThresholds": {
+              "statements": 100,
+              "branches": 100,
+              "functions": 100,
+              "lines": 100
+            }
           }
         },
         "lint": {
           "builder": "@angular-eslint/builder:lint",
           "options": {
-            "lintFilePatterns": ["src/**/*.ts", "src/**/*.html"]
+            "lintFilePatterns": [
+              "src/**/*.ts",
+          "src/**/*.html",
+              "src/**/*.html"
+            ]
           }
         }
       }

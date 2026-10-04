@@ -42,3 +42,6 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Informes de pruebas (ng test --coverage)
+test-results.json
