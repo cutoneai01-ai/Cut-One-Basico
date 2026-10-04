@@ -57,4 +57,12 @@ describe('PopularSection', () => {
   it('sin populares, la sección no se monta', () => {
     expect(render([], 'felipe').querySelector('section')).toBeNull();
   });
+
+  it('cada «Reservar este servicio» lleva el nombre del servicio en su texto accesible (CB-01 RN-CBPOR-05)', () => {
+    const host = render([popular('corte', 1), popular('cejas', 3)], null);
+    const buttons = Array.from(host.querySelectorAll<HTMLButtonElement>('p-button button'));
+
+    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual(['Reservar este servicio: corte', 'Reservar este servicio: cejas']);
+    expect(texts(host, 'p-button')).toEqual(['Reservar este servicio', 'Reservar este servicio']);
+  });
 });

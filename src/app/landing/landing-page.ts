@@ -1,6 +1,8 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -9,7 +11,7 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { map } from 'rxjs';
+import { map, scan } from 'rxjs';
 import { applyPageMetadata } from '../core/page-metadata';
 import { BookingWizard } from '../booking/booking-wizard';
 import { BookingPolicyService } from '../data/booking-policy.service';
@@ -21,8 +23,10 @@ import type { PublicBarber, PublicService } from '../data/public-api.models';
 import { AboutSection } from './about-section';
 import { BarbersSection } from './barbers-section';
 import { HeroSection } from './hero-section';
+import { navLinks } from './nav-links';
 import { PopularSection } from './popular-section';
 import { ProfileBarberSection } from './profile-barber-section';
+import { BOOKING_FRAGMENT } from './profile-link';
 import { ServicesSection } from './services-section';
 import { SiteFooter } from './site-footer';
 import { SiteHeader } from './site-header';
@@ -30,6 +34,15 @@ import { TestimonialsSection } from './testimonials-section';
 
 /** El id del barbero en `/profile/:barberId` es su GUID, sin slug (M-08 RN-DISPO-62). */
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** CB-02 RN-CBPER-03: en el perfil, «{barbero} · {barbería}»; en `/`, la barbería. */
+export function pageTitle(shopName: string, barber: PublicBarber | null): string {
+  if (!barber) {
+    return shopName;
+  }
+  const name = barber.displayName ?? 'Profesional';
+  return shopName ? `${name} · ${shopName}` : name;
+}
 
 /**
  * La página `/`. Orquesta las siete secciones y el wizard; no pinta ningún dato por su cuenta.
@@ -69,6 +82,7 @@ export class LandingPage {
   private readonly bookingPolicy = inject(BookingPolicyService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly injector = inject(Injector);
 
   private readonly wizard = viewChild.required(BookingWizard);
 
@@ -184,8 +198,26 @@ export class LandingPage {
     () => !this.testimonialsService.exhausted() && !this.testimonialsService.loading(),
   );
 
+  /** CB-01 RN-CBPOR-02: un solo cálculo de las secciones enlazables, para la cabecera y el pie. */
+  protected readonly navLinks = computed(() =>
+    navLinks({ services: this.services().length > 0, team: !this.profile(), about: this.showAbout() }),
+  );
+
   /** Una sola salida al perfil inexistente, aunque el efecto vuelva a correr antes de navegar. */
   private leavingProfile = false;
+
+  /**
+   * Cuántas veces se llegó al perfil con `#reservar` (CB-02 RN-CBPER-04): cada llegada abre el asistente
+   * una vez. `ActivatedRoute.fragment` solo emite cuando el fragmento cambia.
+   */
+  private readonly bookingArrivals = toSignal(
+    this.route.fragment.pipe(scan((count, fragment) => (fragment === BOOKING_FRAGMENT ? count + 1 : count), 0)),
+    { initialValue: 0 },
+  );
+  private handledBookingArrivals = 0;
+
+  /** CB-02 RN-CBPER-05: la reserva pedida en el perfil antes de resolver al barbero; se cumple al resolverlo. */
+  private pendingBooking: { readonly service: PublicService | null } | null = null;
 
   constructor() {
     this.settings.ensureLoaded();
@@ -198,7 +230,26 @@ export class LandingPage {
     // El título en cuanto llega el branding: `index.html` es un shell común a todos los subdominios.
     // El favicon no: lo pone el componente raíz en toda ruta (CB-07 RN-CBBAS-04).
     effect(() => {
-      applyPageMetadata({ title: this.branding().shop_name });
+      applyPageMetadata({ title: pageTitle(this.branding().shop_name, this.profileBarber()) });
+    });
+
+    // CB-02 RN-CBPER-04 y RN-CBPER-05: una llegada con `#reservar` es una reserva pedida; la pedida
+    // antes de resolver al barbero se abre al resolverlo, nunca sin él.
+    effect(() => {
+      const arrivals = this.bookingArrivals();
+      const barber = this.profileBarber();
+      if (arrivals > this.handledBookingArrivals) {
+        this.handledBookingArrivals = arrivals;
+        this.pendingBooking ??= { service: null };
+        this.clearBookingFragment();
+      }
+      const pending = this.pendingBooking;
+      if (!barber || !pending) {
+        return;
+      }
+      this.pendingBooking = null;
+      // Tras pintar: el asistente lee `lockedBarber`, que llega por la plantilla de esta pasada.
+      afterNextRender(() => this.wizard().open(pending.service), { injector: this.injector });
     });
 
     // M-08 RN-DISPO-63: un perfil que no es de un barbero público —inactivo, sin horario, inexistente o
@@ -220,11 +271,30 @@ export class LandingPage {
   }
 
   protected openWizard(): void {
-    this.wizard().open();
+    this.requestBooking(null);
   }
 
   protected bookService(service: PublicService): void {
+    this.requestBooking(service);
+  }
+
+  /** CB-02 RN-CBPER-05: en el perfil, sin barbero resuelto la reserva espera (o se descarta si no es público). */
+  private requestBooking(service: PublicService | null): void {
+    if (this.profile() && !this.profileBarber()) {
+      if (this.resolvedBarber() === undefined) {
+        this.pendingBooking = { service };
+      }
+      return;
+    }
     this.wizard().open(service);
+  }
+
+  /**
+   * Quita `#reservar` sustituyendo la entrada: recargar, volver con «Atrás» o copiar la URL no reabren
+   * el asistente (CB-02 RN-CBPER-04, una vez por llegada).
+   */
+  private clearBookingFragment(): void {
+    void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'preserve', replaceUrl: true });
   }
 
   protected loadMoreTestimonials(): void {

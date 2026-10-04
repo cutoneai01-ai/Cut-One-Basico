@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnChanges, SimpleChanges, input } from '@angular/core';
+import { prefersReducedMotion } from '../core/reduced-motion';
 
 interface Layer {
   readonly key: number;
@@ -33,11 +34,9 @@ export class CrossfadeImage implements OnChanges {
       return;
     }
 
-    // Sin animación (o sin `matchMedia`, en SSR) no hay `animationend` que retire la capa saliente:
-    // se reemplaza de golpe en vez de dejarla apilada para siempre.
-    const reducedMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    // Con «reducir movimiento» no hay `animationend` que retire la capa saliente: se reemplaza de golpe
+    // en vez de dejarla apilada para siempre.
+    const reducedMotion = prefersReducedMotion();
 
     this.layers = [
       ...(srcChange.firstChange || reducedMotion
@@ -47,7 +46,8 @@ export class CrossfadeImage implements OnChanges {
     ];
   }
 
+  /** Retira solo la capa que terminó de salir: las demás que salen siguen su propio fundido. */
   protected onFadeOutEnd(key: number): void {
-    this.layers = this.layers.filter((layer) => layer.key === key || !layer.fadingOut);
+    this.layers = this.layers.filter((layer) => layer.key !== key);
   }
 }

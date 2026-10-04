@@ -4,8 +4,8 @@ import { providePrimeNG } from 'primeng/config';
 import type { PublicBarber } from '../data/public-api.models';
 import { ProfileBarberSection } from './profile-barber-section';
 
-// M-08 RN-DISPO-64: el bloque «Tu barbero» del perfil — foto o iniciales, nombre, especialidad, su
-// calificación o «Nuevo», y el botón que abre la reserva con él.
+// M-08 RN-DISPO-64 y CB-02 RN-CBPER-02: el bloque «Tu barbero» del perfil — avatar con su aro, nombre,
+// especialidad, su nota o «Nuevo», el botón que abre la reserva con él y cuántos servicios presta.
 
 function barber(overrides: Partial<PublicBarber> = {}): PublicBarber {
   return {
@@ -29,9 +29,9 @@ describe('ProfileBarberSection: «Tu barbero»', () => {
     fixture = TestBed.createComponent(ProfileBarberSection);
   });
 
-  function render(item: PublicBarber, hasServices = true): HTMLElement {
+  function render(item: PublicBarber, serviceCount = 3): HTMLElement {
     fixture.componentRef.setInput('barber', item);
-    fixture.componentRef.setInput('hasServices', hasServices);
+    fixture.componentRef.setInput('serviceCount', serviceCount);
     fixture.detectChanges();
     return fixture.nativeElement as HTMLElement;
   }
@@ -39,35 +39,40 @@ describe('ProfileBarberSection: «Tu barbero»', () => {
   const text = (host: HTMLElement, selector: string): string =>
     (host.querySelector(selector)?.textContent ?? '').replace(/\s+/g, ' ').trim();
 
-  it('con foto: la foto grande, el nombre, la especialidad y su nota', () => {
+  it('con foto: el avatar grande con la foto, el nombre, la especialidad y su nota con un decimal', () => {
     const host = render(barber());
 
-    const photo = host.querySelector<HTMLImageElement>('img.mybarber__photo');
-    expect(photo?.getAttribute('src')).toBe('https://cdn.example/felipe.webp');
-    expect(photo?.getAttribute('alt')).toBe('Felipe Zapata');
-    expect(host.querySelector('.mybarber__initials')).toBeNull();
+    const avatar = host.querySelector<HTMLElement>('cob-barber-avatar')!;
+    expect(avatar.classList).toContain('avatar--xxl');
+    expect(avatar.querySelector('img')?.getAttribute('src')).toBe('https://cdn.example/felipe.webp');
     expect(text(host, '.cob-eyebrow')).toBe('Tu barbero');
     expect(text(host, 'h2')).toBe('Felipe Zapata');
     expect(text(host, '.mybarber__specialty')).toBe('Fade y barba');
-    expect(host.querySelector('p-rating')).not.toBeNull();
-    expect(text(host, '.mybarber__rating .cob-muted')).toBe('4.8 / 5');
+    expect(text(host, '.mybarber__rating .rating__num')).toBe('4,8');
+    expect(host.querySelector('.mybarber__rating .rating')?.getAttribute('aria-label')).toBe('4,8 de 5');
+    const fills = Array.from(host.querySelectorAll<HTMLElement>('.star__fill')).map((star) => star.style.width);
+    expect(fills).toEqual(['100%', '100%', '100%', '100%', '80%']);
+    expect(host.querySelector('p-rating')).toBeNull();
     expect(host.querySelector('p-tag')).toBeNull();
   });
 
-  it('sin foto: sus iniciales en un círculo con el nombre para lectores de pantalla', () => {
-    const host = render(barber({ photoUrl: null }));
-
-    const initials = host.querySelector('.mybarber__initials');
-    expect(host.querySelector('img')).toBeNull();
-    expect(initials?.getAttribute('role')).toBe('img');
-    expect(initials?.getAttribute('aria-label')).toBe('Felipe Zapata');
-    expect(text(host, '.mybarber__initials')).toBe('FZ');
+  it('con 5: «5,0»', () => {
+    expect(text(render(barber({ rating: 5 })), '.mybarber__rating .rating__num')).toBe('5,0');
   });
 
-  it('con la nota nula: la etiqueta «Nuevo» y ninguna estrella (M-23 RN-CAL-11)', () => {
+  it('sin foto: sus iniciales dentro del aro, con su color (CB-07 RN-CBBAS-08)', () => {
+    const host = render(barber({ photoUrl: null, color: '#e11d48' }));
+
+    const avatar = host.querySelector<HTMLElement>('cob-barber-avatar')!;
+    expect(host.querySelector('img')).toBeNull();
+    expect(text(host, 'cob-barber-avatar')).toBe('FZ');
+    expect(avatar.style.getPropertyValue('--barber-color')).toBe('#e11d48');
+  });
+
+  it('con la nota nula: «Nuevo» y ninguna estrella (M-23 RN-CAL-11)', () => {
     const host = render(barber({ rating: null, specialty: null }));
 
-    expect(host.querySelector('p-rating')).toBeNull();
+    expect(host.querySelector('.rating')).toBeNull();
     expect(text(host, 'p-tag')).toBe('Nuevo');
     expect(host.querySelector('.mybarber__specialty')).toBeNull();
   });
@@ -84,11 +89,21 @@ describe('ProfileBarberSection: «Tu barbero»', () => {
     expect(booked).toBe(1);
   });
 
-  it('sin nombre, «Profesional»; y sin servicios, sin el enlace a una sección que no existe', () => {
-    const host = render(barber({ displayName: null }), false);
+  it('sin nombre, «Profesional»; y sin servicios, ni el enlace a una sección que no existe ni el recuento', () => {
+    const host = render(barber({ displayName: null }), 0);
 
     expect(text(host, 'h2')).toBe('Profesional');
     expect(host.querySelector('.mybarber__link')).toBeNull();
+    expect(host.querySelector('.mybarber__count')).toBeNull();
+  });
+
+  // CB-02 RN-CBPER-02: el recuento, bajo las acciones.
+  it('con un servicio, en singular; con varios, en plural', () => {
+    expect(text(render(barber(), 1), '.mybarber__count')).toBe('1 servicio disponible con Felipe Zapata');
+    expect(text(render(barber(), 4), '.mybarber__count')).toBe('4 servicios disponibles con Felipe Zapata');
+    const host = render(barber(), 4);
+    const actions = host.querySelector('.mybarber__actions')!;
+    expect(actions.compareDocumentPosition(host.querySelector('.mybarber__count')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   // M-08 RN-DISPO-70: la presentación recortada con «Ver más», sin hover ni color.
@@ -125,11 +140,16 @@ describe('ProfileBarberSection: «Tu barbero»', () => {
       }
     });
 
-    it('el color del barbero no tiñe el bloque', () => {
+    it('el color del barbero solo llega al aro del avatar: el bloque no se tiñe ni tiene hover', () => {
       const host = render(barber({ color: '#e11d48', description: 'Corta.' }));
 
-      expect(host.innerHTML).not.toContain('--barber-color');
-      expect(host.innerHTML).not.toContain('#e11d48');
+      expect(host.querySelector<HTMLElement>('cob-barber-avatar')!.style.getPropertyValue('--barber-color')).toBe(
+        '#e11d48',
+      );
+      const outside = host.cloneNode(true) as HTMLElement;
+      outside.querySelector('cob-barber-avatar')!.remove();
+      expect(outside.innerHTML).not.toContain('--barber-color');
+      expect(outside.innerHTML).not.toContain('#e11d48');
     });
   });
 

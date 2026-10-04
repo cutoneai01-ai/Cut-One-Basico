@@ -173,8 +173,8 @@ function buildFallbackCss(doc: Document, scheme: 'light' | 'dark'): string {
   const chunks: string[] = [];
 
   const visit = (rules: CSSRuleList, prelude: string[]): void => {
-    for (let i = 0; i < rules.length; i++) {
-      const rule = rules[i] as CSSRule & { style?: CSSStyleDeclaration; selectorText?: string };
+    for (const item of rules) {
+      const rule = item as CSSRule & { style?: CSSStyleDeclaration; selectorText?: string };
 
       // At-rules con hijos (@media, @supports, @layer…): se apila su prelude y se sigue hacia dentro,
       // para que el respaldo salga con las mismas condiciones que el original.
@@ -210,8 +210,7 @@ function buildFallbackCss(doc: Document, scheme: 'light' | 'dark'): string {
     }
   };
 
-  for (let s = 0; s < doc.styleSheets.length; s++) {
-    const sheet = doc.styleSheets[s];
+  for (const sheet of doc.styleSheets) {
     if ((sheet.ownerNode as Element | null)?.hasAttribute?.(MARKER)) {
       continue;
     }

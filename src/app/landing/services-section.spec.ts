@@ -64,4 +64,12 @@ describe('ServicesSection', () => {
 
     expect(texts(host, '.cob-subtitle')).toEqual(['Los servicios que hace este profesional, con su tiempo.']);
   });
+
+  it('cada «Reservar este servicio» lleva el nombre del servicio en su texto accesible (CB-01 RN-CBPOR-05)', () => {
+    const host = render(null);
+    const buttons = Array.from(host.querySelectorAll<HTMLButtonElement>('p-button button'));
+
+    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual(['Reservar este servicio: corte', 'Reservar este servicio: cejas']);
+    expect(texts(host, 'p-button')).toEqual(['Reservar este servicio', 'Reservar este servicio']);
+  });
 });

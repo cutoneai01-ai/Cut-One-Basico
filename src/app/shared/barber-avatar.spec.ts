@@ -1,5 +1,5 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
-import { BarberAvatar, type AvatarBarber } from './barber-avatar';
+import { BarberAvatar, type AvatarBarber, type AvatarSize } from './barber-avatar';
 
 // CB-07 RN-CBBAS-08: un círculo con el aro del color del barbero (neutro sin él), la foto o sus
 // iniciales dentro; decorativo, porque el nombre siempre va escrito al lado.
@@ -12,7 +12,7 @@ describe('BarberAvatar', () => {
     fixture = TestBed.createComponent(BarberAvatar);
   });
 
-  function render(barber: AvatarBarber | null, size?: 'sm' | 'md' | 'lg'): HTMLElement {
+  function render(barber: AvatarBarber | null, size?: AvatarSize): HTMLElement {
     fixture.componentRef.setInput('barber', barber);
     if (size) {
       fixture.componentRef.setInput('size', size);
@@ -55,6 +55,16 @@ describe('BarberAvatar', () => {
 
     expect(host.classList).toContain('avatar--lg');
     expect(host.classList).not.toContain('avatar--sm');
+  });
+
+  it('los tamaños grandes de la tarjeta del equipo y de «Tu barbero» también llegan como clase', () => {
+    for (const size of ['xl', 'xxl'] as const) {
+      const host = render({ displayName: 'Ana', photoUrl: null, color: null }, size);
+
+      expect(Array.from(host.classList).filter((name) => /^avatar--(sm|md|lg|xl|xxl)$/.test(name))).toEqual([
+        `avatar--${size}`,
+      ]);
+    }
   });
 
   it('sin barbero es «Cualquier profesional»: el icono de destellos', () => {

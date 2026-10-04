@@ -38,7 +38,7 @@
           [showItemNavigators]="true"
           [showThumbnails]="gallery().length > 1"
           [circular]="true"
-          [autoPlay]="gallery().length > 1"
+          [autoPlay]="autoPlay()"
           [shouldStopAutoplayByClick]="false"
           [transitionInterval]="5000"
           [containerStyle]="{ 'max-width': '100%' }"

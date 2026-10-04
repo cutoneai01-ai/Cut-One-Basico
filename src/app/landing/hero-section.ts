@@ -1,15 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { Button } from 'primeng/button';
-// `p-rating` es un ControlValueAccessor: incluso en modo lectura el valor entra por `ngModel`.
-import { Rating } from 'primeng/rating';
 import { resolveImage } from '../core/images';
 import type { Branding } from '../data/branding';
+import { RatingStars } from '../shared/rating-stars';
 import { SectionLink } from './section-link';
 
 @Component({
   selector: 'cob-hero-section',
-  imports: [Button, FormsModule, Rating, SectionLink],
+  imports: [Button, RatingStars, SectionLink],
   templateUrl: './hero-section.html',
   styleUrl: './hero-section.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

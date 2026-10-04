@@ -66,9 +66,7 @@
 }
 
 .hero__rating {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
+  --rating-star-size: 1.125rem;
 }
 
 .hero__actions {

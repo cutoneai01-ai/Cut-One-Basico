@@ -1,4 +1,4 @@
-<cob-site-header [branding]="branding()" [profile]="profile()" (book)="openWizard()" />
+<cob-site-header [branding]="branding()" [profile]="profile()" [links]="navLinks()" (book)="openWizard()" />
 
 <main>
   <!-- M-08 RN-DISPO-64: el hero de la barbería, también en el perfil; sus botones abren la reserva, que
@@ -14,7 +14,7 @@
   @if (profileBarber(); as barber) {
     <cob-profile-barber-section
       [barber]="barber"
-      [hasServices]="services().length > 0"
+      [serviceCount]="services().length"
       (book)="openWizard()"
     />
   }
@@ -64,7 +64,7 @@
   }
 </main>
 
-<cob-site-footer [branding]="branding()" [profile]="profile()" />
+<cob-site-footer [branding]="branding()" [links]="navLinks()" />
 
 <!-- M-08 RN-DISPO-65: en el perfil, la reserva va con el barbero bloqueado y solo con sus servicios. -->
 <cob-booking-wizard

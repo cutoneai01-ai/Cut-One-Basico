@@ -29,12 +29,10 @@
     </ng-template>
 
     <nav class="nav" aria-label="Secciones">
-      <a cobSectionLink="servicios">Servicios</a>
-      <!-- M-08 RN-DISPO-64: el perfil no tiene sección de equipo, así que no hay a dónde llevar. -->
-      @if (!profile()) {
-        <a cobSectionLink="barberos">Barberos</a>
+      @for (link of links(); track link.section) {
+        <a [cobSectionLink]="link.section">{{ link.label }}</a>
       }
-      <a cobSectionLink="nosotros">Sobre Nosotros</a>
+      <!-- El pie se pinta siempre (CB-01 RN-CBPOR-02). -->
       <a cobSectionLink="contacto">Contacto</a>
     </nav>
 

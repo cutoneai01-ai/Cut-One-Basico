@@ -51,6 +51,30 @@
   font-size: 1.125rem;
 }
 
+/* Los grandes: la tarjeta del equipo y «Tu barbero» (CB-01 RN-CBPOR-06, CB-02 RN-CBPER-02). */
+:host(.avatar--xl),
+:host(.avatar--xxl) {
+  padding: 3px;
+}
+
+:host(.avatar--xl) {
+  width: 7rem;
+  height: 7rem;
+}
+
+:host(.avatar--xl) .avatar__in {
+  font-size: 2rem;
+}
+
+:host(.avatar--xxl) {
+  width: 9rem;
+  height: 9rem;
+}
+
+:host(.avatar--xxl) .avatar__in {
+  font-size: 3rem;
+}
+
 /* «Cualquier profesional»: el acento del tema en vez del color de un barbero. */
 :host(.avatar--any) {
   background: color-mix(in srgb, var(--cob-accent) 40%, transparent);
@@ -84,5 +108,12 @@
 
   :host(.avatar--lg) .avatar__in {
     font-size: 1.25rem;
+  }
+}
+
+@media (min-width: 48rem) {
+  :host(.avatar--xxl) {
+    width: 11rem;
+    height: 11rem;
   }
 }

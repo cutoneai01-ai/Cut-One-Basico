@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 // módulo.
 import { GalleriaModule } from 'primeng/galleria';
 import { resolveImage } from '../core/images';
+import { prefersReducedMotion } from '../core/reduced-motion';
 import type { Branding } from '../data/branding';
 import { CrossfadeImage } from './crossfade-image';
 
@@ -32,6 +33,10 @@ export class AboutSection {
       .filter((src): src is string => src !== undefined)
       .map((src) => ({ src, alt: branding.about_us_title || 'Nuestro espacio' }));
   });
+
+  /** CB-01 RN-CBPOR-11: rota sola salvo con «reducir movimiento»; el cambio manual sigue. */
+  private readonly reducedMotion = prefersReducedMotion();
+  protected readonly autoPlay = computed(() => this.gallery().length > 1 && !this.reducedMotion);
 
   protected readonly responsiveOptions = [
     { breakpoint: '64rem', numVisible: 4 },

@@ -1,9 +1,7 @@
 /* M-08 RN-DISPO-69: todas las tarjetas miden siempre lo mismo, también entre filas distintas.
-   Grid y no flex-wrap: con flex-wrap solo se igualaba cada fila, y una descripción larga en la
-   segunda la dejaba más alta que la primera. `grid-auto-rows: 1fr` iguala todas las filas a la más
-   alta (al abrir «Ver más» crecen todas), y las columnas de ancho fijo con `justify-content: center`
-   conservan lo de antes: con un solo barbero la tarjeta no se estira a toda la sección, y 1, 2 o N
-   quedan centradas con su ancho de ~17rem. */
+   Grid y no flex-wrap: con flex-wrap solo se igualaba cada fila. `grid-auto-rows: 1fr` iguala todas las
+   filas a la más alta, y las columnas de ancho fijo con `justify-content: center` dejan 1, 2 o N
+   tarjetas centradas con su ancho de ~17rem. */
 .barbers-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, min(100%, 17rem));
@@ -12,32 +10,31 @@
   gap: 1.5rem;
 }
 
-/* La tarjeta ya ocupa la celda entera (`stretch`); lo que falta es que su cuerpo la llene para que el
-   pie «Agendar con…» quede alineado al fondo en todas. `.p-card-body` y `.p-card-content` son del DOM
-   interno de PrimeNG (fuera del árbol de este componente), de ahí el `::ng-deep`, acotado a la
-   tarjeta del equipo, como en `services-section.css`.
-
-   El borde de 1 px es transparente siempre, y no solo al pasar el ratón, para que el hover no desplace
-   nada. */
+/* CB-01 RN-CBPOR-09: contorno leve en reposo, visible en los dos temas; el hover solo cambia su color,
+   así que nada se desplaza. */
 .barber-card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  border: 1px solid transparent;
+  border: 1px solid color-mix(in srgb, var(--cob-text) 12%, var(--cob-border));
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
 }
 
+/* El cuerpo llena la tarjeta para que el pie «Agendar con…» quede alineado al fondo en todas.
+   `.p-card-body` y `.p-card-content` son del DOM interno de PrimeNG, de ahí el `::ng-deep` acotado. */
 .barber-card ::ng-deep .p-card-body {
   flex: 1 1 auto;
 }
 
 .barber-card ::ng-deep .p-card-content {
   flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
 }
 
-/* M-08 RN-DISPO-69 (ADR-0062): solo la tarjeta con color propio cambia, con el ratón y con el foco de
-   teclado dentro (el enlace «Agendar con…» o «Ver más»). Halo suave, al 30 %. */
+/* CB-01 RN-CBPOR-09 (ADR-0062): con color, su borde y su halo al 30 %. */
 .barber-card--colored:hover,
 .barber-card--colored:focus-within {
   border-color: var(--barber-color);
@@ -46,30 +43,127 @@
     0 12px 32px -14px color-mix(in srgb, var(--barber-color) 30%, transparent);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .barber-card {
-    transition: none;
-  }
+/* CB-01 RN-CBPOR-09: sin color, un gris más marcado y un halo gris suave; nunca el acento del tema. */
+.barber-card:not(.barber-card--colored):hover,
+.barber-card:not(.barber-card--colored):focus-within {
+  border-color: color-mix(in srgb, var(--cob-text-muted) 70%, var(--cob-border));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--cob-text-muted) 22%, transparent),
+    0 12px 32px -14px color-mix(in srgb, var(--cob-text-muted) 25%, transparent);
 }
 
-.barber-card__body {
+/* CB-01 RN-CBPOR-07: ⓘ con objetivo de 44 px; el círculo visible es de 32 px para no tapar la foto. */
+.barber-card__info {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.375rem;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cob-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.barber-card__info > span {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--cob-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cob-page-bg) 80%, transparent);
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.barber-card__info:hover > span,
+.barber-card__info[aria-expanded='true'] > span {
+  border-color: var(--cob-accent);
+  color: var(--cob-accent);
+}
+
+.barber-card__info:focus-visible,
+.barber-card__link:focus-visible,
+.barber-card__text:focus-visible {
+  outline: 2px solid var(--cob-accent);
+  outline-offset: 2px;
+}
+
+/* CB-01 RN-CBPOR-07: la cara de la descripción va encima de la de la foto, que sigue en el flujo y fija
+   el alto: la tarjeta mide lo mismo con una u otra. */
+.barber-card__faces {
+  position: relative;
   display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.barber-card__front,
+.barber-card__back {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    visibility 0.2s;
+}
+
+.barber-card__front {
+  display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
   text-align: center;
 }
 
-.barber-card__photo {
-  width: 7rem;
-  height: 7rem;
-  object-fit: cover;
-  border-radius: 999px;
-  border: 2px solid var(--cob-border);
+.barber-card__back {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(0.5rem);
+}
+
+.barber-card--open .barber-card__front {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.barber-card--open .barber-card__back {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+.barber-card__link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem;
+  border-radius: var(--cob-radius);
+  color: inherit;
+  text-decoration: none;
+}
+
+.barber-card__link:hover .barber-card__name {
+  color: var(--cob-accent);
 }
 
 .barber-card__name {
   font-size: 1.125rem;
+  overflow-wrap: anywhere;
 }
 
 .barber-card__specialty {
@@ -79,10 +173,57 @@
   text-transform: uppercase;
 }
 
-.barber-card__desc {
-  width: 100%;
-  font-size: 0.9375rem;
+/* El avatar comparte fila solo con la X; el nombre baja a su propio renglón a todo el ancho. */
+.barber-card__back-head {
+  padding-right: 2.75rem;
+}
+
+.barber-card__back-name {
+  margin-top: 0.5rem;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.barber-card__back .barber-card__specialty {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+}
+
+.barber-card__text {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-top: 1px dashed var(--cob-border);
+  border-radius: 2px;
   color: var(--cob-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* CB-01 RN-CBPOR-08: objetivo táctil de 44 px. */
+.barber-card__book {
+  min-height: 2.75rem;
+}
+
+/* Con «reducir movimiento», ni transición del contorno ni desplazamiento: solo un fundido corto. */
+@media (prefers-reduced-motion: reduce) {
+  .barber-card {
+    transition: none;
+  }
+
+  .barber-card__front,
+  .barber-card__back {
+    transition-duration: 0.12s;
+  }
+
+  .barber-card__back {
+    transform: none;
+  }
 }
 
 .skeleton-card {

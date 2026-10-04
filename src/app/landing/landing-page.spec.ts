@@ -8,6 +8,7 @@ import { providePrimeNG } from 'primeng/config';
 import { filter, firstValueFrom } from 'rxjs';
 import { clearTenantLocale, setTenantLocale, type TenantLocale } from '../core/locale';
 import { DEFAULTS, type Branding } from '../data/branding';
+import { BookingWizard } from '../booking/booking-wizard';
 import { BookingService } from '../data/booking.service';
 import { CatalogService } from '../data/catalog.service';
 import { PopularServicesService } from '../data/popular.service';
@@ -20,7 +21,7 @@ import type {
 import { SettingsService } from '../data/settings.service';
 import { TestimonialsService } from '../data/testimonials.service';
 import { BarbersSection } from './barbers-section';
-import { LandingPage } from './landing-page';
+import { LandingPage, pageTitle } from './landing-page';
 import { legacyBarberLinkGuard } from './legacy-barber-link';
 import { PopularSection } from './popular-section';
 import { ServicesSection } from './services-section';
@@ -541,6 +542,213 @@ describe('LandingPage: perfil del barbero', () => {
 
       expect(page().querySelector('.hero__link')?.getAttribute('href')).toBe(`/profile/${FELIPE_ID}#servicios`);
       expect(page().querySelector('.nav a')?.getAttribute('href')).toBe(`/profile/${FELIPE_ID}#servicios`);
+    });
+  });
+
+  // CB-02 RN-CBPER-03.
+  describe('título del perfil', () => {
+    it('«{barbero} · {barbería}» en cuanto se resuelve; antes, y en /, la barbería', async () => {
+      catalog.loading.set(true);
+      catalog.barbers.set([]);
+      await harness.navigateByUrl(`/profile/${FELIPE_ID}`);
+      expect(document.title).toBe('Cut Test');
+
+      catalog.barbers.set([felipe, ana]);
+      catalog.loading.set(false);
+      await settle();
+      expect(document.title).toBe('Felipe Zapata · Cut Test');
+
+      await harness.navigateByUrl('/');
+      expect(document.title).toBe('Cut Test');
+    });
+
+    it('sin nombre del barbero, «Profesional»; sin nombre de la barbería, solo el barbero', () => {
+      expect(pageTitle('Cut Test', { ...felipe, displayName: null })).toBe('Profesional · Cut Test');
+      expect(pageTitle('', felipe)).toBe('Felipe Zapata');
+      expect(pageTitle('Cut Test', null)).toBe('Cut Test');
+    });
+  });
+
+  // CB-01 RN-CBPOR-02: cabecera y pie enlazan solo lo que se pinta, calculado en un solo sitio.
+  describe('enlaces de la cabecera y el pie', () => {
+    const nav = (): string[] => texts('.nav a');
+    const footer = (): string[] => texts('.footer__nav a');
+
+    it('en /, sin «Nosotros»: servicios y equipo, sin «Sobre Nosotros»', async () => {
+      await harness.navigateByUrl('/');
+
+      expect(nav()).toEqual(['Servicios', 'Barberos', 'Contacto']);
+      expect(footer()).toEqual(['Servicios', 'Barberos']);
+    });
+
+    it('en /, con «Nosotros»: también «Sobre Nosotros»', async () => {
+      branding.set({ ...DEFAULTS, shop_name: 'Cut Test', about_us_text: 'Desde el barrio.' });
+      await harness.navigateByUrl('/');
+
+      expect(nav()).toEqual(['Servicios', 'Barberos', 'Sobre Nosotros', 'Contacto']);
+      expect(footer()).toEqual(['Servicios', 'Barberos', 'Sobre Nosotros']);
+    });
+
+    it('en el perfil: nunca «Barberos», y «Servicios» solo si el barbero presta alguno', async () => {
+      await harness.navigateByUrl(`/profile/${ANA_ID}`);
+      expect(nav()).toEqual(['Servicios', 'Contacto']);
+      expect(footer()).toEqual(['Servicios']);
+
+      catalog.services.set([brows]);
+      await settle();
+      expect(nav()).toEqual(['Contacto']);
+      expect(page().querySelector('.footer__nav')).toBeNull();
+    });
+
+    it('mientras el catálogo carga no enlaza unos servicios que aún no hay', async () => {
+      catalog.loading.set(true);
+      catalog.services.set([]);
+      await harness.navigateByUrl('/');
+
+      expect(nav()).toEqual(['Barberos', 'Contacto']);
+    });
+  });
+
+  // CB-02 RN-CBPER-02: el recuento sale de los mismos servicios que filtra la página.
+  it('«Tu barbero» cuenta los servicios que presta', async () => {
+    await harness.navigateByUrl(`/profile/${FELIPE_ID}`);
+
+    expect(texts('.mybarber__count')).toEqual(['2 servicios disponibles con Felipe Zapata']);
+  });
+
+  // CB-02 RN-CBPER-04: `/profile/{id}#reservar` abre el asistente en Servicio con el barbero fijo, una vez.
+  describe('#reservar', () => {
+    const wizardOpen = (): boolean => document.body.querySelector('.cob-referral-banner') !== null;
+
+    it('pegado o en otra pestaña: abre en Servicio con el barbero fijo y quita el fragmento sin entrada nueva', async () => {
+      const open = vi.spyOn(BookingWizard.prototype, 'open');
+      const navigate = vi.spyOn(router, 'navigate');
+
+      await harness.navigateByUrl(`/profile/${FELIPE_ID}?utm_source=whatsapp#reservar`);
+      await settle();
+      await settle();
+
+      expect(open).toHaveBeenCalledTimes(1);
+      expect(open).toHaveBeenCalledWith(null);
+      expect(texts('.cob-referral-banner', document.body)).toEqual(['Reservando con Felipe Zapata']);
+      expect(texts('p-step button span:last-child', document.body)).toEqual(['Servicio', 'Horario', 'Tus datos']);
+      expect(texts('button.option strong:first-child', document.body)).toEqual(['Fade + barba', 'Cejas']);
+      expect(navigate).toHaveBeenCalledWith([], expect.objectContaining({ replaceUrl: true }));
+      expect(router.url).toBe(`/profile/${FELIPE_ID}?utm_source=whatsapp`);
+
+      // Más pasadas no la reabren.
+      await settle();
+      expect(open).toHaveBeenCalledTimes(1);
+    });
+
+    it('navegación interna desde la portada (el «Agendar con…» del equipo)', async () => {
+      await harness.navigateByUrl('/');
+      const open = vi.spyOn(BookingWizard.prototype, 'open');
+
+      await router.navigateByUrl(`/profile/${FELIPE_ID}#reservar`);
+      await settle();
+      await settle();
+
+      expect(open).toHaveBeenCalledTimes(1);
+      expect(wizardOpen()).toBe(true);
+      expect(router.url).toBe(`/profile/${FELIPE_ID}`);
+    });
+
+    it('sin el fragmento —clic en la foto o el nombre— no abre nada', async () => {
+      await harness.navigateByUrl('/');
+      const open = vi.spyOn(BookingWizard.prototype, 'open');
+
+      await router.navigateByUrl(`/profile/${FELIPE_ID}`);
+      await settle();
+      await settle();
+
+      expect(open).not.toHaveBeenCalled();
+      expect(wizardOpen()).toBe(false);
+    });
+
+    it('con el catálogo cargando espera, y abre una sola vez al resolver al barbero, ya fijo', async () => {
+      catalog.loading.set(true);
+      catalog.barbers.set([]);
+      catalog.services.set([]);
+      const open = vi.spyOn(BookingWizard.prototype, 'open');
+
+      await harness.navigateByUrl(`/profile/${FELIPE_ID}#reservar`);
+      await settle();
+      expect(open).not.toHaveBeenCalled();
+      expect(router.url).toBe(`/profile/${FELIPE_ID}`);
+
+      catalog.barbers.set([felipe, ana]);
+      catalog.services.set([fade, dye, brows]);
+      catalog.loading.set(false);
+      await settle();
+      await settle();
+
+      expect(open).toHaveBeenCalledTimes(1);
+      expect(texts('.cob-referral-banner', document.body)).toEqual(['Reservando con Felipe Zapata']);
+      expect(texts('button.option strong:first-child', document.body)).toEqual(['Fade + barba', 'Cejas']);
+    });
+
+    it('un perfil que no es público no abre nada: se va a /', async () => {
+      const open = vi.spyOn(BookingWizard.prototype, 'open');
+
+      await harness.navigateByUrl(`/profile/${NOBODY_ID}#reservar`);
+      await settle();
+      await settle();
+
+      expect(open).not.toHaveBeenCalled();
+      expect(router.url).toBe('/');
+    });
+  });
+
+  // CB-02 RN-CBPER-05: ningún botón de reservar del perfil arranca sin el barbero fijo.
+  describe('botones de reservar antes de resolver al barbero', () => {
+    for (const selector of ['cob-hero-section button', 'cob-site-header button']) {
+      it(`${selector}: espera y abre al resolver, con el barbero fijo`, async () => {
+        catalog.loading.set(true);
+        catalog.barbers.set([]);
+        catalog.services.set([]);
+        const open = vi.spyOn(BookingWizard.prototype, 'open');
+        await harness.navigateByUrl(`/profile/${FELIPE_ID}`);
+
+        page().querySelector<HTMLButtonElement>(selector)!.click();
+        await settle();
+        expect(open).not.toHaveBeenCalled();
+        expect(document.body.querySelector('.cob-referral-banner')).toBeNull();
+
+        catalog.barbers.set([felipe, ana]);
+        catalog.services.set([fade, dye, brows]);
+        catalog.loading.set(false);
+        await settle();
+        await settle();
+
+        expect(open).toHaveBeenCalledTimes(1);
+        expect(texts('.cob-referral-banner', document.body)).toEqual(['Reservando con Felipe Zapata']);
+      });
+    }
+
+    it('si el barbero resulta no ser público, la reserva pedida no se abre', async () => {
+      catalog.loading.set(true);
+      catalog.barbers.set([]);
+      const open = vi.spyOn(BookingWizard.prototype, 'open');
+      await harness.navigateByUrl(`/profile/${NOBODY_ID}`);
+
+      page().querySelector<HTMLButtonElement>('cob-hero-section button')!.click();
+      catalog.barbers.set([felipe, ana]);
+      catalog.loading.set(false);
+      await settle();
+      await settle();
+
+      expect(open).not.toHaveBeenCalled();
+      expect(router.url).toBe('/');
+    });
+
+    it('resuelto el barbero, el botón abre al momento', async () => {
+      await harness.navigateByUrl(`/profile/${FELIPE_ID}`);
+      const open = vi.spyOn(BookingWizard.prototype, 'open');
+
+      page().querySelector<HTMLButtonElement>('cob-hero-section button')!.click();
+
+      expect(open).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -11,29 +11,6 @@
   text-align: center;
 }
 
-.mybarber__photo {
-  flex: none;
-  width: 9rem;
-  height: 9rem;
-  object-fit: cover;
-  border-radius: 999px;
-  border: 2px solid var(--cob-border);
-  /* El aro: un anillo del fondo de la tarjeta y otro del acento, sin tocar el tamaño de la foto. */
-  box-shadow:
-    0 0 0 4px var(--cob-panel-bg),
-    0 0 0 6px var(--cob-accent);
-}
-
-.mybarber__initials {
-  display: grid;
-  place-items: center;
-  font-family: var(--cob-font-display, inherit);
-  font-size: 3rem;
-  font-weight: 600;
-  color: var(--cob-accent);
-  background: color-mix(in srgb, var(--cob-accent) 14%, var(--cob-panel-bg));
-}
-
 .mybarber__info {
   display: flex;
   flex-direction: column;
@@ -63,9 +40,7 @@
 }
 
 .mybarber__rating {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
+  --rating-star-size: 1.125rem;
 }
 
 .mybarber__actions {
@@ -97,16 +72,16 @@
   text-decoration: underline;
 }
 
+.mybarber__count {
+  font-size: 0.8125rem;
+  color: var(--cob-text-muted);
+}
+
 @media (min-width: 48rem) {
   .mybarber {
     flex-direction: row;
     gap: 2.5rem;
     text-align: left;
-  }
-
-  .mybarber__photo {
-    width: 11rem;
-    height: 11rem;
   }
 
   .mybarber__info,

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { resolveImage } from '../core/images';
 import type { Branding } from '../data/branding';
+import type { NavLink } from './nav-links';
 import { SectionLink } from './section-link';
 
 @Component({
@@ -12,8 +13,8 @@ import { SectionLink } from './section-link';
 })
 export class SiteFooter {
   readonly branding = input.required<Branding>();
-  /** Pie del perfil del barbero (M-08 RN-DISPO-64): sin el enlace a la sección de equipo. */
-  readonly profile = input(false);
+  /** CB-01 RN-CBPOR-02: las secciones que se pintan; las calcula la página, para la cabecera y el pie. */
+  readonly links = input.required<readonly NavLink[]>();
 
   protected readonly logo = computed(() => resolveImage(this.branding().logo_url));
 

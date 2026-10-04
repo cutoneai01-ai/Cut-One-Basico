@@ -24,51 +24,85 @@
       <div class="cob-grid barbers-grid">
         @for (card of cards(); track card.barber.id) {
           @let barber = card.barber;
-          <!-- M-08 RN-DISPO-69: el color propio llega como variable CSS y solo la tarjeta que lo tiene
-               cambia al pasar el ratón o al enfocar algo dentro; sin color, como siempre. -->
+          <!-- CB-01 RN-CBPOR-09 (ADR-0062): el color propio llega como variable CSS al hover y al foco. -->
           <p-card
-            [styleClass]="card.color ? 'barber-card barber-card--colored' : 'barber-card'"
+            [styleClass]="card.cardClass"
             [style.--barber-color]="card.color"
+            (keydown.escape)="closeOnEscape($event, barber.id)"
           >
-            <div class="barber-card__body">
-              @if (image(barber); as src) {
-                <img class="barber-card__photo" [src]="src" [alt]="name(barber)" loading="lazy" />
-              } @else {
-                <div class="barber-card__photo cob-media--empty">
-                  <i class="pi pi-user" aria-hidden="true"></i>
-                </div>
-              }
+            <!-- CB-01 RN-CBPOR-07: el ⓘ solo con descripción; abierta, el mismo botón es la X. -->
+            @if (card.description) {
+              <button
+                type="button"
+                class="barber-card__info"
+                [attr.aria-expanded]="card.open"
+                [attr.aria-controls]="card.descriptionId"
+                [attr.aria-label]="(card.open ? 'Cerrar la descripción de ' : 'Ver la descripción de ') + card.name"
+                (click)="toggleDescription(barber.id)"
+              >
+                <span aria-hidden="true">
+                  <i class="pi" [class.pi-info-circle]="!card.open" [class.pi-times]="card.open"></i>
+                </span>
+              </button>
+            }
 
-              <h3 class="barber-card__name">{{ name(barber) }}</h3>
+            <div class="barber-card__faces">
+              <!-- La cara de la foto sigue en el flujo y fija el alto; tapada, sale del orden de tabulación. -->
+              <div class="barber-card__front" [attr.inert]="card.open ? '' : null">
+                <!-- CB-01 RN-CBPOR-06 (M-08 RN-DISPO-66): enlace de verdad al perfil, sin abrir la reserva. -->
+                <a class="barber-card__link" [routerLink]="['/profile', barber.id]">
+                  <cob-barber-avatar [barber]="barber" size="xl" />
+                  <h3 class="barber-card__name">{{ card.name }}</h3>
+                </a>
 
-              <!-- M-04 RN-EQ-23 y RN-EQ-30: el tag y la nota son independientes. El tag no oculta la nota: sin
-                   reseñas no hay nota que pintar, y desde la primera la tarjeta enseña las dos cosas. -->
-              @if (barber.isNew) {
-                <p-tag value="Nuevo" icon="pi pi-sparkles" severity="info" />
-              }
+                <!-- M-04 RN-EQ-23 y RN-EQ-30: el tag y la nota son independientes; sin nota, la nota ya dice
+                     «Nuevo» (CB-07 RN-CBBAS-09) y no se repite. -->
+                @if (barber.isNew && barber.rating !== null) {
+                  <p-tag value="Nuevo" icon="pi pi-sparkles" severity="info" />
+                }
 
-              @if (barber.specialty) {
-                <span class="barber-card__specialty">{{ barber.specialty }}</span>
-              }
+                @if (barber.specialty) {
+                  <span class="barber-card__specialty">{{ barber.specialty }}</span>
+                }
 
-              <!-- M-08 RN-DISPO-69: la presentación, a 3 renglones con «Ver más» solo si desborda. -->
+                <!-- CB-01 RN-CBPOR-10. -->
+                <cob-rating-stars [rating]="barber.rating" />
+              </div>
+
               @if (card.description; as text) {
-                <cob-clamped-text class="barber-card__desc" [text]="text" />
-              }
-
-              <!-- M-23 RN-CAL-11: una nota nula no se pinta, ni como cinco ni como cero estrellas. -->
-              @if (barber.rating !== null) {
-                <p-rating [ngModel]="barber.rating" [readonly]="true" [stars]="5" />
+                <div class="barber-card__back" [id]="card.descriptionId" [attr.inert]="card.open ? null : ''">
+                  <div class="barber-card__back-head">
+                    <cob-barber-avatar [barber]="barber" size="md" />
+                  </div>
+                  <p class="barber-card__back-name">{{ card.name }}</p>
+                  @if (barber.specialty) {
+                    <p class="barber-card__specialty">{{ barber.specialty }}</p>
+                  }
+                  <!-- Enfocable para desplazarla con teclado; su scroll no arrastra la página. -->
+                  <div
+                    class="barber-card__text"
+                    role="region"
+                    tabindex="0"
+                    [attr.aria-label]="'Descripción de ' + card.name"
+                  >
+                    <p>{{ text }}</p>
+                  </div>
+                </div>
               }
             </div>
 
-            <!-- M-08 RN-DISPO-66: lleva al perfil del barbero, dentro de la SPA y sin preseleccionar nada
-                 en la reserva. Es un enlace y no un botón porque navega: se puede abrir en otra pestaña
-                 o copiar, y un lector de pantalla lo anuncia como enlace. -->
+            <!-- CB-01 RN-CBPOR-08: siempre visible; abre el perfil con el asistente (CB-02 RN-CBPER-04). -->
             <ng-template #footer>
-              <a pButton [routerLink]="['/profile', barber.id]" [outlined]="true" [fluid]="true">
+              <a
+                pButton
+                class="barber-card__book"
+                [routerLink]="['/profile', barber.id]"
+                [fragment]="bookingFragment"
+                [outlined]="true"
+                [fluid]="true"
+              >
                 <i class="pi pi-calendar-plus" pButtonIcon></i>
-                <span pButtonLabel>Agendar con {{ name(barber) }}</span>
+                <span pButtonLabel>Agendar con {{ card.name }}</span>
               </a>
             </ng-template>
           </p-card>

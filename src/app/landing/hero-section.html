@@ -18,11 +18,9 @@
       <p class="hero__subtitle">{{ branding().hero_subtitle }}</p>
     }
 
+    <!-- CB-01 RN-CBPOR-10: la nota de la barbería con un decimal, solo si hay testimonios. -->
     @if (showRating()) {
-      <div class="hero__rating">
-        <p-rating [ngModel]="branding().rating_score" [readonly]="true" [stars]="5" />
-        <span class="cob-muted">{{ branding().rating_score }} / 5</span>
-      </div>
+      <cob-rating-stars class="hero__rating" [rating]="branding().rating_score" />
     }
 
     <div class="hero__actions">

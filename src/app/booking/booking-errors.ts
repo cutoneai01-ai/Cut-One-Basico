@@ -1,4 +1,4 @@
-import { ApiError } from '../core/api-error';
+import { ApiError, isNetworkError } from '../core/api-error';
 import type { BookingItemFailure } from '../data/public-api.models';
 
 /**
@@ -33,7 +33,8 @@ export interface BookingErrorPlan {
  * cuanto alguien cambie el umbral.
  */
 export function planForBookingError(error: unknown): BookingErrorPlan {
-  if (!(error instanceof ApiError)) {
+  // Sin red el interceptor ya entrega un `ApiError` con `NETWORK_ERROR` (CB-07 RN-CBBAS-02).
+  if (!(error instanceof ApiError) || isNetworkError(error)) {
     return {
       summary: 'No pudimos completar la reserva',
       detail: 'Revisa tu conexión e inténtalo de nuevo.',

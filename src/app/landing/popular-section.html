@@ -48,9 +48,11 @@
               <strong class="popular-card__price">{{ formatPrice(service.price) }}</strong>
             </div>
 
+            <!-- CB-01 RN-CBPOR-05: el nombre del servicio en el texto accesible, no diez botones iguales. -->
             <ng-template #footer>
               <p-button
                 label="Reservar este servicio"
+                [ariaLabel]="'Reservar este servicio: ' + service.name"
                 icon="pi pi-arrow-right"
                 iconPos="right"
                 [fluid]="true"

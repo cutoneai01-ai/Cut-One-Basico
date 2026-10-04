@@ -1,4 +1,4 @@
-import { ApiError } from '../core/api-error';
+import { ApiError, NETWORK_ERROR } from '../core/api-error';
 import { bookingItemFailures, planForBookingError } from './booking-errors';
 
 function apiError(code: string, message = 'mensaje del servidor', status = 409): ApiError {
@@ -87,6 +87,14 @@ describe('planForBookingError', () => {
 
     expect(plan.reaction).toBe('stay');
     expect(plan.detail).toContain('conexión');
+  });
+
+  it('sin red (NETWORK_ERROR del interceptor) pide revisar la conexión, con el texto propio (CB-07 RN-CBBAS-02)', () => {
+    const plan = planForBookingError(new ApiError(0, 'otro texto cualquiera', NETWORK_ERROR));
+
+    expect(plan).toEqual(planForBookingError(new TypeError('Failed to fetch')));
+    expect(plan.detail).toBe('Revisa tu conexión e inténtalo de nuevo.');
+    expect(plan.reaction).toBe('stay');
   });
 
   it('cubre los nueve códigos del contrato', () => {

@@ -2,13 +2,8 @@
   <div class="cob-container">
     <p-card>
       <div class="mybarber">
-        @if (photo(); as src) {
-          <img class="mybarber__photo" [src]="src" [alt]="name()" />
-        } @else {
-          <div class="mybarber__photo mybarber__initials" role="img" [attr.aria-label]="name()">
-            {{ initials() }}
-          </div>
-        }
+        <!-- CB-02 RN-CBPER-02: el avatar de CB-07 RN-CBBAS-08; el nombre va escrito al lado. -->
+        <cob-barber-avatar [barber]="barber()" size="xxl" />
 
         <div class="mybarber__info">
           <span class="cob-eyebrow">Tu barbero</span>
@@ -24,16 +19,8 @@
             <cob-clamped-text class="mybarber__desc" [text]="text" />
           }
 
-          <!-- M-08 RN-DISPO-64 y M-23 RN-CAL-11: una nota nula es «nuevo y sin reseñas»; no se pinta
-               como cinco ni como cero estrellas. -->
-          @if (barber().rating !== null) {
-            <div class="mybarber__rating">
-              <p-rating [ngModel]="barber().rating" [readonly]="true" [stars]="5" />
-              <span class="cob-muted">{{ barber().rating }} / 5</span>
-            </div>
-          } @else {
-            <p-tag value="Nuevo" icon="pi pi-sparkles" severity="info" />
-          }
+          <!-- CB-07 RN-CBBAS-09 y M-23 RN-CAL-11: la nota con un decimal, o «Nuevo» sin reseñas. -->
+          <cob-rating-stars class="mybarber__rating" [rating]="barber().rating" />
 
           <div class="mybarber__actions">
             <p-button
@@ -42,10 +29,14 @@
               size="large"
               (onClick)="book.emit()"
             />
-            @if (hasServices()) {
+            @if (serviceCount() > 0) {
               <a class="mybarber__link" cobSectionLink="servicios">Ver sus servicios</a>
             }
           </div>
+
+          @if (serviceCount() > 0) {
+            <p class="mybarber__count">{{ serviceCountText() }}</p>
+          }
         </div>
       </div>
     </p-card>
