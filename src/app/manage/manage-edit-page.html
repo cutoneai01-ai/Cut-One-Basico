@@ -28,7 +28,7 @@
         <select
           id="edit-service"
           class="field__input"
-          [value]="serviceId() ?? ''"
+          [value]="serviceId()"
           (change)="chooseService($any($event.target).value)"
         >
           @for (service of serviceOptions(); track service.id) {

@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { ApiError, apiErrorInterceptor } from '../core/api-error';
 import { BookingService } from './booking.service';
 import { ManageBookingService } from './manage-booking.service';
+import type { CreateAppointmentInput } from './public-api.models';
 
 // M-08 RN-DISPO-54 a RN-DISPO-59 (ADR-0060): la disponibilidad pide siempre un servicio; la reserva
 // múltiple manda un item por cita; la gestión es por cita, con `confirm-all` y `cancel-all` aparte.
@@ -99,6 +100,49 @@ describe('BookingService y ManageBookingService', () => {
 
     // Ausente, y quien lo lee lo compara con `=== true` (se prueba en el asistente).
     expect((await pending).multiServiceBookingEnabled).toBeUndefined();
+  });
+
+  it('createAppointment hace POST a /appointments con la cita', async () => {
+    const input: CreateAppointmentInput = {
+      serviceId: 'cut',
+      barberId: 'barber-1',
+      startAtUtc: '2026-10-01T14:00:00Z',
+      customer: { fullName: 'Cliente', email: 'c@correo.com', phone: null, notes: null },
+    };
+    const created = { appointmentId: 'appt-1', confirmationCode: 'ABC' };
+
+    const pending = booking.createAppointment(input);
+
+    const request = http.expectOne('/api/v1/public/appointments');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(input);
+    request.flush(created);
+
+    await expect(pending).resolves.toEqual(created);
+  });
+
+  it('gestión: leer, confirmar sin cuerpo y cancelar con el motivo, por cita', async () => {
+    const appointment = { appointmentId: 'appt-1', status: 'Pending' };
+
+    const reading = manage.getAppointment('appt-1');
+    const read = http.expectOne('/api/v1/public/appointments/appt-1/manage');
+    expect(read.request.method).toBe('GET');
+    read.flush(appointment);
+    await expect(reading).resolves.toEqual(appointment);
+
+    const confirming = manage.confirm('appt-1');
+    const confirm = http.expectOne('/api/v1/public/appointments/appt-1/confirm');
+    expect(confirm.request.method).toBe('POST');
+    expect(confirm.request.body).toBeNull();
+    confirm.flush(appointment);
+    await confirming;
+
+    // Sin motivo el cuerpo va igual: el endpoint espera un DTO.
+    const cancelling = manage.cancel('appt-1', null);
+    const cancel = http.expectOne('/api/v1/public/appointments/appt-1/cancel');
+    expect(cancel.request.body).toEqual({ reason: null });
+    cancel.flush(appointment);
+    await cancelling;
   });
 
   it('gestión: la disponibilidad de una cita pide un serviceId', async () => {

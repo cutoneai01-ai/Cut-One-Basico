@@ -3,35 +3,24 @@
      en la propia respuesta del GET; el favicon sale de los ajustes públicos (CB-07 RN-CBBAS-04). -->
 <main class="page">
   <section class="card" [attr.aria-busy]="state() === 'loading'">
-    @if (state() === 'loading') {
-      <p-skeleton shape="circle" size="4rem" />
-      <p-skeleton width="60%" height="1.5rem" />
-      <p-skeleton width="80%" />
-      <p-skeleton width="40%" height="2.5rem" />
-      <!-- CB-06 RN-CBENC-04 -->
-      <span class="cob-visually-hidden" role="status">Cargando la encuesta…</span>
-    } @else if (state() === 'error') {
-      <i class="pi pi-exclamation-triangle card__icon" aria-hidden="true"></i>
-      <p-message severity="warn" [text]="errorMessage()" />
-    } @else {
+    <!-- Con la encuesta cargada el estado es `form` o `thanks`; sin ella, `loading` o `error`. -->
+    @if (info(); as survey) {
       @if (logo(); as src) {
-        <img class="card__logo" [src]="src" [alt]="info()?.shopName || 'Logo'" />
+        <img class="card__logo" [src]="src" [alt]="survey.shopName || 'Logo'" />
       }
 
-      @if (info(); as survey) {
-        @if (survey.shopName) {
-          <h1 class="card__shop">{{ survey.shopName }}</h1>
-        }
-
-        <p class="cob-muted card__meta">
-          {{ survey.serviceName }} con {{ survey.barberName }}
-          <!-- `appointmentDateEs` ya viene formateada en español por el backend: no se parsea ni se
-               reformatea. Es el único dato de fecha de la aplicación que no pasa por el módulo de
-               locale, y es a propósito — el servidor la formatea en hora de negocio. -->
-          <br />
-          {{ survey.appointmentDateEs }}
-        </p>
+      @if (survey.shopName) {
+        <h1 class="card__shop">{{ survey.shopName }}</h1>
       }
+
+      <p class="cob-muted card__meta">
+        {{ survey.serviceName }} con {{ survey.barberName }}
+        <!-- `appointmentDateEs` ya viene formateada en español por el backend: no se parsea ni se
+             reformatea. Es el único dato de fecha de la aplicación que no pasa por el módulo de
+             locale, y es a propósito — el servidor la formatea en hora de negocio. -->
+        <br />
+        {{ survey.appointmentDateEs }}
+      </p>
 
       @if (state() === 'thanks') {
         <i class="pi pi-check-circle card__icon" aria-hidden="true"></i>
@@ -75,6 +64,16 @@
           (onClick)="submit()"
         />
       }
+    } @else if (state() === 'error') {
+      <i class="pi pi-exclamation-triangle card__icon" aria-hidden="true"></i>
+      <p-message severity="warn" [text]="errorMessage()" />
+    } @else {
+      <p-skeleton shape="circle" size="4rem" />
+      <p-skeleton width="60%" height="1.5rem" />
+      <p-skeleton width="80%" />
+      <p-skeleton width="40%" height="2.5rem" />
+      <!-- CB-06 RN-CBENC-04 -->
+      <span class="cob-visually-hidden" role="status">Cargando la encuesta…</span>
     }
   </section>
 </main>

@@ -120,5 +120,5 @@ export class ManageFrame {
   readonly appointment = input<ManageAppointment | null>(null);
   readonly errorMessage = input('');
 
-  protected readonly logo = computed(() => resolveImage(this.appointment()?.logoUrl ?? null));
+  protected readonly logo = computed(() => resolveImage(this.appointment()?.logoUrl));
 }

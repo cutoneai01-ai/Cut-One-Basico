@@ -41,6 +41,44 @@ describe('resolvePreviewTheme', () => {
     expect(resolved.radius).toBe('full');
   });
 
+  it('con los siete ejes válidos, gana cada override sobre el preset', () => {
+    expect(
+      resolvePreviewTheme({
+        preset: 'noche',
+        primary: 'rose',
+        surface: 'stone',
+        colorScheme: 'light',
+        fontKey: 'sistema',
+        radius: 'full',
+        density: 'compact',
+        buttonStyle: 'outlined',
+      }),
+    ).toEqual({
+      primary: 'rose',
+      surface: 'stone',
+      colorScheme: 'light',
+      fontKey: 'sistema',
+      radius: 'full',
+      density: 'compact',
+      buttonStyle: 'outlined',
+    });
+  });
+
+  it('con los siete ejes fuera de catálogo, cada uno cae al del preset', () => {
+    expect(
+      resolvePreviewTheme({
+        preset: 'urbano',
+        primary: 'x',
+        surface: 'x',
+        colorScheme: 'sepia',
+        fontKey: 'x',
+        radius: 'x',
+        density: 'x',
+        buttonStyle: 'x',
+      }),
+    ).toEqual(PREVIEW_PRESETS.urbano);
+  });
+
   it('nunca lanza con un payload completamente vacío o con tipos inesperados', () => {
     expect(() =>
       resolvePreviewTheme({
@@ -72,5 +110,7 @@ describe('resolvePreviewBranding', () => {
   it('devuelve undefined ante una forma que no reconoce, sin lanzar', () => {
     expect(resolvePreviewBranding({ branding: 'no-es-un-objeto' })).toBeUndefined();
     expect(resolvePreviewBranding({ branding: { shopName: 123 } })).toBeUndefined();
+    expect(resolvePreviewBranding({ branding: { logoUrl: 123 } })).toBeUndefined();
+    expect(resolvePreviewBranding({ branding: null })).toBeUndefined();
   });
 });

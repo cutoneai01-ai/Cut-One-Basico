@@ -74,6 +74,11 @@ describe('isWellFormedPreviewThemeMessage', () => {
     ).toBe(true);
   });
 
+  it('rechaza lo que ni siquiera se declara cob-preview:theme', () => {
+    expect(isWellFormedPreviewThemeMessage({ type: 'cob-preview:ready', protocol: 1, theme: {} })).toBe(false);
+    expect(isWellFormedPreviewThemeMessage(null)).toBe(false);
+  });
+
   it('rechaza un sobre cob-preview:theme sin protocol o sin theme (bad-payload)', () => {
     expect(isWellFormedPreviewThemeMessage({ type: 'cob-preview:theme' })).toBe(false);
     expect(isWellFormedPreviewThemeMessage({ type: 'cob-preview:theme', protocol: '1', theme: {} })).toBe(false);

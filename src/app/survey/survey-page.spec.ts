@@ -190,7 +190,76 @@ describe('SurveyPage', () => {
     });
   });
 
+  describe('formulario', () => {
+    it('con logo y nombre: los pinta, y el logo lleva el nombre como texto alternativo', async () => {
+      const host = await render(INFO);
+
+      expect(host.querySelector('img.card__logo')?.getAttribute('src')).toBe('https://cdn.example/logo.png');
+      expect(host.querySelector('img.card__logo')?.getAttribute('alt')).toBe('Barbería Ejemplo');
+      expect(clean(host.querySelector('h1')?.textContent)).toBe('Barbería Ejemplo');
+      expect(clean(host.querySelector('.card__meta')?.textContent)).toBe('Corte con Juan jueves, 1 de octubre de 2026');
+    });
+
+    it('logo sin nombre: alt «Logo» y ningún título de barbería; el título de la pestaña no cambia', async () => {
+      const host = await render({ ...INFO, shopName: '' });
+
+      expect(host.querySelector('img.card__logo')?.getAttribute('alt')).toBe('Logo');
+      expect(host.querySelector('h1')).toBeNull();
+      expect(document.title).toBe('Reserva tu cita');
+    });
+
+    it('sin logo no pinta imagen', async () => {
+      const host = await render({ ...INFO, logoUrl: '' });
+
+      expect(host.querySelector('img')).toBeNull();
+    });
+
+    it('sin estrellas no se puede enviar; al elegir cuatro, sí, y se envían cuatro', async () => {
+      const host = await render(INFO);
+      submit.mockResolvedValue(undefined);
+      expect(sendButton(host).disabled).toBe(true);
+
+      host.querySelectorAll<HTMLElement>('p-rating .p-rating-option')[3]!.click();
+      await settle();
+      expect(sendButton(host).disabled).toBe(false);
+
+      sendButton(host).click();
+      await settle();
+      expect(submit).toHaveBeenCalledWith('appt-1', { rating: 4 });
+    });
+
+    it('ni sin estrellas ni con un envío en vuelo sale otra petición', async () => {
+      await render(INFO);
+      submit.mockReturnValue(new Promise(() => undefined));
+
+      await page()['submit']();
+      expect(submit).not.toHaveBeenCalled();
+
+      page()['rating'].set(5);
+      void page()['submit']();
+      void page()['submit']();
+      expect(submit).toHaveBeenCalledTimes(1);
+    });
+
+    it('ya respondida: da las gracias sin formulario', async () => {
+      const host = await render({ ...INFO, alreadySubmitted: true });
+
+      expect(clean(host.querySelector('h2')?.textContent)).toBe('¡Gracias por tu opinión!');
+      expect(host.querySelector('textarea')).toBeNull();
+    });
+  });
+
   describe('error de carga', () => {
+    it.each([
+      ['la cita aún no se completó', new ApiError(409, 'texto del servidor', 'APPOINTMENT_NOT_COMPLETED'), 'Esta cita todavía no se ha completado.'],
+      ['no existe', new ApiError(404, 'texto del servidor', 'NOT_FOUND'), 'No encontramos esta encuesta.'],
+      ['un 404 con otro código', new ApiError(404, 'texto del servidor', 'OTRO'), 'No encontramos esta encuesta.'],
+    ])('%s: su mensaje propio', async (_case, error, message) => {
+      const host = await render(error);
+
+      expect(clean(host.querySelector('p-message')?.textContent)).toContain(message);
+    });
+
     it('sin red: la tarjeta de error con «Revisa tu conexión» (CB-07 RN-CBBAS-02)', async () => {
       const host = await render(NETWORK);
 

@@ -60,7 +60,7 @@ export class SurveyPage {
   }
 
   protected logo(): string | undefined {
-    return resolveImage(this.info()?.logoUrl ?? null);
+    return resolveImage(this.info()?.logoUrl);
   }
 
   protected async submit(): Promise<void> {

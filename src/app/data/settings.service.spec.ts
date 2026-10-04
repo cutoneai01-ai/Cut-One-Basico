@@ -1,9 +1,10 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { clearTenantLocale, type TenantLocale } from '../core/locale';
+import { clearTenantLocale, setTenantLocale, type TenantLocale } from '../core/locale';
+import { writeBrandingSnapshot } from '../core/public-content.storage';
 import { STARTUP_SETTINGS_BUNDLE } from '../theme/startup-theme';
-import type { PublicSettingsBundle } from './branding';
+import { DEFAULTS, type PublicSettingsBundle, type StoredPublicSnapshot } from './branding';
 import { SettingsService } from './settings.service';
 
 // CB-07 RN-CBBAS-03 y RN-CBBAS-04: los ajustes se cargan una vez por carga de la aplicación, en toda
@@ -100,6 +101,111 @@ describe('SettingsService', () => {
     requests[0]!.flush({ locale: LOCALE });
 
     await expect(locale).resolves.toEqual(LOCALE);
+  });
+
+  it('sin snapshot está cargando hasta la respuesta; si falla, quedan los valores por defecto', async () => {
+    const service = setup();
+
+    service.ensureLoaded();
+    expect(service.loading()).toBe(true);
+    settingsRequests('branding,hero,theme,locale')[0]!.flush(null, { status: 500, statusText: 'Server Error' });
+    await flushMicrotasks();
+
+    expect(service.loading()).toBe(false);
+    expect(service.branding()).toEqual(DEFAULTS);
+    expect(service.locale()).toBeNull();
+  });
+
+  it('con snapshot vigente pinta su marca y su zona al instante, sin esqueleto, y revalida igual', async () => {
+    writeBrandingSnapshot<Partial<StoredPublicSnapshot>>({ shop_name: 'Desde caché', locale: LOCALE });
+    const service = setup();
+
+    service.ensureLoaded();
+
+    expect(service.loading()).toBe(false);
+    expect(service.branding().shop_name).toBe('Desde caché');
+    expect(service.locale()).toEqual(LOCALE);
+    settingsRequests('branding,hero,theme,locale')[0]!.flush(BUNDLE);
+    await flushMicrotasks();
+    expect(service.branding().shop_name).toBe('Cut Test');
+  });
+
+  it('un snapshot sin zona válida no siembra ninguna zona por defecto', async () => {
+    writeBrandingSnapshot<Partial<StoredPublicSnapshot>>({ shop_name: 'Desde caché', locale: 'Bogotá' });
+    const service = setup(Promise.resolve(BUNDLE));
+
+    service.ensureLoaded();
+
+    expect(service.branding().shop_name).toBe('Desde caché');
+    expect(service.locale()).toBeNull();
+    await flushMicrotasks();
+    expect(service.locale()).toEqual(LOCALE);
+  });
+
+  it('si la petición previa falló y no hay zona, la pide ya; si también falla, no rompe la carga', async () => {
+    const service = setup(Promise.resolve(undefined));
+
+    service.ensureLoaded();
+    await flushMicrotasks();
+    const requests = settingsRequests('locale');
+    expect(requests).toHaveLength(1);
+    requests[0]!.flush(null, { status: 500, statusText: 'Server Error' });
+    await flushMicrotasks();
+
+    expect(service.loading()).toBe(false);
+    expect(service.locale()).toBeNull();
+  });
+
+  it('si la petición previa falló pero el snapshot trae la zona, no pide nada más', async () => {
+    writeBrandingSnapshot<Partial<StoredPublicSnapshot>>({ shop_name: 'Desde caché', locale: LOCALE });
+    const service = setup(Promise.resolve(undefined));
+
+    service.ensureLoaded();
+    await flushMicrotasks();
+
+    controller.expectNone('/api/v1/public/settings');
+    expect(service.locale()).toEqual(LOCALE);
+  });
+
+  it('si la carga llega sin zona y la nueva petición falla, queda sin zona y sin error', async () => {
+    const service = setup(Promise.resolve({ branding: { shop_name: 'Cut Test' } }));
+
+    service.ensureLoaded();
+    await flushMicrotasks();
+    settingsRequests('locale')[0]!.flush({ branding: {} });
+    await flushMicrotasks();
+
+    expect(service.branding().shop_name).toBe('Cut Test');
+    expect(service.locale()).toBeNull();
+  });
+
+  it('requireLocale con la zona ya conocida resuelve sin red', async () => {
+    setTenantLocale(LOCALE);
+    const service = setup();
+
+    await expect(service.requireLocale()).resolves.toEqual(LOCALE);
+    controller.expectNone('/api/v1/public/settings');
+  });
+
+  it('requireLocale toma la zona del snapshot sin red', async () => {
+    writeBrandingSnapshot<Partial<StoredPublicSnapshot>>({ locale: LOCALE });
+    const service = setup();
+
+    await expect(service.requireLocale()).resolves.toEqual(LOCALE);
+    expect(service.locale()).toEqual(LOCALE);
+    controller.expectNone('/api/v1/public/settings');
+  });
+
+  it('requireLocale rechaza si el API responde sin zona, y el siguiente intento vuelve a pedir', async () => {
+    const service = setup();
+
+    const first = service.requireLocale();
+    settingsRequests('locale')[0]!.flush({});
+    await expect(first).rejects.toThrow('El API no devolvió la zona y la moneda del tenant');
+
+    const second = service.requireLocale();
+    settingsRequests('locale')[0]!.flush({ locale: LOCALE });
+    await expect(second).resolves.toEqual(LOCALE);
   });
 
   it('sin carga en vuelo (ensureLoaded no se llamó), requireLocale pide keys=locale', async () => {

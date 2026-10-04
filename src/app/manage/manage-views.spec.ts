@@ -9,9 +9,12 @@ import {
   type ActivatedRouteSnapshot,
   type RouterStateSnapshot,
 } from '@angular/router';
+import { By } from '@angular/platform-browser';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { MessageService } from 'primeng/api';
 import { Subject, firstValueFrom } from 'rxjs';
+import { BarberSelect } from '../booking/barber-select';
+import { SchedulePicker } from '../booking/schedule-picker';
 import { ApiError, NETWORK_ERROR } from '../core/api-error';
 import { clearTenantLocale, setTenantLocale, type TenantLocale } from '../core/locale';
 import { BookingService } from '../data/booking.service';
@@ -181,11 +184,17 @@ describe('Gestión de la cita desde el correo', () => {
     reschedule: ReturnType<typeof vi.fn>;
   };
   let addMessage: ReturnType<typeof vi.spyOn>;
+  let getBookingWindow: ReturnType<typeof vi.fn>;
   const catalogBarbers = signal<PublicBarber[]>([]);
+  const catalogServices = signal<PublicService[]>([]);
 
   beforeEach(() => {
     setTenantLocale(LOCALE);
     catalogBarbers.set([juan, camilo]);
+    catalogServices.set([cut, beard]);
+    getBookingWindow = vi.fn(() =>
+      Promise.resolve({ firstBookableDate: '2026-10-01', lastBookableDate: '2026-10-03', minLeadMinutes: 0 }),
+    );
     manage = {
       getAppointment: vi.fn(() => Promise.resolve(BASE)),
       getAvailability: vi.fn((_id: string, _barber: string, _service: string, date: string) =>
@@ -203,17 +212,11 @@ describe('Gestión de la cita desde el correo', () => {
         provideRouter([]),
         MessageService,
         { provide: ManageBookingService, useValue: manage },
-        {
-          provide: BookingService,
-          useValue: {
-            getBookingWindow: () =>
-              Promise.resolve({ firstBookableDate: '2026-10-01', lastBookableDate: '2026-10-03', minLeadMinutes: 0 }),
-          },
-        },
+        { provide: BookingService, useValue: { getBookingWindow } },
         {
           provide: CatalogService,
           useValue: {
-            services: signal([cut, beard]).asReadonly(),
+            services: catalogServices.asReadonly(),
             barbers: catalogBarbers.asReadonly(),
             ensureLoaded: () => undefined,
           },
@@ -889,6 +892,478 @@ describe('Gestión de la cita desde el correo', () => {
       expect(text(host, 'h1')).toBe('No encontramos esta cita');
     });
   });
+  /** Una promesa que la prueba resuelve o rechaza cuando quiere. */
+  function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (error: unknown) => void } {
+    let resolve!: (value: T) => void;
+    let reject!: (error: unknown) => void;
+    const promise = new Promise<T>((ok, ko) => {
+      resolve = ok;
+      reject = ko;
+    });
+    return { promise, resolve, reject };
+  }
+
+  const slotStarts = (page: ManageEditPage): string[] =>
+    page['periods']().flatMap((period) => period.slots.map((slot) => slot.startAtUtc));
+
+  async function typeReason(fixture: ComponentFixture<unknown>, host: HTMLElement, value: string): Promise<void> {
+    const field = host.querySelector<HTMLTextAreaElement>('textarea')!;
+    field.value = value;
+    field.dispatchEvent(new Event('input'));
+    await settle(fixture);
+  }
+
+  describe('detalle: casos de cada estado', () => {
+    it('solo editable: un único enlace, Editar', async () => {
+      const { host } = await render(ManageDetailPage, { ...BASE, confirmable: false, cancelable: false });
+
+      expect(links(host)).toEqual({ Editar: '/reserva/appt-2/editar' });
+    });
+
+    it('cita cancelada: «Reservar otra cita» y, sin nombre de barbería, el título de la pestaña no cambia', async () => {
+      document.title = 'Reserva tu cita';
+      const { host } = await render(ManageDetailPage, {
+        ...BASE,
+        shopName: '',
+        status: 'Cancelled',
+        confirmable: false,
+        editable: false,
+        cancelable: false,
+      });
+
+      expect(host.querySelector<HTMLAnchorElement>('a.back')?.getAttribute('href')).toBe('/');
+      expect(text(host, 'a.back')).toBe('Reservar otra cita');
+      expect(host.querySelector('.notice')).toBeNull();
+      expect(document.title).toBe('Reserva tu cita');
+    });
+
+    it('sin cita cargada, lo derivado de ella queda vacío', async () => {
+      const { page } = await render(ManageDetailPage, notFound);
+
+      expect(page['others']()).toEqual([]);
+      expect(page['live']()).toBe(false);
+      expect(page['contact']()).toBeNull();
+    });
+  });
+
+  describe('confirmar: casos de cada estado', () => {
+    it('ya confirmada: lo dice, sin botón', async () => {
+      const { host } = await render(ManageConfirmPage, { ...BASE, status: 'Confirmed', confirmable: false });
+
+      expect(text(host, 'h1')).toBe('Tu cita ya está confirmada');
+      expect(host.querySelector('button')).toBeNull();
+    });
+
+    it('no confirmable sin motivo del servidor: el motivo genérico', async () => {
+      const { host } = await render(ManageConfirmPage, { ...BASE, confirmable: false });
+
+      expect(text(host, '[role="alert"]')).toBe('Esta cita ya no se puede confirmar.');
+    });
+
+    it('un error del servidor al confirmar: su mensaje', async () => {
+      const { fixture, host } = await render(ManageConfirmPage, BASE);
+      manage.confirm.mockRejectedValue(new ApiError(500, 'La barbería no responde.'));
+
+      button(host, 'Confirmar esta cita').click();
+      await settle(fixture as ComponentFixture<unknown>);
+
+      expect(text(host, '.banner--err')).toBe('La barbería no responde.');
+    });
+
+    it('con una confirmación en vuelo no sale otra', async () => {
+      const { page } = await render(ManageConfirmPage, BASE);
+      manage.confirm.mockReturnValue(new Promise(() => undefined));
+
+      void page['confirm']();
+      void page['confirm']();
+
+      expect(manage.confirm).toHaveBeenCalledTimes(1);
+    });
+
+    it('sin cita cargada, ni otras citas ni hora', async () => {
+      const { page } = await render(ManageConfirmPage, notFound);
+
+      expect(page['others']()).toEqual([]);
+      expect(page['time']()).toBe('');
+    });
+  });
+
+  describe('cancelar: casos de cada estado', () => {
+    it('cita suelta: sin motivo manda null y, cancelada, ofrece reservar otra', async () => {
+      const { fixture, host } = await render(ManageCancelPage, BASE);
+      expect(text(host, '.lead')).toBe('Si cancelas, tu cita se libera y no se puede deshacer.');
+      manage.cancel.mockResolvedValue({ ...BASE, status: 'Cancelled', cancelable: false });
+
+      await typeReason(fixture as ComponentFixture<unknown>, host, '   ');
+      button(host, 'Cancelar esta cita').click();
+      await settle(fixture as ComponentFixture<unknown>);
+
+      expect(manage.cancel).toHaveBeenCalledWith('appt-2', null);
+      expect(text(host, 'h1')).toBe('Cita cancelada');
+      expect(text(host, 'a.back')).toBe('Reservar otra cita');
+      expect(host.querySelector('cob-other-appointments')).toBeNull();
+    });
+
+    it('el motivo escrito viaja recortado', async () => {
+      const { fixture, host } = await render(ManageCancelPage, BASE);
+      manage.cancel.mockResolvedValue({ ...BASE, status: 'Cancelled', cancelable: false });
+
+      await typeReason(fixture as ComponentFixture<unknown>, host, '  Viaje  ');
+      button(host, 'Cancelar esta cita').click();
+      await settle(fixture as ComponentFixture<unknown>);
+
+      expect(manage.cancel).toHaveBeenCalledWith('appt-2', 'Viaje');
+    });
+
+    it('ya cancelada: lo dice y ofrece reservar otra', async () => {
+      const { host } = await render(ManageCancelPage, { ...BASE, status: 'Cancelled', cancelable: false });
+
+      expect(text(host, 'h1')).toBe('Esta cita ya está cancelada');
+      expect(text(host, 'a.back')).toBe('Reservar otra cita');
+    });
+
+    it('no cancelable sin motivo del servidor: el motivo genérico', async () => {
+      const { host } = await render(ManageCancelPage, { ...BASE, cancelable: false });
+
+      expect(text(host, '[role="alert"]')).toBe('Esta cita ya no se puede cancelar.');
+    });
+
+    it('el 409 al cancelar lleva a la pantalla de no permitida con el mensaje del servidor', async () => {
+      const { fixture, host } = await render(ManageCancelPage, BASE);
+      manage.cancel.mockRejectedValue(new ApiError(409, 'Ya empezó.', 'APPOINTMENT_NOT_CANCELABLE'));
+
+      button(host, 'Cancelar esta cita').click();
+      await settle(fixture as ComponentFixture<unknown>);
+
+      expect(text(host, 'cob-action-not-allowed h2')).toBe('No se puede cancelar esta cita');
+      expect(text(host, '[role="alert"]')).toBe('Ya empezó.');
+    });
+
+    it('un error del servidor al cancelar: su mensaje', async () => {
+      const { fixture, host } = await render(ManageCancelPage, BASE);
+      manage.cancel.mockRejectedValue(new ApiError(500, 'La barbería no responde.'));
+
+      button(host, 'Cancelar esta cita').click();
+      await settle(fixture as ComponentFixture<unknown>);
+
+      expect(text(host, '.banner--err')).toBe('La barbería no responde.');
+    });
+
+    it('con una cancelación en vuelo no sale otra', async () => {
+      const { page } = await render(ManageCancelPage, BASE);
+      manage.cancel.mockReturnValue(new Promise(() => undefined));
+
+      void page['cancel']();
+      void page['cancel']();
+
+      expect(manage.cancel).toHaveBeenCalledTimes(1);
+    });
+
+    it('sin cita cargada, ninguna otra cita', async () => {
+      const { page } = await render(ManageCancelPage, notFound);
+
+      expect(page['others']()).toEqual([]);
+    });
+  });
+
+  describe('confirmar todas y cancelar todas: casos de cada estado', () => {
+    /** Grupo con una sola cita accionable: la del enlace. */
+    function onlyOne(): ManageAppointment {
+      const booking = grouped();
+      return {
+        ...booking,
+        group: {
+          ...booking.group!,
+          appointments: booking.group!.appointments.map((a) =>
+            a.appointmentId === 'appt-2' ? a : { ...a, confirmable: false, cancelable: false },
+          ),
+        },
+      };
+    }
+
+    it('con una sola accionable, el botón va en singular', async () => {
+      const confirming = await render(ManageGroupActionPage, onlyOne(), { action: 'confirm' });
+      expect(button(confirming.host, 'Confirmar 1 cita')).toBeDefined();
+
+      const cancelling = await render(ManageGroupActionPage, onlyOne(), { action: 'cancel' });
+      expect(button(cancelling.host, 'Cancelar 1 cita')).toBeDefined();
+    });
+
+    it('cancelar todas sin motivo manda null; con motivo, recortado', async () => {
+      const { fixture, host } = await render(ManageGroupActionPage, grouped(), { action: 'cancel' });
+      manage.cancelAll.mockResolvedValue({ manage: grouped(), changedAppointmentIds: [], skipped: [] });
+
+      await typeReason(fixture as ComponentFixture<unknown>, host, '   ');
+      button(host, 'Cancelar las 3 citas').click();
+      await settle(fixture as ComponentFixture<unknown>);
+      expect(manage.cancelAll).toHaveBeenLastCalledWith('appt-2', null);
+
+      const again = await render(ManageGroupActionPage, grouped(), { action: 'cancel' });
+      await typeReason(again.fixture as ComponentFixture<unknown>, again.host, '  Me mudo  ');
+      button(again.host, 'Cancelar las 3 citas').click();
+      await settle(again.fixture as ComponentFixture<unknown>);
+      expect(manage.cancelAll).toHaveBeenLastCalledWith('appt-2', 'Me mudo');
+    });
+
+    it('sin ninguna cambiada no hay aviso de éxito; una saltada que ya no está en el grupo sale como «Una cita»', async () => {
+      const { fixture, host } = await render(ManageGroupActionPage, grouped(), { action: 'confirm' });
+      manage.confirmAll.mockResolvedValue({
+        manage: grouped(),
+        changedAppointmentIds: ['appt-9'],
+        skipped: [{ appointmentId: 'appt-9', reason: 'Ya no existe.' }],
+      });
+
+      button(host, 'Confirmar las 2 citas').click();
+      await settle(fixture as ComponentFixture<unknown>);
+
+      expect(host.querySelector('.banner--ok')).toBeNull();
+      expect(all(host, '.results li')).toEqual(['Una cita: Ya no existe.']);
+    });
+
+    it('si la respuesta llega sin grupo, el resultado no tiene nombres que poner', async () => {
+      const { fixture, page, host } = await render(ManageGroupActionPage, grouped(), { action: 'confirm' });
+      manage.confirmAll.mockResolvedValue({
+        manage: BASE,
+        changedAppointmentIds: ['appt-2'],
+        skipped: [{ appointmentId: 'appt-3', reason: 'Tarde.' }],
+      });
+
+      button(host, 'Confirmar las 2 citas').click();
+      await settle(fixture as ComponentFixture<unknown>);
+
+      expect(page['result']()).toEqual({
+        changed: [],
+        skipped: [{ id: 'appt-3', name: 'Una cita', reason: 'Tarde.' }],
+      });
+      expect(page['live']()).toEqual([]);
+    });
+
+    it('un error del servidor: su mensaje', async () => {
+      const { fixture, host } = await render(ManageGroupActionPage, grouped(), { action: 'confirm' });
+      manage.confirmAll.mockRejectedValue(new ApiError(500, 'La barbería no responde.'));
+
+      button(host, 'Confirmar las 2 citas').click();
+      await settle(fixture as ComponentFixture<unknown>);
+
+      expect(text(host, '[role="alert"]')).toBe('La barbería no responde.');
+    });
+
+    it('con una acción en vuelo no sale otra', async () => {
+      const { page } = await render(ManageGroupActionPage, grouped(), { action: 'confirm' });
+      manage.confirmAll.mockReturnValue(new Promise(() => undefined));
+
+      void page['run']();
+      void page['run']();
+
+      expect(manage.confirmAll).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('editar: casos de cada estado', () => {
+    const picker = (fixture: ComponentFixture<unknown>): SchedulePicker =>
+      fixture.debugElement.query(By.directive(SchedulePicker)).componentInstance as SchedulePicker;
+    const barberSelect = (fixture: ComponentFixture<unknown>): BarberSelect =>
+      fixture.debugElement.query(By.directive(BarberSelect)).componentInstance as BarberSelect;
+    const chooseInSelect = async (fixture: ComponentFixture<unknown>, host: HTMLElement, value: string) => {
+      const select = host.querySelector<HTMLSelectElement>('#edit-service')!;
+      select.value = value;
+      select.dispatchEvent(new Event('change'));
+      await settle(fixture);
+    };
+
+    it('un servicio que ya no está en el catálogo se ofrece igual; el barbero pasa al primero que presta el elegido', async () => {
+      const booking = { ...BASE, serviceId: 'tinte', serviceName: 'Tinte', barberId: 'pedro', barberName: 'Pedro' };
+      const { fixture, page, host } = await render(ManageEditPage, booking);
+      const f = fixture as ComponentFixture<unknown>;
+
+      expect(all(host, '#edit-service option')[0]).toContain('Tinte · 30 min');
+
+      await chooseInSelect(f, host, 'corte');
+      expect(page['barberId']()).toBe('juan');
+      expect(manage.getAvailability).toHaveBeenLastCalledWith('appt-2', 'juan', 'corte', '2026-10-01');
+
+      // Nadie del catálogo presta el tinte: sin barbero no hay rejilla que pedir ni nada que guardar.
+      const calls = manage.getAvailability.mock.calls.length;
+      await chooseInSelect(f, host, 'tinte');
+      expect(page['barberId']()).toBeNull();
+      expect(page['clashes']().size).toBe(0);
+      expect(manage.getAvailability.mock.calls.length).toBe(calls);
+      await page['save']();
+      expect(manage.reschedule).not.toHaveBeenCalled();
+    });
+
+    it('elegir lo mismo que ya está elegido, o nada, no vuelve a pedir la rejilla', async () => {
+      const { fixture, host } = await render(ManageEditPage, BASE);
+      const f = fixture as ComponentFixture<unknown>;
+      const calls = manage.getAvailability.mock.calls.length;
+
+      await chooseInSelect(f, host, 'corte');
+      await chooseInSelect(f, host, '');
+      barberSelect(f).chosen.emit(null);
+      barberSelect(f).chosen.emit(juan);
+      host.querySelector<HTMLButtonElement>('button.day[data-day="2026-10-01"]')!.click();
+      await settle(f);
+
+      expect(manage.getAvailability.mock.calls.length).toBe(calls);
+    });
+
+    it('elegir otro barbero u otro día desde el selector pide su rejilla', async () => {
+      const { fixture, host } = await render(ManageEditPage, BASE);
+      const f = fixture as ComponentFixture<unknown>;
+
+      barberSelect(f).chosen.emit(camilo);
+      await settle(f);
+      expect(manage.getAvailability).toHaveBeenLastCalledWith('appt-2', 'camilo', 'corte', '2026-10-01');
+
+      host.querySelector<HTMLButtonElement>('button.day[data-day="2026-10-02"]')!.click();
+      await settle(f);
+      expect(manage.getAvailability).toHaveBeenLastCalledWith('appt-2', 'camilo', 'corte', '2026-10-02');
+    });
+
+    it('si fallan las horas, «Reintentar» las vuelve a pedir', async () => {
+      manage.getAvailability.mockRejectedValueOnce(new Error('sin red'));
+      const { fixture, page, host } = await render(ManageEditPage, BASE);
+      expect(page['slotsFailed']()).toBe(true);
+
+      host.querySelector<HTMLButtonElement>('.retry button')!.click();
+      await settle(fixture as ComponentFixture<unknown>);
+
+      expect(page['slotsFailed']()).toBe(false);
+      expect(slotStarts(page)).toHaveLength(4);
+    });
+
+    it('un fallo de un día que ya no es el elegido no pisa la rejilla del elegido', async () => {
+      const { fixture, page } = await render(ManageEditPage, BASE);
+      const late = deferred<AvailabilityResponse>();
+      manage.getAvailability.mockImplementation((_id: string, _b: string, _s: string, date: string) =>
+        date === '2026-10-02' ? late.promise : Promise.resolve(availability(date)),
+      );
+
+      page['chooseDate']('2026-10-02');
+      page['chooseDate']('2026-10-03');
+      await settle(fixture as ComponentFixture<unknown>);
+      late.reject(new Error('sin red'));
+      await settle(fixture as ComponentFixture<unknown>);
+
+      expect(page['slotsFailed']()).toBe(false);
+      expect(slotStarts(page).every((start) => start.startsWith('2026-10-03'))).toBe(true);
+    });
+
+    it('si falla la agenda de la barbería, no hay días; «Reintentar» la vuelve a pedir y recarga las horas', async () => {
+      getBookingWindow.mockRejectedValueOnce(new Error('sin red'));
+      const { fixture, page, host } = await render(ManageEditPage, BASE);
+      expect(page['days']()).toEqual([]);
+      expect(host.querySelector('button.day')).toBeNull();
+      const calls = manage.getAvailability.mock.calls.length;
+
+      host.querySelector<HTMLButtonElement>('.retry button')!.click();
+      await settle(fixture as ComponentFixture<unknown>);
+
+      expect(getBookingWindow).toHaveBeenCalledTimes(2);
+      expect(host.querySelectorAll('button.day')).toHaveLength(3);
+      expect(manage.getAvailability.mock.calls.length).toBe(calls + 1);
+    });
+
+    it('si el servicio elegido sale del catálogo, el selector muestra el de la cita y sin duración', async () => {
+      const { fixture, page, host } = await render(ManageEditPage, BASE);
+      const f = fixture as ComponentFixture<unknown>;
+      await chooseInSelect(f, host, 'barba');
+
+      catalogServices.set([cut]);
+      await settle(f);
+
+      expect(picker(f).serviceName()).toBe('Corte');
+      expect(picker(f).durationMin()).toBeNull();
+      expect(page['barberOptions']()).toEqual([]);
+      expect(page['clashes']().size).toBe(0);
+    });
+
+    it('no editable sin motivo del servidor: el motivo genérico', async () => {
+      const { host } = await render(ManageEditPage, { ...BASE, editable: false });
+
+      expect(text(host, '[role="alert"]')).toBe('Esta cita ya no se puede modificar.');
+    });
+
+    it('sin cambios no se guarda', async () => {
+      const { page } = await render(ManageEditPage, BASE);
+
+      await page['save']();
+
+      expect(manage.reschedule).not.toHaveBeenCalled();
+    });
+
+    it('APPOINTMENT_NOT_EDITABLE al guardar: la pantalla de no permitida con el motivo del servidor', async () => {
+      const { fixture, page, host } = await render(ManageEditPage, BASE);
+      page['chooseTime']('2026-10-01T15:00:00Z');
+      manage.reschedule.mockRejectedValue(new ApiError(409, 'Ya no se puede cambiar.', 'APPOINTMENT_NOT_EDITABLE'));
+
+      await page['save']();
+      await settle(fixture as ComponentFixture<unknown>);
+
+      expect(text(host, 'cob-action-not-allowed h2')).toBe('No se puede cambiar esta cita');
+      expect(text(host, '[role="alert"]')).toBe('Ya no se puede cambiar.');
+      expect(addMessage).not.toHaveBeenCalled();
+    });
+
+    it('APPOINTMENT_NOT_EDITABLE cuando la pantalla ya cambió a otra cita no la resucita', async () => {
+      const { fixture, page, host } = await render(ManageEditPage, BASE);
+      const f = fixture as ComponentFixture<unknown>;
+      page['chooseTime']('2026-10-01T15:00:00Z');
+      const saving = deferred<ManageAppointment>();
+      manage.reschedule.mockReturnValue(saving.promise);
+      const done = page['save']();
+
+      manage.getAppointment.mockRejectedValue(notFound);
+      fixture.componentRef.setInput('appointmentId', 'appt-9');
+      await settle(f);
+      saving.reject(new ApiError(409, 'Ya no se puede cambiar.', 'APPOINTMENT_NOT_EDITABLE'));
+      await done;
+      await settle(f);
+
+      expect(text(host, 'h1')).toBe('No encontramos esta cita');
+      expect(page['ref'].appointment()).toBeNull();
+    });
+
+    it.each([
+      ['SLOT_TAKEN', 'Ese horario acaba de ocuparse', true],
+      ['SLOT_OVERLAP', 'Ese horario acaba de ocuparse', true],
+      ['SLOT_UNAVAILABLE', 'Ese horario no está disponible', true],
+      ['PAST_SLOT', 'Ese horario ya pasó', true],
+      ['BOOKING_TOO_SOON', 'Falta muy poco para esa hora', true],
+      ['DATE_OUT_OF_RANGE', 'Fecha fuera de rango', false],
+      ['CONCURRENCY_CONFLICT', 'Tu cita cambió mientras la editabas', false],
+      ['BARBER_NOT_FOUND', 'La selección ya no está disponible', false],
+      ['SERVICE_NOT_FOUND', 'La selección ya no está disponible', false],
+      ['SERVICE_NOT_OFFERED_BY_BARBER', 'Ese profesional no presta ese servicio', false],
+      ['OTRO_CODIGO', 'No pudimos guardar el cambio', false],
+    ])('%s al guardar: «%s»; recarga la rejilla: %s', async (code, summary, reloads) => {
+      const { fixture, page } = await render(ManageEditPage, BASE);
+      page['chooseTime']('2026-10-01T15:00:00Z');
+      manage.reschedule.mockRejectedValue(new ApiError(409, 'Mensaje del servidor.', code));
+      const calls = manage.getAvailability.mock.calls.length;
+
+      await page['save']();
+      await settle(fixture as ComponentFixture<unknown>);
+
+      expect(addMessage).toHaveBeenCalledWith(expect.objectContaining({ summary, detail: 'Mensaje del servidor.' }));
+      expect(page['time']()).toBe(reloads ? null : '2026-10-01T15:00:00Z');
+      expect(manage.getAvailability.mock.calls.length).toBe(reloads ? calls + 1 : calls);
+    });
+
+    it('sin cita cargada, la selección y lo derivado de ella quedan vacíos', async () => {
+      const { page } = await render(ManageEditPage, notFound);
+
+      expect([page['serviceId'](), page['barberId'](), page['date'](), page['time']()]).toEqual([null, null, null, null]);
+      expect(page['serviceOptions']()).toEqual([cut, beard]);
+      expect(page['selectedService']()).toBeNull();
+      expect(page['barberOptions']()).toEqual([]);
+      expect(page['durationMin']()).toBeNull();
+      expect(page['clashes']().size).toBe(0);
+      expect(page['dirty']()).toBe(false);
+      expect(page['hasGroup']()).toBe(false);
+    });
+  });
+
 });
 
 @Component({ selector: 'cob-detail-stub', template: 'detalle' })
