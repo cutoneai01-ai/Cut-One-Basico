@@ -29,6 +29,10 @@ describe('snapshot de branding', () => {
     localStorage.clear();
   });
 
+  it('sin snapshot guardado devuelve undefined', () => {
+    expect(readBrandingSnapshot()).toBeUndefined();
+  });
+
   it('lee lo que escribió', () => {
     writeBrandingSnapshot({ shop_name: 'Barbería X' });
     expect(readBrandingSnapshot()).toEqual({ shop_name: 'Barbería X' });

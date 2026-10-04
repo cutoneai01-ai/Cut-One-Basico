@@ -40,6 +40,26 @@ describe('recoverFromStaleChunk', () => {
     expect(recoverFromStaleChunk(stale, '/', navigate, 1_020_000)).toBe(true);
   });
 
+  it('sin sessionStorage no recarga: no habría freno contra el bucle', () => {
+    const navigate = vi.fn();
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('bloqueado', 'SecurityError');
+    });
+    try {
+      expect(recoverFromStaleChunk(stale, '/', navigate, 1_000_000)).toBe(false);
+      expect(navigate).not.toHaveBeenCalled();
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('sin navegador propio, recarga con `location.assign` hacia la URL a la que iba', () => {
+    // Un ancla de la misma página: jsdom sí implementa esa navegación, y no saca de la prueba.
+    expect(recoverFromStaleChunk(stale, '#recargado')).toBe(true);
+    expect(window.location.hash).toBe('#recargado');
+    window.location.hash = '';
+  });
+
   it('no recarga por un error que no es de chunk', () => {
     const navigate = vi.fn();
 

@@ -3,7 +3,7 @@ import { Component } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { providePrimeNG } from 'primeng/config';
-import { DEFAULTS } from '../data/branding';
+import { DEFAULTS, type Branding } from '../data/branding';
 import { navLinks, type NavLink } from './nav-links';
 import { SiteHeader } from './site-header';
 
@@ -92,5 +92,39 @@ describe('SiteHeader', () => {
     host.querySelector<HTMLButtonElement>('p-button button')!.click();
 
     expect(booked).toBe(1);
+  });
+  describe('marca', () => {
+    function renderBrand(branding: Partial<Branding>): HTMLElement {
+      fixture = TestBed.createComponent(SiteHeader);
+      fixture.componentRef.setInput('branding', { ...DEFAULTS, ...branding });
+      fixture.componentRef.setInput('links', ALL);
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    const text = (el: Element | null | undefined): string => (el?.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+    it('logo con el nombre como texto alternativo, nombre y eslogan', () => {
+      const host = renderBrand({ logo_url: 'https://cdn.example/logo.png', shop_name: 'Cut Test', slogan: 'Con oficio', est_year: '1998' });
+
+      expect(host.querySelector('.brand__logo')?.getAttribute('alt')).toBe('Cut Test');
+      expect(text(host.querySelector('.brand__name'))).toBe('Cut Test');
+      expect(text(host.querySelector('.brand__slogan'))).toBe('Con oficio');
+    });
+
+    it('sin nombre ni eslogan: el logo se describe como «Logo» y el año ocupa el lugar del eslogan', () => {
+      const host = renderBrand({ logo_url: 'https://cdn.example/logo.png', est_year: '1998' });
+
+      expect(host.querySelector('.brand__logo')?.getAttribute('alt')).toBe('Logo');
+      expect(host.querySelector('.brand__name')).toBeNull();
+      expect(text(host.querySelector('.brand__text'))).toBe('Desde 1998');
+    });
+
+    it('sin logo, ni eslogan, ni año: solo el nombre', () => {
+      const host = renderBrand({ shop_name: 'Cut Test' });
+
+      expect(host.querySelector('.brand__logo')).toBeNull();
+      expect(text(host.querySelector('.brand__text'))).toBe('Cut Test');
+    });
   });
 });

@@ -17,4 +17,16 @@ describe('getCompanySubdomain', () => {
     expect(environment.production).toBe(false);
     expect(getCompanySubdomain()).toBe(environment.devSubdomain);
   });
+
+  it('sin override (como en un build desplegado) lo decide el hostname de la visita', () => {
+    // El entorno de pruebas trae el override; se vacía solo durante esta prueba.
+    const mutable = environment as { devSubdomain: string };
+    const devSubdomain = mutable.devSubdomain;
+    mutable.devSubdomain = '';
+    try {
+      expect(getCompanySubdomain()).toBe(subdomainFrom(window.location.hostname));
+    } finally {
+      mutable.devSubdomain = devSubdomain;
+    }
+  });
 });

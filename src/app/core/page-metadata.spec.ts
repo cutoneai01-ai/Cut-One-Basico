@@ -101,6 +101,19 @@ describe('applyPageMetadata', () => {
     expect(touch.getAttribute('href')).toBe('icon-192.png');
   });
 
+  it('un icono sin `href` en index.html vuelve a quedar sin destino al quitar el logo', () => {
+    const doc = document.implementation.createHTMLDocument('x');
+    const icon = doc.createElement('link');
+    icon.rel = 'icon';
+    doc.head.appendChild(icon);
+
+    applyPageMetadata({ logoUrl: 'https://cdn.example/logo.png' }, doc);
+    expect(icon.getAttribute('href')).toBe('https://cdn.example/logo.png');
+
+    applyPageMetadata({ logoUrl: null }, doc);
+    expect(icon.getAttribute('href')).toBe('');
+  });
+
   it('sin ningún icono en el documento y sin logo, no hace nada', () => {
     const doc = document.implementation.createHTMLDocument('x');
 
