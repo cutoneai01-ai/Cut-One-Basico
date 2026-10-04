@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { ApiError } from '../core/api-error';
 import { formatMoney, utcToZoned } from '../core/locale';
-import { availabilityKey, bookingWindow, flattenSlots, type FlatSlot } from '../booking/availability';
+import { availabilityKey, bookingWindow, slotsByPeriod, type PeriodSlots } from '../booking/availability';
 import { firstClash } from '../booking/overlap';
 import { SchedulePicker } from '../booking/schedule-picker';
 import { BookingPolicyService } from '../data/booking-policy.service';
@@ -80,7 +80,7 @@ export class ManageEditPage {
   /** El `startAtUtc` elegido: el de la cita al cargar, o el de un hueco (M-09 RN-AG-47). */
   protected readonly time = linkedSignal(() => this.ref.appointment()?.startAtUtc ?? null);
 
-  protected readonly slots = signal<FlatSlot[]>([]);
+  protected readonly periods = signal<readonly PeriodSlots[]>([]);
   protected readonly slotsLoading = signal(false);
   protected readonly slotsFailed = signal(false);
   protected readonly submitting = signal(false);
@@ -91,6 +91,7 @@ export class ManageEditPage {
     const policy = this.bookingPolicy.state();
     return policy.status === 'ready' ? bookingWindow(policy.policy) : [];
   });
+  protected readonly policyStatus = computed(() => this.bookingPolicy.state().status);
 
   /** Los servicios activos del catálogo, más el de la cita si ya no está publicado: no se le quita. */
   protected readonly serviceOptions = computed(() => {
@@ -118,6 +119,12 @@ export class ManageEditPage {
       .map((barber) => ({ barber, durationMin: durationFor(service, barber.id) }));
   });
 
+  /** Lo que dura la cita con el barbero elegido, para «Duración X min» (M-08 RN-DISPO-35). */
+  protected readonly durationMin = computed(() => {
+    const service = this.selectedService();
+    return service ? durationFor(service, this.barberId()) : null;
+  });
+
   /**
    * Las horas que pisan otra cita viva del grupo con el mismo barbero (M-08 RN-DISPO-55), con el
    * motivo: «Choca con tu cita de Corte».
@@ -133,7 +140,7 @@ export class ManageEditPage {
 
     const others = otherAppointments(booking).filter((other) => isLive(other.status));
     const durationMin = durationFor(service, barberId);
-    for (const slot of this.slots()) {
+    for (const slot of this.periods().flatMap((period) => period.slots)) {
       const index = firstClash(
         { barberId, startAtUtc: slot.startAtUtc, durationMin },
         others.map((other) => ({
@@ -221,8 +228,19 @@ export class ManageEditPage {
     void this.loadAvailability();
   }
 
-  protected chooseTime(slot: FlatSlot): void {
-    this.time.set(slot.startAtUtc);
+  protected chooseTime(startAtUtc: string): void {
+    this.time.set(startAtUtc);
+  }
+
+  /** «Reintentar» tras un error de horas: el mismo día otra vez (CB-03 RN-CBRES-10). */
+  protected retrySlots(): void {
+    void this.loadAvailability();
+  }
+
+  /** «Reintentar» tras un error de la política, de donde salen los días (CB-03 RN-CBRES-08). */
+  protected async retryPolicy(): Promise<void> {
+    await this.bookingPolicy.retry();
+    void this.loadAvailability();
   }
 
   protected async save(): Promise<void> {
@@ -334,13 +352,13 @@ export class ManageEditPage {
       if (!stillChosen()) {
         return;
       }
-      this.slots.set(flattenSlots(response, locale));
+      this.periods.set(slotsByPeriod(response, locale));
       this.slotsLoading.set(false);
     } catch {
       if (!stillChosen()) {
         return;
       }
-      this.slots.set([]);
+      this.periods.set([]);
       this.slotsLoading.set(false);
       this.slotsFailed.set(true);
     }

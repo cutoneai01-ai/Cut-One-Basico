@@ -31,7 +31,8 @@
       <!-- Este aviso solo es cierto porque el correo es obligatorio (§5 RN-04). -->
       <p class="cob-muted">Te enviamos los detalles al correo que indicaste.</p>
 
-      <p-button label="Listo" (onClick)="close()" />
+      <!-- CB-03 RN-CBRES-15: sustituye a «Listo»; para salir queda la X del diálogo. -->
+      <p-button label="Hacer otra reserva" icon="pi pi-calendar-plus" (onClick)="startOver()" />
     </div>
   } @else if (starting()) {
     <!-- M-08 RN-DISPO-37: el paso inicial espera a la política; mientras, carga y nunca un paso vacío. -->
@@ -45,18 +46,14 @@
       <p class="cob-referral-banner" role="status">Reservando con {{ barberName(locked) }}</p>
     }
     @if (multiEnabled()) {
-      <!-- M-08 RN-DISPO-60: con la múltiple, el asistente de tarjetas. Se monta de nuevo en cada
-           apertura (la identidad es el número de apertura), así empieza siempre limpio. -->
-      @for (opening of [openings()]; track opening) {
-        <cob-card-booking
-          [services]="services()"
-          [barbers]="barbers()"
-          [initialService]="service()"
-          [lockedBarber]="lockedBarber()"
-          (finished)="close()"
-          (singleServiceFallback)="fallBackToSingleService($event)"
-        />
-      }
+      <!-- M-08 RN-DISPO-60: con la múltiple, el asistente de tarjetas. Su estado no es suyo: cerrar no
+           lo vacía (CB-03 RN-CBRES-12). -->
+      <cob-card-booking
+        [services]="services()"
+        [barbers]="barbers()"
+        [lockedBarber]="lockedBarber()"
+        (singleServiceFallback)="fallBackToSingleService($event)"
+      />
     } @else {
     <!-- El stepper trabaja con el número visible de cada paso; `step` guarda el interno (1 Servicio,
          2 Barbero, 3 Horario, 4 Tus datos). Con barbero bloqueado no hay paso 2 y el Horario se ve como
@@ -77,7 +74,26 @@
         <p-step-panel [value]="1">
           <ng-template #content>
             @if (visibleServices().length === 0) {
-              <p-message severity="info" [text]="noServicesText()" />
+              <!-- CB-03 RN-CBRES-09: «no publicó servicios» solo con la respuesta vacía. -->
+              @if (catalogLoading()) {
+                <div class="slots-loading" role="status">
+                  <p-progressSpinner [style]="{ width: '2.5rem', height: '2.5rem' }" />
+                  <span class="cob-visually-hidden">Cargando servicios…</span>
+                </div>
+              } @else if (catalogFailed()) {
+                <div class="retry">
+                  <p-message severity="error" text="No pudimos cargar los servicios." />
+                  <p-button
+                    label="Reintentar"
+                    icon="pi pi-refresh"
+                    [outlined]="true"
+                    size="small"
+                    (onClick)="refreshCatalog()"
+                  />
+                </div>
+              } @else {
+                <p-message severity="info" [text]="noServicesText()" />
+              }
             } @else {
               <div class="options">
                 @for (entry of serviceOptions(); track entry.service.id) {
@@ -137,8 +153,8 @@
                 }
                 @for (entry of barberOptions(); track entry.barber.id) {
                   @let option = entry.barber;
-                  <!-- M-08 RN-DISPO-71: siempre con círculo y aro del color propio (neutro sin él); con
-                       color, el hover y el foco lo toman. La elegida conserva el acento del tema. -->
+                  <!-- CB-03 RN-CBRES-03 y CB-07 RN-CBBAS-08: el avatar con aro de su color; con color, el
+                       hover y el foco lo toman. La elegida conserva el acento del tema. -->
                   <button
                     type="button"
                     class="option"
@@ -147,11 +163,7 @@
                     [style.--barber-color]="entry.color"
                     (click)="chooseBarber(option)"
                   >
-                    @if (entry.photo; as src) {
-                      <img class="option__avatar" [src]="src" [alt]="barberName(option)" loading="lazy" />
-                    } @else {
-                      <span class="option__avatar option__avatar--initials" aria-hidden="true">{{ entry.initials }}</span>
-                    }
+                    <cob-barber-avatar class="option__avatar" [barber]="option" size="md" />
                     <span class="option__text">
                       <strong>{{ barberName(option) }}</strong>
                       <!-- M-08 RN-DISPO-35: lo que tarda este barbero en el servicio elegido. -->
@@ -177,47 +189,23 @@
         <!-- Paso 3 — Horario -->
         <p-step-panel [value]="numbers.schedule">
           <ng-template #content>
-            <div class="days" role="group" aria-label="Elige el día">
-              @for (day of days(); track day) {
-                <button
-                  type="button"
-                  class="day"
-                  [class.day--active]="date() === day"
-                  (click)="chooseDate(day)"
-                >
-                  <span class="day__weekday">{{ labelsFor(day).weekday }}</span>
-                  <span class="day__number">{{ labelsFor(day).day }}</span>
-                  <span class="day__month">{{ labelsFor(day).month }}</span>
-                </button>
-              }
-            </div>
-
-            @if (slotsLoading()) {
-              <div class="slots-loading">
-                <p-progressSpinner [style]="{ width: '2.5rem', height: '2.5rem' }" />
-              </div>
-            } @else if (slotsFailed()) {
-              <p-message severity="warn" text="No pudimos consultar la disponibilidad. Intenta de nuevo." />
-            } @else if (slotsState() === 'no-shift') {
-              <!-- Tres estados vacíos con tres causas distintas (§4 RN-03). -->
-              <p-message severity="info" text="Este profesional no atiende ese día. Prueba con otra fecha." />
-            } @else if (slotsState() === 'full') {
-              <p-message severity="info" text="Ese día está completo. Prueba con otra fecha." />
-            } @else {
-              <div class="slots">
-                @for (slot of slots(); track slot.startAtUtc) {
-                  <button
-                    type="button"
-                    class="slot"
-                    [class.slot--taken]="!slot.available"
-                    [disabled]="!slot.available"
-                    (click)="chooseTime(slot)"
-                  >
-                    {{ slot.label }}
-                  </button>
-                }
-              </div>
-            }
+            <!-- CB-03 RN-CBRES-04: el mismo selector de día y hora que las tarjetas y «Modificar reserva». -->
+            <cob-slot-picker
+              idPrefix="wizard"
+              [days]="days()"
+              [daysStatus]="policyStatus()"
+              [date]="date()"
+              [periods]="periods()"
+              [loading]="slotsLoading()"
+              [failed]="slotsFailed()"
+              [time]="time()"
+              [durationMin]="selectedDurationMin()"
+              [anyBarber]="anyBarber()"
+              (dateChosen)="chooseDate($event)"
+              (timeChosen)="chooseTime($event)"
+              (retry)="retrySlots()"
+              (retryDays)="retryPolicy()"
+            />
 
             <div class="nav">
               <p-button label="Atrás" [text]="true" icon="pi pi-arrow-left" (onClick)="back()" />

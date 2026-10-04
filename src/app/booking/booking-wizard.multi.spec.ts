@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { MessageService } from 'primeng/api';
@@ -107,6 +108,12 @@ function withoutJsdomStyleEngine(): void {
   vi.spyOn(window, 'getComputedStyle').mockImplementation((element) => (element as HTMLElement).style);
 }
 
+
+/** El catálogo ya cargado: el asistente lo revalida al abrir y lee si carga o falló (CB-03 RN-CBRES-09). */
+function catalogDouble() {
+  return { loading: signal(false), failed: signal(false), revalidate: () => Promise.resolve() };
+}
+
 describe('BookingWizard: reserva de varios servicios', () => {
   let fixture: ComponentFixture<BookingWizard>;
   let wizard: BookingWizard;
@@ -137,7 +144,7 @@ describe('BookingWizard: reserva de varios servicios', () => {
         providePrimeNG({ theme: 'none' }),
         MessageService,
         { provide: BookingService, useValue: booking },
-        { provide: CatalogService, useValue: { revalidate: () => Promise.resolve() } },
+        { provide: CatalogService, useValue: catalogDouble() },
         { provide: SettingsService, useValue: { requireLocale: () => Promise.resolve(LOCALE) } },
       ],
     });
@@ -209,7 +216,7 @@ describe('BookingWizard: reserva de varios servicios', () => {
       wizard.open(cut);
       await settle();
 
-      wizard['chooseTime']({ startAtUtc: '2026-10-01T14:00:00Z', label: '09:00', available: true, period: 'Morning' });
+      wizard['chooseTime']('2026-10-01T14:00:00Z');
       fillForm();
       await wizard['confirm']();
 
@@ -251,8 +258,8 @@ describe('BookingWizard: reserva de varios servicios', () => {
         flow['chooseBarber'](index, juan);
         await settle();
       }
-      flow['chooseTime'](0, { startAtUtc: '2026-10-01T14:00:00Z', label: '09:00', available: true, period: 'Morning' });
-      flow['chooseTime'](1, { startAtUtc: '2026-10-01T15:00:00Z', label: '10:00', available: true, period: 'Morning' });
+      flow['chooseTime'](0, '2026-10-01T14:00:00Z');
+      flow['chooseTime'](1, '2026-10-01T15:00:00Z');
       flow['form'].setValue({ fullName: 'Laura Martínez', email: 'laura@correo.com', phone: '', notes: '' });
       flow['continueToDetails']();
       await flow['confirm']();

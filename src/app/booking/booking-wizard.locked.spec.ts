@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { MessageService } from 'primeng/api';
@@ -12,7 +13,7 @@ import type {
   PublicService,
 } from '../data/public-api.models';
 import { SettingsService } from '../data/settings.service';
-import type { BookingWindow, FlatSlot } from './availability';
+import type { BookingWindow } from './availability';
 import { BookingWizard } from './booking-wizard';
 import { CardBooking } from './card-booking';
 
@@ -74,10 +75,6 @@ const AVAILABILITY: AvailabilityResponse = {
   ],
 };
 
-function slot(startAtUtc: string): FlatSlot {
-  return { startAtUtc, label: '', available: true, period: 'Morning' };
-}
-
 function created(index: number): AppointmentCreatedResponse {
   return {
     appointmentId: `appt-${index}`,
@@ -93,6 +90,12 @@ function created(index: number): AppointmentCreatedResponse {
 /** Abrir el `p-dialog` en jsdom sin su motor de estilos: el porqué, en `booking-wizard.spec.ts`. */
 function withoutJsdomStyleEngine(): void {
   vi.spyOn(window, 'getComputedStyle').mockImplementation((element) => (element as HTMLElement).style);
+}
+
+
+/** El catálogo ya cargado: el asistente lo revalida al abrir y lee si carga o falló (CB-03 RN-CBRES-09). */
+function catalogDouble() {
+  return { loading: signal(false), failed: signal(false), revalidate: () => Promise.resolve() };
 }
 
 describe('BookingWizard: barbero bloqueado del perfil', () => {
@@ -126,7 +129,7 @@ describe('BookingWizard: barbero bloqueado del perfil', () => {
         providePrimeNG({ theme: 'none' }),
         MessageService,
         { provide: BookingService, useValue: booking },
-        { provide: CatalogService, useValue: { revalidate: () => Promise.resolve() } },
+        { provide: CatalogService, useValue: catalogDouble() },
         { provide: SettingsService, useValue: { requireLocale: () => Promise.resolve(LOCALE) } },
       ],
     });
@@ -215,7 +218,7 @@ describe('BookingWizard: barbero bloqueado del perfil', () => {
 
     it('las cabeceras del stepper van por el número visible', async () => {
       await openLocked(andres, cut);
-      wizard['chooseTime'](slot('2026-10-01T14:00:00Z'));
+      wizard['chooseTime']('2026-10-01T14:00:00Z');
       await settle();
       expect(wizard['step']()).toBe(4);
 
@@ -237,7 +240,7 @@ describe('BookingWizard: barbero bloqueado del perfil', () => {
     it('reservar envía su id como barbero y como atribución', async () => {
       await openLocked(andres, cut);
 
-      wizard['chooseTime'](slot('2026-10-01T14:00:00Z'));
+      wizard['chooseTime']('2026-10-01T14:00:00Z');
       fillForm();
       await wizard['confirm']();
 
@@ -265,7 +268,7 @@ describe('BookingWizard: barbero bloqueado del perfil', () => {
       expect(wizard['step']()).toBe(2);
 
       wizard['chooseBarber'](juan);
-      wizard['chooseTime'](slot('2026-10-01T14:00:00Z'));
+      wizard['chooseTime']('2026-10-01T14:00:00Z');
       fillForm();
       await wizard['confirm']();
       expect(booking.createAppointment).toHaveBeenCalledWith(
@@ -280,6 +283,8 @@ describe('BookingWizard: barbero bloqueado del perfil', () => {
       await settle();
       expect(all('p-message')).toEqual(['Camilo no tiene servicios configurados. Elige otro profesional.']);
 
+      // Reabrir conserva al barbero elegido (CB-03 RN-CBRES-12): sin él, hay que empezar de nuevo.
+      wizard['startOver']();
       fixture.componentRef.setInput('services', []);
       wizard.open();
       await settle();
@@ -317,8 +322,8 @@ describe('BookingWizard: barbero bloqueado del perfil', () => {
         ['andres', true],
         ['andres', true],
       ]);
-      expect(all('.bcard--open .pill--fixed strong')).toEqual(['Andrés']);
-      expect(host().querySelectorAll('.bcard--open .pills button').length).toBe(0);
+      expect(all('.bcard--open .bpick--fixed .bpick__name')).toEqual(['Andrés']);
+      expect(host().querySelectorAll('.bcard--open cob-barber-select button').length).toBe(0);
       expect(host().querySelector('.bcard--open')?.textContent).not.toContain('Cualquier profesional');
 
       booking.getAvailability.mockClear();
@@ -336,8 +341,8 @@ describe('BookingWizard: barbero bloqueado del perfil', () => {
       cards['addService'](beard);
       cards['continueToCards']();
       await settle();
-      cards['chooseTime'](0, slot('2026-10-01T14:00:00Z'));
-      cards['chooseTime'](1, slot('2026-10-01T15:00:00Z'));
+      cards['chooseTime'](0, '2026-10-01T14:00:00Z');
+      cards['chooseTime'](1, '2026-10-01T15:00:00Z');
       cards['continueToDetails']();
       cards['form'].setValue({ fullName: 'Laura Martínez', email: 'laura@correo.com', phone: '', notes: '' });
       await cards['confirm']();

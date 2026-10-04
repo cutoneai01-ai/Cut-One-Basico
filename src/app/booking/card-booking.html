@@ -22,7 +22,8 @@
 
     <p class="cob-muted">Te enviamos un correo a <strong>{{ createdEmail() }}</strong>.</p>
 
-    <p-button label="Listo" (onClick)="finished.emit()" />
+    <!-- CB-04 RN-CBMUL-07: sustituye a «Listo»; para salir queda la X del diálogo. -->
+    <p-button label="Hacer otra reserva" icon="pi pi-calendar-plus" (onClick)="startOver()" />
   </div>
 } @else {
   <p-stepper [(value)]="step" [linear]="false" styleClass="wizard">
@@ -100,22 +101,26 @@
                     <div class="bcard__body" [id]="'card-body-' + view.card.key">
                       <cob-schedule-picker
                         [idPrefix]="'card-' + view.card.key"
+                        [serviceName]="view.card.service.name"
+                        [barberLabel]="'Barbero de la cita ' + (view.index + 1)"
                         [barberOptions]="view.barberOptions"
-                        [showAnyOption]="view.showAny"
+                        [allowAny]="true"
                         [anyDurationMin]="view.card.service.durationMin"
                         [barberId]="view.card.barberId"
                         [anyBarber]="view.card.anyBarber"
                         [barberLocked]="view.card.barberLocked"
                         [days]="days()"
                         [date]="view.card.date"
-                        [slots]="view.slots"
+                        [periods]="view.periods"
                         [slotsLoading]="view.slotsLoading"
                         [slotsFailed]="view.slotsFailed"
                         [time]="view.card.startAtUtc"
                         [clashes]="view.clashes"
+                        [durationMin]="view.durationMin"
                         (barberChosen)="chooseBarber(view.index, $event)"
                         (dateChosen)="chooseDate(view.index, $event)"
                         (timeChosen)="chooseTime(view.index, $event)"
+                        (retry)="retryCard(view.index)"
                       />
                     </div>
                   }

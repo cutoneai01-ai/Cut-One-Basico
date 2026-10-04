@@ -618,10 +618,18 @@ describe('Gestión de la cita desde el correo', () => {
       Array.from(host.querySelectorAll<HTMLButtonElement>('button.slot'));
 
     it('arranca con la cita y pide su rejilla; cambiar de servicio recarga barberos y horas', async () => {
-      const { fixture, host } = await render(ManageEditPage, BASE);
+      const { fixture, page, host } = await render(ManageEditPage, BASE);
+      // Los barberos que ofrece el selector con ventana, sin abrirla.
+      const barberNames = () => page['barberOptions']().map((option) => option.barber.displayName);
 
       expect(manage.getAvailability).toHaveBeenCalledWith('appt-2', 'juan', 'corte', '2026-10-01');
-      expect(all(host, '.pill strong')).toEqual(['Juan', 'Camilo']);
+      // CB-05 RN-CBGES-05: el barbero en el botón del selector con ventana, sin «Cualquier profesional».
+      expect(all(host, 'cob-barber-select .bpick__name')).toEqual(['Juan']);
+      expect(barberNames()).toEqual(['Juan', 'Camilo']);
+      expect(host.textContent).not.toContain('Cualquier profesional');
+      // Y el turno de la hora de la cita abierto, con ella marcada.
+      expect(all(host, '[role="tab"][aria-selected="true"] .tab__name')).toEqual(['Mañana']);
+      expect(all(host, 'button.slot[aria-pressed="true"]')).toEqual(['09:00']);
 
       const select = host.querySelector<HTMLSelectElement>('#edit-service')!;
       select.value = 'barba';
@@ -629,22 +637,23 @@ describe('Gestión de la cita desde el correo', () => {
       await settle(fixture as ComponentFixture<unknown>);
 
       // Camilo no presta la barba: deja de ofrecerse.
-      expect(all(host, '.pill strong')).toEqual(['Juan']);
+      expect(barberNames()).toEqual(['Juan']);
       expect(manage.getAvailability).toHaveBeenLastCalledWith('appt-2', 'juan', 'barba', '2026-10-01');
     });
 
     // M-08 RN-DISPO-71: los barberos salen del catálogo público, con su foto y su color.
-    it('las opciones de barbero llevan el color y la foto del catálogo, o las iniciales', async () => {
+    it('el barbero elegido lleva el color y la foto del catálogo, o las iniciales', async () => {
       catalogBarbers.set([{ ...juan, color: '#e11d48' }, { ...camilo, photoUrl: 'https://cdn.example/camilo.webp' }]);
-      const { host } = await render(ManageEditPage, BASE);
+      const { fixture, page, host } = await render(ManageEditPage, BASE);
+      const trigger = (): HTMLElement => host.querySelector<HTMLElement>('cob-barber-select .bpick')!;
 
-      const pills = Array.from(host.querySelectorAll<HTMLElement>('cob-schedule-picker .pill'));
-      expect(pills.map((pill) => clean(pill.querySelector('strong')?.textContent))).toEqual(['Juan', 'Camilo']);
-      const [juanPill, camiloPill] = pills;
-      expect(juanPill!.style.getPropertyValue('--barber-color')).toBe('#e11d48');
-      expect(juanPill!.querySelector('.pill__avatar--initials')?.textContent?.trim()).toBe('J');
-      expect(camiloPill!.style.getPropertyValue('--barber-color')).toBe('');
-      expect(camiloPill!.querySelector('img.pill__avatar')?.getAttribute('src')).toBe('https://cdn.example/camilo.webp');
+      expect(trigger().style.getPropertyValue('--barber-color')).toBe('#e11d48');
+      expect(trigger().querySelector('cob-barber-avatar')?.textContent?.trim()).toBe('J');
+
+      page['chooseBarber']({ ...camilo, photoUrl: 'https://cdn.example/camilo.webp' });
+      await settle(fixture as ComponentFixture<unknown>);
+      expect(trigger().style.getPropertyValue('--barber-color')).toBe('');
+      expect(trigger().querySelector('cob-barber-avatar img')?.getAttribute('src')).toBe('https://cdn.example/camilo.webp');
     });
 
     it('las horas que pisan otra cita viva del grupo con el mismo barbero salen deshabilitadas', async () => {
@@ -682,7 +691,7 @@ describe('Gestión de la cita desde el correo', () => {
 
     it('BOOKING_ITEMS_OVERLAP: lo dice, borra la hora y recarga la rejilla', async () => {
       const { fixture, page, host } = await render(ManageEditPage, BASE);
-      page['chooseTime']({ startAtUtc: '2026-10-01T15:00:00Z', label: '10:00', available: true, period: 'Morning' });
+      page['chooseTime']('2026-10-01T15:00:00Z');
       manage.reschedule.mockRejectedValue(
         new ApiError(409, 'Choca con tu cita de Barba con el mismo barbero.', 'BOOKING_ITEMS_OVERLAP', undefined, {
           overlapsAppointmentId: 'appt-3',
@@ -718,7 +727,8 @@ describe('Gestión de la cita desde el correo', () => {
       pending.get('2026-10-02')!.next(availability('2026-10-02'));
       await settle(fixture as ComponentFixture<unknown>);
 
-      expect(page['slots']().every((s) => s.startAtUtc.startsWith('2026-10-03'))).toBe(true);
+      const starts = page['periods']().flatMap((period) => period.slots.map((slot) => slot.startAtUtc));
+      expect(starts.every((start) => start.startsWith('2026-10-03'))).toBe(true);
       expect(page['slotsLoading']()).toBe(false);
     });
 

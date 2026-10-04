@@ -1,10 +1,31 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  FormBuilder,
+  ReactiveFormsModule,
+  Validators,
+  type AbstractControl,
+  type ValidationErrors,
+} from '@angular/forms';
 import { FloatLabel } from 'primeng/floatlabel';
 import { InputText } from 'primeng/inputtext';
 import { Message } from 'primeng/message';
 import { Textarea } from 'primeng/textarea';
 import type { CreateAppointmentInput } from '../data/public-api.models';
+
+/** CB-03 RN-CBRES-07: un nombre de solo espacios no es un nombre. */
+const NAME_MIN = 2;
+
+function minTrimmedLength(min: number) {
+  return (control: AbstractControl<string>): ValidationErrors | null =>
+    control.value.trim().length >= min ? null : { minTrimmedLength: { min } };
+}
+
+const PHONE_MAX = 15;
+
+/** Lo que queda de un teléfono tecleado o pegado: solo sus dígitos, 15 como mucho (M-08 RN-DISPO-74). */
+export function phoneDigits(raw: string): string {
+  return raw.replace(/[^0-9]/g, '').slice(0, PHONE_MAX);
+}
 
 /**
  * El formulario «Tus datos» de la reserva. Lo comparten el asistente de un servicio y el de tarjetas
@@ -20,9 +41,10 @@ import type { CreateAppointmentInput } from '../data/public-api.models';
  */
 export function createCustomerForm(formBuilder: FormBuilder) {
   return formBuilder.nonNullable.group({
-    fullName: ['', [Validators.required, Validators.maxLength(120)]],
+    fullName: ['', [Validators.required, minTrimmedLength(NAME_MIN), Validators.maxLength(120)]],
     email: ['', [Validators.required, Validators.email, Validators.maxLength(160)]],
-    phone: ['', [Validators.maxLength(30)]],
+    // M-08 RN-DISPO-74: solo dígitos, hasta 15. El campo ya filtra; esto es la red.
+    phone: ['', [Validators.pattern(/^[0-9]{0,15}$/)]],
     notes: ['', [Validators.maxLength(500)]],
   });
 }
@@ -53,7 +75,16 @@ export function customerInput(form: CustomerForm): CreateAppointmentInput['custo
         <label for="fullName">Nombre completo *</label>
       </p-floatlabel>
       @if (form().controls.fullName.touched && form().controls.fullName.invalid) {
-        <p-message severity="error" variant="simple" size="small" text="Necesitamos tu nombre." />
+        <p-message
+          severity="error"
+          variant="simple"
+          size="small"
+          [text]="
+            form().controls.fullName.value.trim() === ''
+              ? 'Necesitamos tu nombre.'
+              : 'Tu nombre debe tener al menos 2 caracteres.'
+          "
+        />
       }
 
       <p-floatlabel variant="on">
@@ -70,7 +101,15 @@ export function customerInput(form: CustomerForm): CreateAppointmentInput['custo
       }
 
       <p-floatlabel variant="on">
-        <input pInputText id="phone" formControlName="phone" maxlength="30" autocomplete="tel" />
+        <!-- M-08 RN-DISPO-74: sin maxlength, que cortaría lo pegado ANTES de quitar lo que no es dígito. -->
+        <input
+          pInputText
+          id="phone"
+          formControlName="phone"
+          inputmode="numeric"
+          autocomplete="tel"
+          (input)="filterPhone($event)"
+        />
         <label for="phone">Teléfono (opcional)</label>
       </p-floatlabel>
 
@@ -95,4 +134,14 @@ export function customerInput(form: CustomerForm): CreateAppointmentInput['custo
 })
 export class CustomerFields {
   readonly form = input.required<CustomerForm>();
+
+  /** Al teclear y al pegar, lo que no es dígito no entra (M-08 RN-DISPO-74). */
+  protected filterPhone(event: Event): void {
+    const field = event.target as HTMLInputElement;
+    const digits = phoneDigits(field.value);
+    if (field.value !== digits) {
+      field.value = digits;
+    }
+    this.form().controls.phone.setValue(digits);
+  }
 }

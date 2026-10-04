@@ -1,0 +1,88 @@
+/* CB-07 RN-CBBAS-08: el aro es el fondo del contenedor con relleno, no una sombra sobre la foto, así que
+   no queda ninguna banda del color del panel entre la foto y el aro. */
+:host {
+  display: block;
+  flex: none;
+  box-sizing: border-box;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--barber-color, var(--cob-border));
+}
+
+.avatar__in {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--cob-text);
+  background: color-mix(in srgb, var(--barber-color, var(--cob-text-muted)) 22%, var(--cob-panel-bg));
+}
+
+.avatar__in img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+:host(.avatar--md) {
+  width: 3rem;
+  height: 3rem;
+}
+
+:host(.avatar--md) .avatar__in {
+  font-size: 0.9375rem;
+}
+
+:host(.avatar--lg) {
+  width: 4rem;
+  height: 4rem;
+  padding: 3px;
+}
+
+:host(.avatar--lg) .avatar__in {
+  font-size: 1.125rem;
+}
+
+/* «Cualquier profesional»: el acento del tema en vez del color de un barbero. */
+:host(.avatar--any) {
+  background: color-mix(in srgb, var(--cob-accent) 40%, transparent);
+}
+
+:host(.avatar--any) .avatar__in {
+  color: var(--cob-accent);
+  background: color-mix(in srgb, var(--cob-accent) 14%, var(--cob-panel-bg));
+}
+
+:host(.avatar--lg.avatar--any) .pi {
+  font-size: 1.5rem;
+}
+
+@media (max-width: 39.99rem) {
+  :host(.avatar--sm) {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  :host(.avatar--sm) .avatar__in {
+    font-size: 0.6875rem;
+  }
+}
+
+@media (min-width: 40rem) {
+  :host(.avatar--lg) {
+    width: 5rem;
+    height: 5rem;
+  }
+
+  :host(.avatar--lg) .avatar__in {
+    font-size: 1.25rem;
+  }
+}

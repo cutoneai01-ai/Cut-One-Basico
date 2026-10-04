@@ -11,6 +11,8 @@ export type BookingReaction =
   | 'reload-availability'
   | 'back-to-schedule'
   | 'restart'
+  /** Al paso Barbero, o al de Servicio con el barbero fijo, sin tocar los datos (CB-03 RN-CBRES-13). */
+  | 'back-to-barber'
   | 'stay'
   /** Volver al asistente de un solo servicio: la barbería apagó la reserva múltiple (M-08 RN-DISPO-37). */
   | 'single-service';
@@ -101,15 +103,13 @@ export function planForBookingError(error: unknown): BookingErrorPlan {
         reaction: 'restart',
       };
 
-    // RF-BS03 RN-01 (serie 023). Tiene que estar aquí explícitamente: un código desconocido cae al
-    // `default`, cuyo texto genérico —"No pudimos completar la reserva"— sería engañoso justo en el
-    // caso que más se va a dar durante la ventana entre desplegar el backend y desplegar esta landing,
-    // cuando el sitio ya cargado sigue ofreciendo parejas que el servidor rechaza.
+    // CB-03 RN-CBRES-13. Explícito porque el `default` diría «No pudimos completar la reserva», que es
+    // falso: se corrige eligiendo otro profesional (u otro servicio, con el barbero fijo).
     case 'SERVICE_NOT_OFFERED_BY_BARBER':
       return {
         summary: 'Ese profesional no presta ese servicio',
-        detail: 'Elige otra combinación: volvemos al inicio de la reserva.',
-        reaction: 'restart',
+        detail: 'Elige otra combinación de servicio y profesional.',
+        reaction: 'back-to-barber',
       };
 
     // M-08 RN-DISPO-37: la barbería apagó la reserva de varios servicios con el asistente abierto. Lo

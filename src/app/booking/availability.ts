@@ -1,4 +1,4 @@
-import { addDays, utcToZoned, type TenantLocale } from '../core/locale';
+import { addDays, sameInstant, utcToZoned, type TenantLocale } from '../core/locale';
 import type { AvailabilityResponse, SlotPeriod } from '../data/public-api.models';
 
 /**
@@ -32,10 +32,10 @@ export interface BookingWindow {
   readonly multiServiceBookingEnabled?: boolean;
 }
 
-/** El orden en que se concatenan los períodos en la rejilla plana (decisión 8 de la serie). */
-const PERIOD_ORDER: readonly SlotPeriod[] = ['Morning', 'Afternoon', 'Evening'];
+/** Los turnos en el orden de las pestañas: Mañana → Tarde → Noche (M-08 RN-DISPO-73). */
+export const PERIOD_ORDER: readonly SlotPeriod[] = ['Morning', 'Afternoon', 'Evening'];
 
-export interface FlatSlot {
+export interface SlotOption {
   /**
    * Instante UTC tal cual lo devuelve el backend: es lo que se reenvía al crear o reprogramar la cita
    * (M-08 RN-DISPO-33, M-09 RN-AG-47). Nunca se recompone desde la etiqueta.
@@ -43,52 +43,68 @@ export interface FlatSlot {
   readonly startAtUtc: string;
   /** `"HH:mm"` en la zona de la barbería, que es lo que se muestra (M-02 RN-TEN-20). */
   readonly label: string;
+  /** Las ocupadas se conservan deshabilitadas: dicen cuán lleno está el turno. */
   readonly available: boolean;
+}
+
+/** Un turno del día con sus horas en orden. */
+export interface PeriodSlots {
   readonly period: SlotPeriod;
+  readonly slots: readonly SlotOption[];
 }
 
 /**
- * Aplana los tres períodos en una sola rejilla ordenada.
- *
- * La respuesta trae los tres **siempre**, aunque estén vacíos: el backend lo hace a propósito para que
- * un frontend pueda pintar pestañas con contadores. Este landing no las pinta, así que los concatena
- * en orden Mañana → Tarde → Noche, sin depender del orden en que lleguen en el array.
- *
- * Los ocupados **no se filtran**: se conservan con `available: false` para pintarlos deshabilitados
- * (RF-G04 §4 RN-01). Ocultarlos haría que la rejilla cambiara de alto al cambiar de día y esconde
- * información que la respuesta ya trae: cuán lleno está ese día.
+ * Las horas de un día por turno, en el orden de las pestañas y **solo los turnos con franjas**: la
+ * respuesta trae siempre los tres, aunque estén vacíos, y una pestaña sin franjas no se pinta
+ * (CB-03 RN-CBRES-04).
  */
-export function flattenSlots(response: AvailabilityResponse, locale: TenantLocale): FlatSlot[] {
+export function slotsByPeriod(response: AvailabilityResponse, locale: TenantLocale): PeriodSlots[] {
   return PERIOD_ORDER.flatMap((period) => {
     const match = response.periods.find((candidate) => candidate.period === period);
-    if (!match) {
+    if (!match || match.slots.length === 0) {
       return [];
     }
 
-    return [...match.slots]
+    const slots = [...match.slots]
       .sort((a, b) => new Date(a.startAtUtc).getTime() - new Date(b.startAtUtc).getTime())
       .map((slot) => ({
         startAtUtc: slot.startAtUtc,
         label: utcToZoned(slot.startAtUtc, locale).time,
         available: slot.available,
-        period,
       }));
+    return [{ period, slots }];
   });
 }
 
 /**
- * Los tres estados vacíos del paso 3, que tienen tres causas distintas (RF-G04 §4 RN-03).
- * Colapsarlos en un "no hay horarios" deja al cliente sin saber qué hacer.
+ * Los tres vacíos de un día, con tres causas distintas: sin franjas (el profesional no atiende), sin
+ * ninguna libre (completo) o con horas que pintar.
  */
-export type SlotsState = 'ready' | 'no-shift' | 'full';
+export type DayState = 'ready' | 'no-shift' | 'full';
 
-export function slotsState(slots: readonly FlatSlot[]): SlotsState {
-  if (slots.length === 0) {
-    // El barbero no tiene turnos activos ese día, o está ausente.
+export function dayState(periods: readonly PeriodSlots[]): DayState {
+  if (periods.length === 0) {
     return 'no-shift';
   }
 
-  return slots.some((slot) => slot.available) ? 'ready' : 'full';
+  return periods.some((period) => period.slots.some((slot) => slot.available)) ? 'ready' : 'full';
+}
+
+/**
+ * El turno que se abre al llegar las horas de un día (CB-03 RN-CBRES-04): el de la hora elegida si es
+ * de ese día; si no, el primero con alguna hora elegible; si no, el primero con franjas. `isFree`
+ * decide qué es elegible: libre y sin choque con otra cita de la reserva (M-08 RN-DISPO-55).
+ */
+export function initialPeriod(
+  periods: readonly PeriodSlots[],
+  selected: string | null,
+  isFree: (slot: SlotOption) => boolean,
+): SlotPeriod | null {
+  const withSelected = periods.find((period) =>
+    period.slots.some((slot) => sameInstant(slot.startAtUtc, selected)),
+  );
+  const withFree = periods.find((period) => period.slots.some(isFree));
+  return (withSelected ?? withFree ?? periods[0])?.period ?? null;
 }
 
 /**

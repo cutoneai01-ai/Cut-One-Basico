@@ -71,4 +71,33 @@ describe('BookingPolicyService', () => {
     expect(second).toBe(first);
     expect(getBookingWindow).toHaveBeenCalledTimes(1);
   });
+
+  it('CB-03 RN-CBRES-08: «Reintentar» tras un fallo vuelve a pedirla y pasa por «cargando»', async () => {
+    const policy = setup();
+    const first = policy.ensureLoaded();
+    rejectPolicy(new Error('sin red'));
+    await first;
+
+    const retried = policy.retry();
+    expect(policy.state()).toEqual({ status: 'loading' });
+    resolvePolicy(POLICY);
+    await retried;
+
+    expect(policy.state()).toEqual({ status: 'ready', policy: POLICY });
+    expect(getBookingWindow).toHaveBeenCalledTimes(2);
+    // Lo que espere después espera la petición nueva, no la que falló.
+    await expect(policy.ensureLoaded()).resolves.toBeUndefined();
+    expect(getBookingWindow).toHaveBeenCalledTimes(2);
+  });
+
+  it('sin fallo, reintentar no lanza una segunda petición', async () => {
+    const policy = setup();
+    const first = policy.ensureLoaded();
+    resolvePolicy(POLICY);
+    await first;
+
+    await policy.retry();
+
+    expect(getBookingWindow).toHaveBeenCalledTimes(1);
+  });
 });

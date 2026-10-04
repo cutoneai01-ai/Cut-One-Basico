@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { MessageService } from 'primeng/api';
 import { providePrimeNG } from 'primeng/config';
@@ -99,6 +100,12 @@ function withoutJsdomStyleEngine(): void {
   vi.spyOn(window, 'getComputedStyle').mockImplementation((element) => (element as HTMLElement).style);
 }
 
+
+/** El catálogo ya cargado: el asistente lo revalida al abrir y lee si carga o falló (CB-03 RN-CBRES-09). */
+function catalogDouble() {
+  return { loading: signal(false), failed: signal(false), revalidate: () => Promise.resolve() };
+}
+
 describe('BookingWizard: respuestas que llegan en otro orden', () => {
   let fixture: ComponentFixture<BookingWizard>;
   let wizard: BookingWizard;
@@ -143,7 +150,7 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
         providePrimeNG({ theme: 'none' }),
         MessageService,
         { provide: BookingService, useValue: booking },
-        { provide: CatalogService, useValue: { revalidate: () => Promise.resolve() } },
+        { provide: CatalogService, useValue: catalogDouble() },
         { provide: SettingsService, useValue: { requireLocale: () => Promise.resolve(LOCALE) } },
       ],
     });
@@ -180,6 +187,11 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
       (el.textContent ?? '').trim(),
     );
   const clean = (value: string | null | undefined): string => (value ?? '').replace(/\s+/g, ' ').trim();
+  /** Las horas pintadas en el asistente de un servicio, de todos los turnos. */
+  const starts = (): string[] =>
+    wizard['periods']().flatMap((period) => period.slots.map((slot) => slot.startAtUtc));
+  /** La X del diálogo. */
+  const close = (): void => wizard['visible'].set(false);
 
   function fillForm(): void {
     wizard['form'].setValue({ fullName: 'Laura Martínez', email: 'laura@correo.com', phone: '', notes: '' });
@@ -211,15 +223,12 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
       await respond('2026-10-01');
 
       expect(wizard['date']()).toBe('2026-10-02');
-      expect(wizard['slots']().map((slot) => slot.startAtUtc)).toEqual([
-        '2026-10-02T14:00:00Z',
-        '2026-10-02T15:00:00Z',
-      ]);
+      expect(starts()).toEqual(['2026-10-02T14:00:00Z', '2026-10-02T15:00:00Z']);
       expect(wizard['slotsLoading']()).toBe(false);
       expect(Array.from(host().querySelectorAll('.day--active .day__number')).map((el) => clean(el.textContent))).toEqual(['2']);
 
       booking.createAppointment.mockResolvedValue(created('2026-10-02T14:00:00Z'));
-      wizard['chooseTime'](wizard['slots']()[0]!);
+      wizard['chooseTime'](starts()[0]!);
       fillForm();
       await wizard['confirm']();
 
@@ -242,10 +251,7 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
 
       await respond('2026-10-02');
       expect(wizard['slotsLoading']()).toBe(false);
-      expect(wizard['slots']().map((slot) => slot.startAtUtc)).toEqual([
-        '2026-10-02T14:00:00Z',
-        '2026-10-02T15:00:00Z',
-      ]);
+      expect(starts()).toEqual(['2026-10-02T14:00:00Z', '2026-10-02T15:00:00Z']);
     });
 
     it('cambiar de barbero con la anterior en vuelo descarta la del barbero anterior', async () => {
@@ -268,7 +274,7 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
       await settle();
 
       expect(wizard['barber']()).toBe(andres);
-      expect(wizard['slots']().length).toBe(2);
+      expect(starts().length).toBe(2);
     });
 
     it('el éxito pinta el día y la hora de la cita creada, no los del selector', async () => {
@@ -278,7 +284,7 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
 
       // El servidor devuelve la cita en otro día que el del selector: se pinta lo que se creó.
       booking.createAppointment.mockResolvedValue(created('2026-10-03T15:00:00Z'));
-      wizard['chooseTime'](wizard['slots']()[0]!);
+      wizard['chooseTime'](starts()[0]!);
       fillForm();
       await wizard['confirm']();
       await settle();
@@ -355,15 +361,15 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
 
     it('la política se pide una sola vez aunque el asistente se abra varias veces', async () => {
       wizard.open(cut);
-      wizard['close']();
+      close();
       wizard.open(beard);
       await settle();
       policy$.next({ ...WINDOW, multiServiceBookingEnabled: true });
       await settle();
 
-      wizard['close']();
+      close();
       wizard.open(cut);
-      wizard['close']();
+      close();
       wizard.open();
       await settle();
 
@@ -372,7 +378,7 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
 
     it('reabrir mientras carga solo aplica la última apertura', async () => {
       wizard.open(cut);
-      wizard['close']();
+      close();
       wizard.open(beard);
       await settle();
 
@@ -387,14 +393,14 @@ describe('BookingWizard: respuestas que llegan en otro orden', () => {
       wizard.open(beard);
       await settle();
 
-      wizard['close']();
+      close();
       wizard.open(cut);
 
       // Síncrono: el primer pintado ya es el definitivo.
       expect(wizard['starting']()).toBe(false);
       await settle();
-      // Montado de nuevo en la apertura: solo el servicio de esta, no el de la anterior.
-      expect(summaryLines()).toEqual(['Corte']);
+      // CB-03 RN-CBRES-12: cerrar conserva la selección, y el servicio tocado se añade a ella.
+      expect(summaryLines()).toEqual(['Barba', 'Corte']);
     });
   });
 });

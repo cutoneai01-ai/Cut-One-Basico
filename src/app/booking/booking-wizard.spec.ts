@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { MessageService } from 'primeng/api';
 import { providePrimeNG } from 'primeng/config';
@@ -64,6 +65,12 @@ function withoutJsdomStyleEngine(): void {
   vi.spyOn(window, 'getComputedStyle').mockImplementation((element) => (element as HTMLElement).style);
 }
 
+
+/** El catálogo ya cargado: el asistente lo revalida al abrir y lee si carga o falló (CB-03 RN-CBRES-09). */
+function catalogDouble() {
+  return { loading: signal(false), failed: signal(false), revalidate: () => Promise.resolve() };
+}
+
 describe('BookingWizard: tiempo de cada barbero', () => {
   let fixture: ComponentFixture<BookingWizard>;
   let wizard: BookingWizard;
@@ -85,7 +92,7 @@ describe('BookingWizard: tiempo de cada barbero', () => {
             getAvailability: () => Promise.reject(new Error('sin red en pruebas')),
           },
         },
-        { provide: CatalogService, useValue: { revalidate: () => Promise.resolve() } },
+        { provide: CatalogService, useValue: catalogDouble() },
         {
           provide: SettingsService,
           useValue: { requireLocale: () => Promise.reject(new Error('sin red en pruebas')) },
@@ -155,7 +162,7 @@ describe('BookingWizard: tiempo de cada barbero', () => {
     expect(texts(host, '.option__duration')).toEqual(['30 min', '20 min', '45 min', '30 min']);
   });
 
-  // M-08 RN-DISPO-71: siempre hay círculo (foto o iniciales), con aro y hover del color propio.
+  // CB-03 RN-CBRES-03 y CB-07 RN-CBBAS-08: el avatar compartido, con aro y hover del color propio.
   it('paso 2: foto o iniciales en el círculo, y el color propio solo en quien lo tiene', async () => {
     const host = await render([service()]);
     fixture.componentRef.setInput('barbers', [
@@ -171,19 +178,23 @@ describe('BookingWizard: tiempo de cada barbero', () => {
         (button) => button.querySelector('strong')?.textContent?.trim() === name,
       )!;
 
+    const avatar = (button: HTMLElement): HTMLElement => button.querySelector<HTMLElement>('cob-barber-avatar.option__avatar')!;
+
     const felipe = option('Felipe');
-    expect(felipe.querySelector('img.option__avatar')?.getAttribute('src')).toBe('https://cdn.example/felipe.webp');
+    expect(avatar(felipe).querySelector('img')?.getAttribute('src')).toBe('https://cdn.example/felipe.webp');
+    expect(avatar(felipe).style.getPropertyValue('--barber-color')).toBe('#e11d48');
+    expect(avatar(felipe).classList).toContain('avatar--md');
     expect(felipe.style.getPropertyValue('--barber-color')).toBe('#e11d48');
     expect(felipe.classList).toContain('option--colored');
 
     const andres = option('Andrés');
     expect(andres.querySelector('img')).toBeNull();
-    expect(andres.querySelector('.option__avatar--initials')?.textContent?.trim()).toBe('A');
-    expect(andres.querySelector('.option__avatar--initials')?.getAttribute('aria-hidden')).toBe('true');
+    expect(avatar(andres).textContent?.trim()).toBe('A');
+    expect(avatar(andres).getAttribute('aria-hidden')).toBe('true');
     expect(andres.style.getPropertyValue('--barber-color')).toBe('#2563eb');
 
     const camilo = option('Camilo');
-    expect(camilo.querySelector('.option__avatar--initials')?.textContent?.trim()).toBe('C');
+    expect(avatar(camilo).textContent?.trim()).toBe('C');
     expect(camilo.style.getPropertyValue('--barber-color')).toBe('');
     expect(camilo.classList).not.toContain('option--colored');
 

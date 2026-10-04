@@ -1,0 +1,168 @@
+<div class="picker">
+  <div
+    class="row"
+    role="group"
+    [attr.aria-labelledby]="showLabels() ? idPrefix() + '-day' : null"
+    [attr.aria-label]="showLabels() ? null : 'Elige el día'"
+  >
+    @if (showLabels()) {
+      <p class="row__label" [id]="idPrefix() + '-day'">Día</p>
+    }
+    @if (daysStatus() === 'loading') {
+      <div class="loading" role="status">
+        <p-progressSpinner [style]="{ width: '2.5rem', height: '2.5rem' }" />
+        <span class="cob-visually-hidden">Cargando la agenda…</span>
+      </div>
+    } @else if (daysStatus() === 'failed') {
+      <!-- CB-03 RN-CBRES-08: sin política es un fallo de red, no un día sin turnos. -->
+      <div class="retry">
+        <p-message severity="error" text="No pudimos cargar la agenda de la barbería." />
+        <p-button
+          label="Reintentar"
+          icon="pi pi-refresh"
+          [outlined]="true"
+          size="small"
+          (onClick)="retryDays.emit()"
+        />
+      </div>
+    } @else if (days().length === 0) {
+      <p-message severity="info" text="No hay días disponibles para reservar." />
+    } @else {
+      <!-- Centrada si cabe; en el móvil se desplaza desde el primer día (CB-03 RN-CBRES-04). -->
+      <div class="daystrip">
+        <div class="days">
+          @for (option of dayOptions(); track option.day) {
+            <button
+              type="button"
+              class="day"
+              [attr.data-day]="option.day"
+              [attr.aria-pressed]="date() === option.day"
+              [class.day--active]="date() === option.day"
+              (click)="dateChosen.emit(option.day)"
+            >
+              <span class="day__weekday">{{ option.labels.weekday }}</span>
+              <span class="day__number">{{ option.labels.day }}</span>
+              <span class="day__month">{{ option.labels.month }}</span>
+            </button>
+          }
+        </div>
+      </div>
+    }
+  </div>
+
+  @if (daysStatus() === 'ready' && days().length > 0) {
+    <div class="row">
+      @if (showLabels()) {
+        <p class="row__label">Hora</p>
+      }
+      @if (!barberSelected()) {
+        <p class="cob-muted">Elige un barbero para ver sus horas.</p>
+      } @else if (loading()) {
+        <div class="loading" role="status">
+          <p-progressSpinner [style]="{ width: '2.5rem', height: '2.5rem' }" />
+          <span class="cob-visually-hidden">Cargando horas…</span>
+        </div>
+      } @else if (failed()) {
+        <!-- CB-03 RN-CBRES-10: el mismo día otra vez. -->
+        <div class="retry">
+          <p-message severity="warn" text="No pudimos consultar la disponibilidad." />
+          <p-button
+            label="Reintentar"
+            icon="pi pi-refresh"
+            [outlined]="true"
+            size="small"
+            (onClick)="retry.emit()"
+          />
+        </div>
+      } @else if (state() === 'no-shift') {
+        <!-- CB-03 RN-CBRES-11: con «Cualquier profesional» no se culpa a nadie. -->
+        <p-message
+          severity="info"
+          [text]="
+            anyBarber()
+              ? 'No hay horarios disponibles este día. Prueba con otra fecha.'
+              : 'Este profesional no atiende ese día. Prueba con otra fecha.'
+          "
+        />
+      } @else if (state() === 'full') {
+        <p-message severity="info" text="Ese día está completo. Prueba con otra fecha." />
+      } @else if (active(); as open) {
+        <div class="tabs" role="tablist" aria-label="Turno" tabindex="-1" (keydown)="onTabKey($event)">
+          @for (tab of tabs(); track tab.period) {
+            @let selected = tab.period === open.period;
+            <button
+              type="button"
+              role="tab"
+              class="tab"
+              [id]="idPrefix() + '-tab-' + tab.period"
+              [attr.aria-selected]="selected"
+              [attr.aria-controls]="idPrefix() + '-panel'"
+              [attr.tabindex]="selected ? 0 : -1"
+              [attr.aria-label]="tab.label + ': ' + tab.free + (tab.free === 1 ? ' horario libre' : ' horarios libres')"
+              (click)="openTab(tab.period)"
+            >
+              <i class="pi {{ tab.icon }}" aria-hidden="true"></i>
+              <span class="tab__name">{{ tab.label }}</span>
+              <span class="tab__count" aria-hidden="true">{{ tab.free }}</span>
+            </button>
+          }
+        </div>
+
+        <div
+          class="panel"
+          role="tabpanel"
+          [id]="idPrefix() + '-panel'"
+          [attr.aria-labelledby]="idPrefix() + '-tab-' + open.period"
+        >
+          @if (open.free === 0) {
+            <div class="empty">
+              <p>No hay horarios disponibles en este turno</p>
+              <p>Prueba con otro turno o fecha</p>
+            </div>
+          } @else {
+            <p class="summary">
+              <strong>
+                {{ open.free }} {{ open.free === 1 ? 'horario disponible' : 'horarios disponibles' }}:
+                {{ open.label }}
+              </strong>
+              @if (durationMin(); as minutes) {
+                <span>Duración {{ minutes }} min{{ anyBarber() ? ' (aprox.)' : '' }}</span>
+              }
+            </p>
+          }
+
+          @if (showGrid()) {
+            <div class="slots">
+              @for (entry of activeSlots(); track entry.slot.startAtUtc) {
+                <!-- M-08 RN-DISPO-55: la que choca sigue enfocable (aria-disabled) para que se lea su motivo. -->
+                <button
+                  type="button"
+                  class="slot"
+                  [class.slot--active]="entry.chosen"
+                  [class.slot--taken]="!entry.slot.available"
+                  [class.slot--clash]="entry.clash !== null"
+                  [attr.aria-pressed]="entry.chosen"
+                  [attr.aria-disabled]="entry.clash !== null ? 'true' : null"
+                  [attr.title]="entry.clash"
+                  [disabled]="!entry.slot.available"
+                  (click)="chooseTime(entry.slot, entry.clash)"
+                >
+                  {{ entry.slot.label }}
+                  @if (entry.clash) {
+                    <span class="cob-visually-hidden">: {{ entry.clash }}</span>
+                  }
+                </button>
+              }
+            </div>
+            @for (note of clashNotes(); track note) {
+              <p class="slot-note">
+                <i class="pi pi-info-circle" aria-hidden="true"></i>
+                {{ note }}
+              </p>
+            }
+          }
+        </div>
+      }
+    </div>
+  }
+</div>

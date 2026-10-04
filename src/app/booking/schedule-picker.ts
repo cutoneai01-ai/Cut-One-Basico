@@ -1,119 +1,113 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { Message } from 'primeng/message';
-import { ProgressSpinner } from 'primeng/progressspinner';
-import { barberColor, barberInitials } from '../core/barber-identity';
-import { resolveImage } from '../core/images';
-import { dayLabels, sameInstant } from '../core/locale';
+import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import type { BookingPolicyState } from '../data/booking-policy.service';
 import type { PublicBarber } from '../data/public-api.models';
-import { slotsState, type FlatSlot } from './availability';
-
-/** Un barbero ofrecido, con lo que tarda en el servicio de la cita (M-08 RN-DISPO-35). */
-export interface ScheduleBarberOption {
-  readonly barber: PublicBarber;
-  readonly durationMin: number;
-}
+import type { PeriodSlots } from './availability';
+import { BarberSelect, type BarberOption } from './barber-select';
+import { SlotPicker } from './slot-picker';
 
 /**
  * Barbero, día y hora de **una** cita: el contenido de cada tarjeta del asistente (M-08 RN-DISPO-60) y
- * de la vista de editar una cita desde el correo (M-08 RN-DISPO-59). Solo pinta y emite: quien lo usa
- * guarda la selección, pide la disponibilidad y decide qué horas chocan.
- *
- * Una hora que choca con otra cita del cliente con el mismo barbero (M-08 RN-DISPO-55) llega en
- * `clashes` con su motivo: se deshabilita con `aria-disabled` —sigue enfocable, para que un lector de
- * pantalla la anuncie con su motivo— y el motivo se escribe debajo, no solo con el estilo punteado. Las
- * horas ocupadas siguen como siempre: deshabilitadas y tachadas.
+ * de «Modificar reserva» (M-08 RN-DISPO-59). El barbero se elige en la ventana de CB-04 RN-CBMUL-02 y
+ * el día y la hora en el selector de CB-03 RN-CBRES-04. Solo pinta y emite: quien lo usa guarda la
+ * selección, pide la disponibilidad y decide qué horas chocan.
  */
 @Component({
   selector: 'cob-schedule-picker',
-  imports: [Message, ProgressSpinner],
-  templateUrl: './schedule-picker.html',
-  styleUrl: './schedule-picker.css',
+  imports: [BarberSelect, SlotPicker],
+  template: `
+    <div class="schedule">
+      <div class="row" role="group" [attr.aria-labelledby]="idPrefix() + '-barber'">
+        <p class="row__label" [id]="idPrefix() + '-barber'">Barbero</p>
+        <cob-barber-select
+          [serviceName]="serviceName()"
+          [options]="barberOptions()"
+          [allowAny]="allowAny()"
+          [anyDurationMin]="anyDurationMin()"
+          [barberId]="barberId()"
+          [anyBarber]="anyBarber()"
+          [locked]="barberLocked()"
+          [label]="barberLabel()"
+          (chosen)="barberChosen.emit($event)"
+        />
+      </div>
+
+      <cob-slot-picker
+        [idPrefix]="idPrefix()"
+        [showLabels]="true"
+        [days]="days()"
+        [daysStatus]="daysStatus()"
+        [date]="date()"
+        [barberSelected]="barberId() !== null || anyBarber()"
+        [periods]="periods()"
+        [loading]="slotsLoading()"
+        [failed]="slotsFailed()"
+        [time]="time()"
+        [clashes]="clashes()"
+        [durationMin]="durationMin()"
+        [anyBarber]="anyBarber()"
+        (dateChosen)="dateChosen.emit($event)"
+        (timeChosen)="timeChosen.emit($event)"
+        (retry)="retry.emit()"
+        (retryDays)="retryDays.emit()"
+      />
+    </div>
+  `,
+  styles: `
+    :host {
+      display: block;
+    }
+
+    .schedule {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .row__label {
+      margin: 0 0 0.5rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--cob-text-muted);
+    }
+  `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SchedulePicker {
-  readonly barberOptions = input.required<readonly ScheduleBarberOption[]>();
-  /** Ofrecer «Cualquier profesional» (solo con dos o más, y nunca al editar). */
-  readonly showAnyOption = input(false);
+  /** El servicio de la cita: título de la ventana del barbero. */
+  readonly serviceName = input.required<string>();
+  readonly barberOptions = input.required<readonly BarberOption[]>();
+  /** Ofrecer «Cualquier profesional» (nunca al editar); el selector exige además dos o más. */
+  readonly allowAny = input(false);
   /** El tiempo que se muestra para «cualquiera»: el base del servicio. */
   readonly anyDurationMin = input<number | null>(null);
   readonly barberId = input<string | null>(null);
   readonly anyBarber = input(false);
-  /**
-   * El barbero es el del perfil y no se puede cambiar (M-08 RN-DISPO-65): se enseña como una tarjeta
-   * informativa, no pulsable, con borde punteado y candado.
-   */
+  /** El barbero es el del perfil y no se puede cambiar (M-08 RN-DISPO-65). */
   readonly barberLocked = input(false);
+  readonly barberLabel = input('Barbero');
 
   readonly days = input.required<readonly string[]>();
+  readonly daysStatus = input<BookingPolicyState['status']>('ready');
   readonly date = input<string | null>(null);
 
-  readonly slots = input<readonly FlatSlot[]>([]);
+  readonly periods = input<readonly PeriodSlots[]>([]);
   readonly slotsLoading = input(false);
   readonly slotsFailed = input(false);
   /** El `startAtUtc` elegido. */
   readonly time = input<string | null>(null);
   /** Horas que chocan (M-08 RN-DISPO-55): `startAtUtc` → motivo («Choca con tu cita 2»). */
   readonly clashes = input<ReadonlyMap<string, string>>(new Map());
-  /** Prefijo de los ids de los grupos, único por tarjeta: dos tarjetas abiertas no repiten id. */
+  /** Lo que dura la cita con el barbero elegido, para «Duración X min». */
+  readonly durationMin = input<number | null>(null);
+  /** Prefijo de los ids, único por tarjeta: dos tarjetas abiertas no repiten id. */
   readonly idPrefix = input('schedule');
 
   /** `null` es «Cualquier profesional». */
   readonly barberChosen = output<PublicBarber | null>();
   readonly dateChosen = output<string>();
-  readonly timeChosen = output<FlatSlot>();
-
-  /**
-   * Cada opción con lo que pinta su pastilla (M-08 RN-DISPO-71), resuelto una vez por cambio de la
-   * lista: la foto o, sin ella, las iniciales —siempre hay círculo— y el color propio, que llega a la
-   * pastilla como `--barber-color` y tiñe el aro, el hover y el foco. La selección no lo usa.
-   */
-  protected readonly options = computed(() =>
-    this.barberOptions().map((option) => ({
-      ...option,
-      name: option.barber.displayName ?? 'Profesional',
-      photo: resolveImage(option.barber.photoUrl),
-      initials: barberInitials(option.barber.displayName),
-      color: barberColor(option.barber),
-    })),
-  );
-
-  protected readonly barberSelected = computed(() => this.barberId() !== null || this.anyBarber());
-  protected readonly state = computed(() => slotsState([...this.slots()]));
-
-  /** Los motivos de choque agrupados, para escribirlos debajo de la rejilla: «Choca con tu cita 1: 09:00, 09:15». */
-  protected readonly clashNotes = computed(() => {
-    const byReason = new Map<string, string[]>();
-    for (const slot of this.slots()) {
-      const reason = this.clashes().get(slot.startAtUtc);
-      if (reason && slot.available) {
-        byReason.set(reason, [...(byReason.get(reason) ?? []), slot.label]);
-      }
-    }
-    return [...byReason].map(([reason, labels]) => `${reason}: ${labels.join(', ')}`);
-  });
-
-  /**
-   * Cada día con sus etiquetas, calculadas una vez por cambio de días o de locale y no en cada pasada
-   * de la detección de cambios: `dayLabels` construye tres `Intl.DateTimeFormat` por llamada, y desde
-   * la plantilla eran nueve por día y por pasada (medido el 2026-10-02: ~8 % de la CPU de las pruebas
-   * del asistente de tarjetas).
-   */
-  protected readonly dayOptions = computed(() =>
-    this.days().map((day) => ({ day, labels: dayLabels(day) })),
-  );
-
-  protected isChosen(slot: FlatSlot): boolean {
-    return sameInstant(this.time(), slot.startAtUtc);
-  }
-
-  protected clashOf(slot: FlatSlot): string | null {
-    return slot.available ? (this.clashes().get(slot.startAtUtc) ?? null) : null;
-  }
-
-  protected chooseTime(slot: FlatSlot): void {
-    if (!slot.available || this.clashOf(slot)) {
-      return;
-    }
-    this.timeChosen.emit(slot);
-  }
+  /** El `startAtUtc` de la hora elegida. */
+  readonly timeChosen = output<string>();
+  readonly retry = output<void>();
+  readonly retryDays = output<void>();
 }

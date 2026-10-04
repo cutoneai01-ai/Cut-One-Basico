@@ -3,8 +3,8 @@ import type { BookingWindow } from '../booking/availability';
 import { BookingService } from './booking.service';
 
 /**
- * La política de reserva de la barbería, en sus tres estados. `failed` no es un error que enseñar: el
- * asistente sigue funcionando como el de un servicio y sin tira de días (M-08 RN-DISPO-37).
+ * La política de reserva de la barbería, en sus tres estados. Con `failed` el asistente sigue como el
+ * de un servicio (M-08 RN-DISPO-37) y su paso Horario lo dice con «Reintentar» (CB-03 RN-CBRES-08).
  */
 export type BookingPolicyState =
   | { readonly status: 'loading' }
@@ -45,6 +45,20 @@ export class BookingPolicyService {
    */
   ensureLoaded(): Promise<void> {
     this.loading ??= this.load();
+    return this.loading;
+  }
+
+  /**
+   * Vuelve a pedir la política que falló: «Reintentar» del paso Horario (CB-03 RN-CBRES-08). Si no
+   * falló, es `ensureLoaded()`: no hay una segunda petición por página.
+   */
+  retry(): Promise<void> {
+    if (this.stateSignal().status !== 'failed') {
+      return this.ensureLoaded();
+    }
+
+    this.stateSignal.set({ status: 'loading' });
+    this.loading = this.load();
     return this.loading;
   }
 

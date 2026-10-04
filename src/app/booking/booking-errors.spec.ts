@@ -52,6 +52,13 @@ describe('planForBookingError', () => {
     expect(planForBookingError(apiError('SERVICE_NOT_FOUND', 'x', 404)).reaction).toBe('restart');
   });
 
+  it('un barbero que no presta el servicio vuelve a elegir, sin reiniciar (CB-03 RN-CBRES-13)', () => {
+    const plan = planForBookingError(apiError('SERVICE_NOT_OFFERED_BY_BARBER', 'x', 400));
+
+    expect(plan.reaction).toBe('back-to-barber');
+    expect(plan.summary).toBe('Ese profesional no presta ese servicio');
+  });
+
   it('la reserva múltiple apagada vuelve al asistente de un servicio (M-08 RN-DISPO-37)', () => {
     const plan = planForBookingError(apiError('MULTI_SERVICE_BOOKING_DISABLED', 'x', 409));
 

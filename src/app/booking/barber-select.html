@@ -1,0 +1,131 @@
+@if (options().length === 0) {
+  <!-- M-08 RN-DISPO-71 -->
+  <p-message severity="info" text="Ningún profesional presta este servicio ahora mismo." />
+} @else if (fixed(); as option) {
+  <!-- CB-04 RN-CBMUL-03: no es un botón porque no hace nada; el candado y su texto dicen por qué. -->
+  <div class="bpick bpick--fixed" title="No se puede cambiar en este enlace">
+    <cob-barber-avatar [barber]="option.barber" />
+    <span class="bpick__text">
+      <span class="bpick__name">{{ nameOf(option.barber) }}</span>
+      <span class="bpick__meta">{{ option.durationMin }} min</span>
+    </span>
+    <i class="pi pi-lock bpick__end" aria-hidden="true"></i>
+    <span class="cob-visually-hidden">(barbero fijo, no se puede cambiar)</span>
+  </div>
+} @else {
+  <button
+    #trigger
+    type="button"
+    class="bpick"
+    [class.bpick--colored]="selectedColor() !== null"
+    [style.--barber-color]="selectedColor()"
+    aria-haspopup="dialog"
+    [attr.aria-expanded]="open()"
+    (click)="show()"
+  >
+    @if (selected(); as option) {
+      <cob-barber-avatar [barber]="option.barber" />
+    } @else if (anySelected()) {
+      <cob-barber-avatar />
+    } @else {
+      <span class="bpick__placeholder" aria-hidden="true"><i class="pi pi-user"></i></span>
+    }
+    <span class="bpick__text">
+      <span class="cob-visually-hidden">{{ label() }}: </span>
+      @if (selected(); as option) {
+        <span class="bpick__name">{{ nameOf(option.barber) }}</span>
+        <span class="bpick__meta">{{ option.durationMin }} min</span>
+      } @else if (anySelected()) {
+        <span class="bpick__name">Cualquier profesional</span>
+        @if (anyDurationMin(); as minutes) {
+          <span class="bpick__meta">{{ minutes }} min (aprox.)</span>
+        }
+      } @else {
+        <span class="bpick__name">Seleccionar barbero</span>
+      }
+    </span>
+    <i class="pi pi-chevron-down bpick__end" aria-hidden="true"></i>
+  </button>
+
+  <p-dialog
+    [visible]="open()"
+    (visibleChange)="open.set($event)"
+    [modal]="true"
+    [dismissableMask]="true"
+    [draggable]="false"
+    [focusOnShow]="false"
+    appendTo="body"
+    closeAriaLabel="Cerrar"
+    [style]="{ width: 'min(48rem, 94vw)' }"
+    styleClass="cob-barber-dialog"
+    (onShow)="focusInside()"
+    (onHide)="returnFocus()"
+  >
+    <ng-template #header let-labelledBy="ariaLabelledBy">
+      <div class="dlg__titles" [id]="labelledBy">
+        <p class="cob-eyebrow dlg__eyebrow">Elige tu barbero</p>
+        <h2 class="dlg__title">{{ serviceName() }}</h2>
+      </div>
+    </ng-template>
+
+    <div #body class="dlg">
+      <label class="cob-visually-hidden" [for]="uid + '-search'">Buscar barbero</label>
+      <div class="search">
+        <i class="pi pi-search" aria-hidden="true"></i>
+        <input
+          pInputText
+          type="search"
+          [id]="uid + '-search'"
+          autocomplete="off"
+          placeholder="Buscar por nombre o especialidad…"
+          [value]="query()"
+          (input)="search($event)"
+        />
+      </div>
+
+      <p class="rule">Elige una opción</p>
+
+      @if (cards().length === 0 && !showAny()) {
+        <p class="empty" role="status">
+          Ningún barbero coincide con «{{ query().trim() }}». Prueba con otro nombre o especialidad.
+        </p>
+      } @else {
+        <div class="grid" role="group" aria-label="Barberos">
+          <!-- CB-04 RN-CBMUL-02: «Cualquier profesional» no es un nombre: se aparta mientras se busca. -->
+          @if (showAny()) {
+            <button type="button" class="opt" [attr.aria-pressed]="anySelected()" (click)="choose(null)">
+              <span class="opt__radio" aria-hidden="true"></span>
+              <cob-barber-avatar size="lg" />
+              <span class="opt__name">Cualquier profesional</span>
+              <span class="opt__sub">Te asignamos uno de los disponibles</span>
+              @if (anyDurationMin(); as minutes) {
+                <span class="opt__sub">{{ minutes }} min</span>
+              }
+            </button>
+          }
+          @for (card of cards(); track card.barber.id) {
+            <button
+              type="button"
+              class="opt"
+              [class.opt--colored]="card.color !== null"
+              [style.--barber-color]="card.color"
+              [attr.aria-pressed]="card.selected"
+              (click)="choose(card.barber)"
+            >
+              <span class="opt__radio" aria-hidden="true"></span>
+              <cob-barber-avatar [barber]="card.barber" size="lg" />
+              <span class="opt__name">{{ card.name }}</span>
+              @if (card.barber.specialty) {
+                <span class="opt__chip">{{ card.barber.specialty }}</span>
+              }
+              <span class="opt__meta">
+                <cob-rating-stars [rating]="card.barber.rating" />
+                <span>{{ card.durationMin }} min</span>
+              </span>
+            </button>
+          }
+        </div>
+      }
+    </div>
+  </p-dialog>
+}

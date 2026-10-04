@@ -177,6 +177,18 @@ export function markFailures(
   });
 }
 
+/**
+ * El servidor dijo que un barbero no presta su servicio (CB-03 RN-CBRES-13): cada tarjeta sin barbero
+ * fijo pierde barbero y hora y lleva el mensaje, para volver a elegir. La de barbero fijo no cambia.
+ */
+export function forgetBarbers(cards: readonly BookingCard[], message: string): BookingCard[] {
+  return cards.map((card) =>
+    card.barberLocked
+      ? card
+      : { ...card, barberId: null, anyBarber: false, startAtUtc: null, failure: message },
+  );
+}
+
 /** La primera tarjeta sin hora, la que se abre al cerrar la que se acaba de completar; `-1` si ninguna. */
 export function firstIncomplete(cards: readonly BookingCard[]): number {
   return cards.findIndex((card) => !card.startAtUtc);

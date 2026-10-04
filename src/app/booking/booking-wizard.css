@@ -47,28 +47,9 @@
   flex: none;
 }
 
-/* M-08 RN-DISPO-71: aro del color propio del barbero, o del borde neutro si no tiene; es una sombra,
-   así que no cambia el tamaño, y el margen le deja sitio dentro de la tarjeta. */
+/* CB-07 RN-CBBAS-08: el aro es del avatar; el margen alinea con el glifo de «Cualquier profesional». */
 .option__avatar {
-  width: 3rem;
-  height: 3rem;
   margin: 4px;
-  object-fit: cover;
-  border-radius: 999px;
-  flex: none;
-  box-shadow:
-    0 0 0 2px var(--cob-panel-bg),
-    0 0 0 4px var(--barber-color, var(--cob-border));
-}
-
-/* Sin foto, las iniciales en el mismo círculo: texto del tema sobre un tinte del color (o del gris del
-   tema), así el contraste no depende del color que elija la barbería. */
-.option__avatar--initials {
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  color: var(--cob-text);
-  background: color-mix(in srgb, var(--barber-color, var(--cob-text-muted)) 22%, var(--cob-panel-bg));
 }
 
 /*
@@ -101,88 +82,17 @@
   white-space: nowrap;
 }
 
-/* Tira horizontal de 30 días. */
-.days {
-  display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
-  padding-bottom: 0.5rem;
-  margin-bottom: 1.25rem;
-  scrollbar-width: thin;
-}
-
-.day {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: none;
-  width: 3.75rem;
-  padding: 0.5rem 0;
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-  line-height: 1.2;
-  background: var(--cob-panel-bg);
-  border: 1px solid var(--cob-border);
-  border-radius: var(--cob-radius);
-}
-
-.day--active {
-  border-color: var(--cob-accent);
-  color: var(--cob-accent);
-}
-
-.day__weekday,
-.day__month {
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--cob-text-muted);
-}
-
-.day--active .day__weekday,
-.day--active .day__month {
-  color: inherit;
-}
-
-.day__number {
-  font-size: 1.125rem;
-  font-weight: 600;
-}
-
-/* Rejilla plana de slots. Los ocupados se muestran tachados, no se ocultan (§4 RN-01). */
-.slots {
-  display: grid;
-  gap: 0.5rem;
-  grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
-}
-
-.slot {
-  padding: 0.5rem;
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-  background: var(--cob-panel-bg);
-  border: 1px solid var(--cob-border);
-  border-radius: var(--cob-radius);
-}
-
-.slot:hover:not(:disabled) {
-  border-color: var(--cob-accent);
-  color: var(--cob-accent);
-}
-
-.slot--taken {
-  cursor: not-allowed;
-  text-decoration: line-through;
-  color: var(--cob-text-muted);
-  opacity: 0.55;
-}
-
 .slots-loading {
   display: grid;
   place-items: center;
   padding: 2rem 0;
+}
+
+.retry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .checkout {

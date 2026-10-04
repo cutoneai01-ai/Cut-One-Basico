@@ -1,6 +1,14 @@
 import type { TenantLocale } from '../core/locale';
 import type { AvailabilityResponse } from '../data/public-api.models';
-import { availabilityKey, bookingWindow, flattenSlots, slotsState } from './availability';
+import {
+  availabilityKey,
+  bookingWindow,
+  dayState,
+  initialPeriod,
+  slotsByPeriod,
+  type PeriodSlots,
+  type SlotOption,
+} from './availability';
 
 const BOGOTA: TenantLocale = {
   time_zone: 'America/Bogota',
@@ -21,10 +29,9 @@ function response(periods: AvailabilityResponse['periods']): AvailabilityRespons
   return { date: '2026-08-13', periods };
 }
 
-describe('flattenSlots', () => {
-  it('concatena los tres períodos en orden Mañana → Tarde → Noche', () => {
-    // El backend devuelve los tres siempre; el orden del array no está garantizado, así que se impone.
-    const slots = flattenSlots(
+describe('slotsByPeriod', () => {
+  it('ordena los turnos Mañana → Tarde → Noche, sin depender del orden del array', () => {
+    const periods = slotsByPeriod(
       response([
         { period: 'Evening', slots: [{ startAtUtc: at('19:00'), available: true }] },
         { period: 'Morning', slots: [{ startAtUtc: at('09:00'), available: true }] },
@@ -33,11 +40,11 @@ describe('flattenSlots', () => {
       BOGOTA,
     );
 
-    expect(slots.map((slot) => slot.label)).toEqual(['09:00', '14:00', '19:00']);
+    expect(periods.map((period) => period.period)).toEqual(['Morning', 'Afternoon', 'Evening']);
   });
 
-  it('ordena por hora dentro de cada período', () => {
-    const slots = flattenSlots(
+  it('ordena por hora dentro de cada turno', () => {
+    const [morning] = slotsByPeriod(
       response([
         {
           period: 'Morning',
@@ -50,12 +57,11 @@ describe('flattenSlots', () => {
       BOGOTA,
     );
 
-    expect(slots.map((slot) => slot.label)).toEqual(['09:00', '10:30']);
+    expect(morning!.slots.map((slot) => slot.label)).toEqual(['09:00', '10:30']);
   });
 
-  it('conserva los ocupados en vez de filtrarlos', () => {
-    // Ocultarlos haría que la rejilla cambiara de alto al cambiar de día (RF-G04 §4 RN-01).
-    const slots = flattenSlots(
+  it('conserva las ocupadas, que dicen cuán lleno está el turno', () => {
+    const [morning] = slotsByPeriod(
       response([
         {
           period: 'Morning',
@@ -68,12 +74,11 @@ describe('flattenSlots', () => {
       BOGOTA,
     );
 
-    expect(slots).toHaveLength(2);
-    expect(slots[0].available).toBe(false);
+    expect(morning!.slots.map((slot) => slot.available)).toEqual([false, true]);
   });
 
-  it('aguanta períodos vacíos, que son normales y no un error', () => {
-    const slots = flattenSlots(
+  it('un turno sin franjas no se devuelve: su pestaña no se pinta (CB-03 RN-CBRES-04)', () => {
+    const periods = slotsByPeriod(
       response([
         { period: 'Morning', slots: [] },
         { period: 'Afternoon', slots: [{ startAtUtc: at('14:00'), available: true }] },
@@ -82,32 +87,62 @@ describe('flattenSlots', () => {
       BOGOTA,
     );
 
-    expect(slots.map((slot) => slot.label)).toEqual(['14:00']);
+    expect(periods.map((period) => period.period)).toEqual(['Afternoon']);
   });
 
   it('conserva el instante tal cual para reenviarlo y etiqueta en la zona de la barbería', () => {
     // M-08 RN-DISPO-33: el hueco se reenvía sin recomponer; la etiqueta es hora de reloj de la barbería.
-    const slots = flattenSlots(
+    const [morning] = slotsByPeriod(
       response([{ period: 'Morning', slots: [{ startAtUtc: '2026-08-13T14:00:00Z', available: true }] }]),
       BOGOTA,
     );
 
-    expect(slots[0].startAtUtc).toBe('2026-08-13T14:00:00Z');
-    expect(slots[0].label).toBe('09:00');
+    expect(morning!.slots[0]).toEqual({ startAtUtc: '2026-08-13T14:00:00Z', label: '09:00', available: true });
   });
 });
 
-describe('slotsState', () => {
-  it('distingue las tres causas de una rejilla sin opciones', () => {
-    expect(slotsState([])).toBe('no-shift');
+describe('dayState', () => {
+  const slot = (available: boolean): SlotOption => ({ startAtUtc: at('09:00'), label: '09:00', available });
 
-    expect(
-      slotsState([{ startAtUtc: at('09:00'), label: '09:00', available: false, period: 'Morning' }]),
-    ).toBe('full');
+  it('distingue las tres causas de un día sin opciones', () => {
+    expect(dayState([])).toBe('no-shift');
+    expect(dayState([{ period: 'Morning', slots: [slot(false)] }])).toBe('full');
+    expect(dayState([{ period: 'Morning', slots: [slot(false)] }, { period: 'Evening', slots: [slot(true)] }])).toBe(
+      'ready',
+    );
+  });
+});
 
-    expect(
-      slotsState([{ startAtUtc: at('09:00'), label: '09:00', available: true, period: 'Morning' }]),
-    ).toBe('ready');
+describe('initialPeriod (CB-03 RN-CBRES-04)', () => {
+  const free = (time: string): SlotOption => ({ startAtUtc: at(time), label: time, available: true });
+  const taken = (time: string): SlotOption => ({ ...free(time), available: false });
+  const isFree = (slot: SlotOption): boolean => slot.available;
+
+  const day: PeriodSlots[] = [
+    { period: 'Morning', slots: [taken('09:00'), taken('10:00')] },
+    { period: 'Afternoon', slots: [free('14:00'), taken('15:00')] },
+    { period: 'Evening', slots: [free('19:00')] },
+  ];
+
+  it('abre el turno de la hora elegida si es de ese día', () => {
+    expect(initialPeriod(day, at('19:00'), isFree)).toBe('Evening');
+    // Aunque esa hora ya figure ocupada: el cliente tiene que ver la suya (Modificar reserva).
+    expect(initialPeriod(day, at('10:00'), isFree)).toBe('Morning');
+  });
+
+  it('si no, el primero con cupo: la mañana agotada no se abre', () => {
+    expect(initialPeriod(day, null, isFree)).toBe('Afternoon');
+    expect(initialPeriod(day, '2026-08-14T14:00:00.000Z', isFree)).toBe('Afternoon');
+  });
+
+  it('las horas que chocan no cuentan como cupo', () => {
+    const clashing = new Set([at('14:00')]);
+    expect(initialPeriod(day, null, (slot) => slot.available && !clashing.has(slot.startAtUtc))).toBe('Evening');
+  });
+
+  it('con el día agotado, el primero con franjas; sin franjas, ninguno', () => {
+    expect(initialPeriod([day[0]!, { period: 'Evening', slots: [taken('19:00')] }], null, isFree)).toBe('Morning');
+    expect(initialPeriod([], null, isFree)).toBeNull();
   });
 });
 

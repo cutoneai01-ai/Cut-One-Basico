@@ -39,20 +39,27 @@
         </select>
 
         <div class="schedule">
+          <!-- CB-05 RN-CBGES-05: la ventana del barbero, sin «Cualquier profesional», y el selector de
+               día y hora, que abre el turno de la hora actual de la cita. -->
           <cob-schedule-picker
             idPrefix="edit"
+            [serviceName]="selectedService()?.name ?? booking.serviceName"
             [barberOptions]="barberOptions()"
             [barberId]="barberId()"
             [days]="days()"
+            [daysStatus]="policyStatus()"
             [date]="date()"
-            [slots]="slots()"
+            [periods]="periods()"
             [slotsLoading]="slotsLoading()"
             [slotsFailed]="slotsFailed()"
             [time]="time()"
             [clashes]="clashes()"
+            [durationMin]="durationMin()"
             (barberChosen)="chooseBarber($event)"
             (dateChosen)="chooseDate($event)"
             (timeChosen)="chooseTime($event)"
+            (retry)="retrySlots()"
+            (retryDays)="retryPolicy()"
           />
         </div>
 

@@ -13,8 +13,9 @@ import type {
   PublicService,
 } from '../data/public-api.models';
 import { SettingsService } from '../data/settings.service';
-import type { FlatSlot } from './availability';
+import type { PeriodSlots } from './availability';
 import { CardBooking, type SingleServiceFallback } from './card-booking';
+import { CardBookingState } from './card-booking.state';
 
 // El asistente de tarjetas (M-08 RN-DISPO-60): una tarjeta por servicio con su barbero, su día y su
 // hora; el mismo barbero no se pisa (RN-DISPO-55); cada tarjeta aplica solo su disponibilidad
@@ -71,10 +72,6 @@ function availability(date: string): AvailabilityResponse {
   };
 }
 
-function slot(startAtUtc: string): FlatSlot {
-  return { startAtUtc, label: '', available: true, period: 'Morning' };
-}
-
 function created(index: number, overrides: Partial<AppointmentCreatedResponse> = {}): AppointmentCreatedResponse {
   return {
     appointmentId: `appt-${index}`,
@@ -127,6 +124,8 @@ describe('CardBooking: asistente de tarjetas', () => {
         MessageService,
         { provide: BookingService, useValue: booking },
         { provide: SettingsService, useValue: { requireLocale: () => Promise.resolve(LOCALE) } },
+        // Lo provee `BookingWizard`: el estado sobrevive al cierre del diálogo (CB-03 RN-CBRES-12).
+        CardBookingState,
       ],
     });
     // Como en la página: la política se pidió al cargarla (M-08 RN-DISPO-37).
@@ -160,6 +159,8 @@ describe('CardBooking: asistente de tarjetas', () => {
   const openSlots = (): HTMLButtonElement[] =>
     Array.from(host().querySelectorAll<HTMLButtonElement>('.bcard--open button.slot'));
   const card = (index: number) => flow['cards']()[index]!;
+  const starts = (periods: readonly PeriodSlots[]): string[] =>
+    periods.flatMap((period) => period.slots.map((slot) => slot.startAtUtc));
 
   /** Las tarjetas de los servicios dados, ya en el paso 2. */
   async function toCards(...services: PublicService[]): Promise<void> {
@@ -175,7 +176,7 @@ describe('CardBooking: asistente de tarjetas', () => {
   async function complete(index: number, chosen: PublicBarber | null, startAtUtc: string): Promise<void> {
     flow['chooseBarber'](index, chosen);
     await settle();
-    flow['chooseTime'](index, slot(startAtUtc));
+    flow['chooseTime'](index, startAtUtc);
     await settle();
   }
 
@@ -208,12 +209,17 @@ describe('CardBooking: asistente de tarjetas', () => {
       fixture.componentRef.setInput('services', [cut, onlyJuan]);
       await toCards(cut, onlyJuan);
 
-      const pills = () => Array.from(host().querySelectorAll('.bcard--open .pill strong')).map((el) => clean(el.textContent));
-      expect(pills()).toEqual(['Cualquier profesional', 'Juan', 'Andrés']);
+      const view = (index: number) => flow['cardViews']()[index]!;
+      expect(view(0).barberOptions.map((option) => option.barber.displayName)).toEqual(['Juan', 'Andrés']);
+      expect(clean(host().querySelector('.bcard--open cob-barber-select .bpick__name')?.textContent)).toBe(
+        'Seleccionar barbero',
+      );
 
       heads()[1]!.click();
       await settle();
-      expect(pills()).toEqual(['Juan']);
+      expect(view(1).barberOptions.map((option) => option.barber.displayName)).toEqual(['Juan']);
+      // El botón dice de qué cita es, y la ventana lleva el servicio de título.
+      expect(clean(host().querySelector('.bcard--open .bpick')?.textContent)).toContain('Barbero de la cita 2');
     });
 
     it('al elegir hora se cierra y se abre la siguiente sin completar; Continuar espera a todas', async () => {
@@ -240,14 +246,14 @@ describe('CardBooking: asistente de tarjetas', () => {
       flow['chooseBarber'](0, andres);
       expect(card(0).startAtUtc).toBeNull();
 
-      flow['chooseTime'](0, slot('2026-10-01T14:00:00Z'));
+      flow['chooseTime'](0, '2026-10-01T14:00:00Z');
       flow['chooseDate'](0, '2026-10-02');
       expect(card(0).startAtUtc).toBeNull();
       expect(booking.getAvailability).toHaveBeenLastCalledWith('andres', 'corte', '2026-10-02');
     });
 
     it('el servicio tocado en la portada entra como primera línea, y el barbero del perfil llega elegido', async () => {
-      fixture.componentRef.setInput('initialService', beard);
+      TestBed.inject(CardBookingState).offer(beard);
       fixture.componentRef.setInput('lockedBarber', andres);
       fixture.detectChanges();
 
@@ -302,7 +308,7 @@ describe('CardBooking: asistente de tarjetas', () => {
 
       heads()[0]!.click();
       await settle();
-      flow['chooseTime'](0, slot('2026-10-01T14:00:00Z'));
+      flow['chooseTime'](0, '2026-10-01T14:00:00Z');
       await settle();
 
       expect(card(1).startAtUtc).toBeNull();
@@ -335,12 +341,29 @@ describe('CardBooking: asistente de tarjetas', () => {
       await settle();
 
       const views = flow['cardViews']();
-      expect(views[0]!.slots.map((s) => s.startAtUtc)).toEqual([
+      expect(starts(views[0]!.periods)).toEqual([
         '2026-10-01T14:00:00Z',
         '2026-10-01T14:30:00Z',
         '2026-10-01T15:00:00Z',
       ]);
-      expect(views[1]!.slots.map((s) => s.startAtUtc)).toEqual(['2026-10-01T20:00:00Z']);
+      expect(starts(views[1]!.periods)).toEqual(['2026-10-01T20:00:00Z']);
+    });
+
+    it('CB-04 RN-CBMUL-05: un error de horas ofrece «Reintentar» en la tarjeta, que pide el mismo día', async () => {
+      booking.getAvailability.mockRejectedValueOnce(new Error('sin red'));
+      await toCards(cut);
+      flow['chooseBarber'](0, juan);
+      await settle();
+
+      expect(clean(host().querySelector('.bcard--open p-message')?.textContent)).toBe(
+        'No pudimos consultar la disponibilidad.',
+      );
+      booking.getAvailability.mockClear();
+      host().querySelector<HTMLButtonElement>('.bcard--open cob-slot-picker p-button button')!.click();
+      await settle();
+
+      expect(booking.getAvailability).toHaveBeenCalledWith('juan', 'corte', '2026-10-01');
+      expect(openSlots().length).toBe(3);
     });
 
     it('la respuesta del día que una tarjeta dejó se descarta y no pisa la del día elegido', async () => {
@@ -361,7 +384,7 @@ describe('CardBooking: asistente de tarjetas', () => {
       byDate.get('2026-10-01')!.next(availability('2026-10-01'));
       await settle();
 
-      expect(flow['cardViews']()[0]!.slots.every((s) => s.startAtUtc.startsWith('2026-10-02'))).toBe(true);
+      expect(starts(flow['cardViews']()[0]!.periods).every((start) => start.startsWith('2026-10-02'))).toBe(true);
       expect(flow['cardViews']()[0]!.slotsLoading).toBe(false);
     });
   });
@@ -429,6 +452,57 @@ describe('CardBooking: asistente de tarjetas', () => {
       // 22:30Z son las 17:30 del mismo día en Bogotá.
       expect(lines[1]).toEqual(['Barba con Andrés', `${formatLongDate('2026-10-02')} · 17:30`, 'Código CODE0002']);
       expect(clean(host().querySelector('.done')?.textContent)).toContain('Te enviamos un correo a laura@correo.com.');
+    });
+
+    it('CB-04 RN-CBMUL-07: «Hacer otra reserva» sustituye a «Listo» y vacía todo hasta «Servicios»', async () => {
+      booking.createMultipleAppointments.mockResolvedValue({ bookingGroupId: 'g', appointments: [created(1)] });
+      await threeComplete();
+      await flow['confirm']();
+      await settle();
+
+      const buttons = Array.from(host().querySelectorAll('.done p-button button')).map((b) => clean(b.textContent));
+      expect(buttons).toEqual(['Hacer otra reserva']);
+      host().querySelector<HTMLButtonElement>('.done p-button button')!.click();
+      await settle();
+
+      expect(host().querySelector('.done')).toBeNull();
+      expect(flow['step']()).toBe(1);
+      expect(flow['lines']()).toEqual([]);
+      expect(flow['cards']()).toEqual([]);
+      expect(flow['form'].getRawValue().email).toBe('');
+    });
+
+    it('CB-03 RN-CBRES-13: SERVICE_NOT_OFFERED_BY_BARBER vuelve a elegir barbero con los datos intactos', async () => {
+      booking.createAppointment.mockRejectedValue(
+        new ApiError(400, 'Ese profesional no presta ese servicio.', 'SERVICE_NOT_OFFERED_BY_BARBER'),
+      );
+      await toCards(cut);
+      await complete(0, juan, '2026-10-01T14:00:00Z');
+      flow['continueToDetails']();
+      fillForm();
+
+      await flow['confirm']();
+      await settle();
+
+      expect(flow['step']()).toBe(2);
+      expect(card(0)).toMatchObject({ barberId: null, anyBarber: false, startAtUtc: null });
+      expect(statuses()).toEqual(['Ese profesional no presta ese servicio']);
+      expect(flow['form'].getRawValue().email).toBe('laura@correo.com');
+    });
+
+    it('CB-03 RN-CBRES-13: con el barbero fijo, vuelve a «Servicios»', async () => {
+      booking.createAppointment.mockRejectedValue(new ApiError(400, 'No.', 'SERVICE_NOT_OFFERED_BY_BARBER'));
+      fixture.componentRef.setInput('lockedBarber', andres);
+      await toCards(cut);
+      flow['chooseTime'](0, '2026-10-01T14:00:00Z');
+      flow['continueToDetails']();
+      fillForm();
+
+      await flow['confirm']();
+
+      expect(flow['step']()).toBe(1);
+      expect(card(0).barberId).toBe('andres');
+      expect(flow['form'].getRawValue().email).toBe('laura@correo.com');
     });
 
     it('409 BOOKING_ITEMS_FAILED: marca solo las que fallaron, conserva las demás y los datos', async () => {

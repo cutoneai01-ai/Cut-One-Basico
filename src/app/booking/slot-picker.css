@@ -1,0 +1,254 @@
+:host {
+  display: block;
+}
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.row {
+  min-width: 0;
+}
+
+.row__label {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cob-text-muted);
+}
+
+/* CB-03 RN-CBRES-04: la tira mide lo que sus días y se centra con `margin-inline: auto`; si no cabe, el
+   margen es 0 y se desplaza desde el primer día. `justify-content: center` recortaría el primero. */
+.daystrip {
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scrollbar-width: thin;
+}
+
+.days {
+  display: flex;
+  gap: 0.5rem;
+  width: max-content;
+  margin-inline: auto;
+}
+
+.day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+  width: 3.75rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  line-height: 1.2;
+  background: var(--cob-panel-bg);
+  border: 1px solid var(--cob-border);
+  border-radius: var(--cob-radius);
+}
+
+.day:hover {
+  border-color: var(--cob-accent);
+}
+
+.day--active {
+  border-color: var(--cob-accent);
+  color: var(--cob-accent);
+  background: color-mix(in srgb, var(--cob-accent) 10%, var(--cob-panel-bg));
+}
+
+.day__weekday,
+.day__month {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cob-text-muted);
+}
+
+.day--active .day__weekday,
+.day--active .day__month {
+  color: inherit;
+}
+
+.day__number {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+/* Pestañas: a todo el ancho y apiladas en el móvil; en fila y centradas desde 640 px. */
+.tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 1rem;
+  padding: 0.25rem;
+  background: var(--cob-alt-bg);
+  border: 1px solid var(--cob-border);
+  border-radius: var(--cob-radius);
+}
+
+.tab {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0.375rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--cob-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: calc(var(--cob-radius) - 0.25rem);
+}
+
+.tab:hover {
+  color: var(--cob-text);
+  background: color-mix(in srgb, var(--cob-text) 6%, transparent);
+}
+
+.tab[aria-selected='true'] {
+  color: var(--p-primary-contrast-color);
+  background: var(--cob-accent);
+}
+
+.tab__name {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+}
+
+.tab__count {
+  padding: 0.0625rem 0.375rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+@media (min-width: 40rem) {
+  .tabs {
+    width: fit-content;
+    margin-inline: auto;
+  }
+
+  .tab {
+    flex: none;
+    flex-direction: row;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+}
+
+.summary strong {
+  font-weight: 500;
+}
+
+.summary span {
+  font-size: 0.75rem;
+  color: var(--cob-text-muted);
+}
+
+.empty {
+  padding: 1.25rem 0;
+  text-align: center;
+  color: var(--cob-text-muted);
+}
+
+.empty p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.empty p + p {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.slots {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(4.75rem, 1fr));
+}
+
+.slot {
+  min-height: 2.75rem;
+  padding: 0.5rem;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  background: var(--cob-panel-bg);
+  border: 1px solid var(--cob-border);
+  border-radius: var(--cob-radius);
+}
+
+.slot:hover:not(:disabled):not(.slot--clash):not(.slot--active) {
+  border-color: var(--cob-accent);
+  color: var(--cob-accent);
+}
+
+.slot--active {
+  font-weight: 600;
+  color: var(--p-primary-contrast-color);
+  background: var(--cob-accent);
+  border-color: var(--cob-accent);
+}
+
+.slot--taken {
+  cursor: not-allowed;
+  text-decoration: line-through;
+  color: var(--cob-text-muted);
+  opacity: 0.55;
+}
+
+/* M-08 RN-DISPO-55: choca con otra cita del cliente. Punteada, y el motivo va escrito debajo. */
+.slot--clash {
+  cursor: not-allowed;
+  border-style: dashed;
+  color: var(--cob-text-muted);
+}
+
+.slot-note {
+  display: flex;
+  gap: 0.375rem;
+  align-items: baseline;
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--cob-text-muted);
+}
+
+.loading {
+  display: grid;
+  place-items: center;
+  padding: 1.5rem 0;
+}
+
+.retry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}

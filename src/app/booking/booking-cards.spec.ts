@@ -8,6 +8,7 @@ import {
   chooseCardTime,
   clashIndex,
   firstIncomplete,
+  forgetBarbers,
   markFailures,
   newCard,
   type BookingCard,
@@ -178,6 +179,21 @@ describe('tarjetas de la reserva múltiple', () => {
     expect(marked[0]).toMatchObject({ startAtUtc: null, failure: 'Ese horario acaba de ocuparse.' });
     expect(marked[1]).toBe(cards[1]);
     expect(marked[2]).toMatchObject({ startAtUtc: null, failure: 'Ya pasó.' });
+  });
+
+  it('CB-03 RN-CBRES-13: sin el barbero que no presta el servicio, salvo la de barbero fijo', () => {
+    const locked = card({ key: 2, barberId: 'andres', barberLocked: true, startAtUtc: '2026-10-01T15:00:00Z' });
+    const cards = [card({ key: 1, startAtUtc: '2026-10-01T14:00:00Z' }), locked];
+
+    const forgotten = forgetBarbers(cards, 'Ese profesional no presta ese servicio');
+
+    expect(forgotten[0]).toMatchObject({
+      barberId: null,
+      anyBarber: false,
+      startAtUtc: null,
+      failure: 'Ese profesional no presta ese servicio',
+    });
+    expect(forgotten[1]).toBe(locked);
   });
 
   it('la clave de disponibilidad es la de su servicio, barbero y día; sin barbero no hay clave', () => {

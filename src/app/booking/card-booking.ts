@@ -5,11 +5,10 @@ import {
   computed,
   inject,
   input,
-  linkedSignal,
   output,
   signal,
 } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { ReactiveFormsModule } from '@angular/forms';
 import { MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { Step, StepList, StepPanel, StepPanels, Stepper } from 'primeng/stepper';
@@ -19,13 +18,12 @@ import { BookingService } from '../data/booking.service';
 import { SettingsService } from '../data/settings.service';
 import {
   durationFor,
-  type AppointmentCreatedResponse,
   type CreateAppointmentInput,
   type PublicBarber,
   type PublicService,
 } from '../data/public-api.models';
 import { AppointmentList, type AppointmentListItem } from './appointment-list';
-import { bookingWindow, flattenSlots, type FlatSlot } from './availability';
+import { bookingWindow, slotsByPeriod, type PeriodSlots } from './availability';
 import {
   barberChosen,
   cardAvailabilityKey,
@@ -36,23 +34,21 @@ import {
   chooseCardTime,
   clashIndex,
   firstIncomplete,
+  forgetBarbers,
   markFailures,
   newCard,
   type BookingCard,
 } from './booking-cards';
 import { bookingItemFailures, planForBookingError } from './booking-errors';
-import { CustomerFields, createCustomerForm, customerInput, type CustomerForm } from './customer-fields';
+import { CardBookingState, type CardSlots } from './card-booking.state';
+import { CustomerFields, customerInput, type CustomerForm } from './customer-fields';
 import { SchedulePicker } from './schedule-picker';
 import { ServicePicker } from './service-picker';
-import { addLine, removeLine, totalPrice, type SelectionLine } from './service-selection';
+import { addLine, removeLine, totalPrice } from './service-selection';
 
-/** La disponibilidad de una tarjeta, con la clave con la que se pidió (M-08 RN-DISPO-52). */
-interface CardSlots {
-  readonly key: string;
-  readonly slots: readonly FlatSlot[];
-  readonly loading: boolean;
-  readonly failed: boolean;
-}
+/** Constantes compartidas: una lista nueva en cada cálculo volvería a elegir el turno abierto. */
+const NO_PERIODS: readonly PeriodSlots[] = [];
+const NO_CLASHES: ReadonlyMap<string, string> = new Map();
 
 /** Lo que el asistente de un servicio necesita para seguir donde lo deja este (M-08 RN-DISPO-37). */
 export interface SingleServiceFallback {
@@ -69,8 +65,9 @@ export interface SingleServiceFallback {
  * datos, y la pantalla de éxito. Con **una** tarjeta la reserva va por `POST /appointments`, la de
  * siempre; con dos o tres, por `POST /appointments/multiple`, todas o ninguna.
  *
- * La lógica de las tarjetas vive en `booking-cards.ts` (funciones puras); aquí se guarda el estado, se
- * pide la disponibilidad de cada tarjeta y se reacciona a los errores.
+ * La lógica de las tarjetas vive en `booking-cards.ts` (funciones puras) y el estado en
+ * `CardBookingState`, que sobrevive al cierre del diálogo (CB-03 RN-CBRES-12); aquí se pide la
+ * disponibilidad de cada tarjeta y se reacciona a los errores.
  */
 @Component({
   selector: 'cob-card-booking',
@@ -97,19 +94,16 @@ export class CardBooking {
   private readonly settings = inject(SettingsService);
   private readonly messages = inject(MessageService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly state = inject(CardBookingState);
 
   readonly services = input.required<readonly PublicService[]>();
   readonly barbers = input.required<readonly PublicBarber[]>();
-  /** El servicio tocado en la portada: entra como primera línea (M-08 RN-DISPO-37). */
-  readonly initialService = input<PublicService | null>(null);
   /**
    * El barbero del perfil (M-08 RN-DISPO-65): solo sus servicios, cada tarjeta nace con él **bloqueado**
    * —sin selector ni «Cualquier profesional»— y las citas se le atribuyen (`referralBarberId`).
    */
   readonly lockedBarber = input<PublicBarber | null>(null);
 
-  /** «Listo» en la pantalla de éxito. */
-  readonly finished = output<void>();
   /**
    * El servidor dice que la barbería ya no deja reservar varios servicios (`409
    * MULTI_SERVICE_BOOKING_DISABLED`, M-08 RN-DISPO-37): el asistente de un servicio sigue con el primero
@@ -117,31 +111,17 @@ export class CardBooking {
    */
   readonly singleServiceFallback = output<SingleServiceFallback>();
 
-  protected readonly step = signal(1);
-
-  /** La 0 es la del servicio tocado en la portada, si lo hubo. */
-  private nextLineKey = 1;
-  /**
-   * La selección del paso Servicios. Arranca con el servicio tocado en la portada ya añadido
-   * (M-08 RN-DISPO-37); el componente se monta de nuevo en cada apertura, así que esto se evalúa una
-   * vez por apertura.
-   */
-  protected readonly lines = linkedSignal<readonly SelectionLine[]>(() => {
-    const service = this.initialService();
-    return service ? [{ key: 0, service }] : [];
-  });
-  protected readonly cards = signal<readonly BookingCard[]>([]);
-  /** La tarjeta abierta del acordeón: una sola, o ninguna. */
-  protected readonly openKey = signal<number | null>(null);
-  private readonly availability = signal<ReadonlyMap<number, CardSlots>>(new Map());
-
-  /** El mensaje general de un `409 BOOKING_ITEMS_FAILED`, arriba de las tarjetas (M-08 RN-DISPO-56). */
-  protected readonly failureAlert = signal<string | null>(null);
-
-  protected readonly form = createCustomerForm(inject(FormBuilder));
+  protected readonly step = this.state.step;
+  /** La selección del paso Servicios: el servicio tocado al abrir ya entró (`CardBookingState.offer`). */
+  protected readonly lines = this.state.lines;
+  protected readonly cards = this.state.cards;
+  protected readonly openKey = this.state.openKey;
+  private readonly availability = this.state.availability;
+  protected readonly failureAlert = this.state.failureAlert;
+  protected readonly form = this.state.form;
+  protected readonly created = this.state.created;
+  protected readonly createdEmail = this.state.createdEmail;
   protected readonly submitting = signal(false);
-  protected readonly created = signal<readonly AppointmentCreatedResponse[]>([]);
-  protected readonly createdEmail = signal('');
 
   protected readonly days = computed(() => {
     const policy = this.bookingPolicy.state();
@@ -183,6 +163,7 @@ export class CardBooking {
           card.barberLocked ? barber.id === card.barberId : card.service.barberIds.includes(barber.id),
         )
         .map((barber) => ({ barber, durationMin: durationFor(card.service, barber.id) }));
+      const periods = slots?.periods ?? NO_PERIODS;
 
       return {
         card,
@@ -192,13 +173,10 @@ export class CardBooking {
         durationMin: cardDuration(card),
         summary: this.cardSummary(card),
         barberOptions,
-        // «Cualquier profesional» solo con dos o más que presten el servicio (M-08 RN-DISPO-60), y nunca
-        // con el barbero bloqueado: entonces la opción es una sola.
-        showAny: barberOptions.length > 1,
-        slots: slots?.slots ?? [],
+        periods,
         slotsLoading: slots?.loading ?? key !== null,
         slotsFailed: slots?.failed ?? false,
-        clashes: card.key === open ? this.clashesFor(cards, index, slots?.slots ?? []) : new Map<string, string>(),
+        clashes: card.key === open ? this.clashesFor(cards, index, periods) : NO_CLASHES,
       };
     });
   });
@@ -236,7 +214,7 @@ export class CardBooking {
   }
 
   protected addService(service: PublicService): void {
-    this.lines.update((lines) => addLine(lines, service, this.nextLineKey++));
+    this.lines.update((lines) => addLine(lines, service, this.state.lineKey()));
   }
 
   protected removeService(key: number): void {
@@ -290,11 +268,21 @@ export class CardBooking {
    * Elegir hora cierra la tarjeta y abre la siguiente sin completar (M-08 RN-DISPO-60). Si la hora pisa
    * otra tarjeta del mismo barbero, esa pierde la suya (M-08 RN-DISPO-55) y es la que se abre.
    */
-  protected chooseTime(index: number, slot: FlatSlot): void {
-    const cards = chooseCardTime(this.cards(), index, slot.startAtUtc);
+  protected chooseTime(index: number, startAtUtc: string): void {
+    const cards = chooseCardTime(this.cards(), index, startAtUtc);
     this.cards.set(cards);
     const next = firstIncomplete(cards);
     this.openCard(next === -1 ? null : (cards[next]?.key ?? null));
+  }
+
+  /** «Reintentar» tras un error de horas: el mismo día otra vez (CB-04 RN-CBMUL-05). */
+  protected retryCard(index: number): void {
+    this.reloadCard(index);
+  }
+
+  /** «Hacer otra reserva»: vacía todo y vuelve a «Servicios» (CB-04 RN-CBMUL-07). */
+  protected startOver(): void {
+    this.state.reset();
   }
 
   protected backToServices(): void {
@@ -403,6 +391,17 @@ export class CardBooking {
         this.step.set(1);
         break;
 
+      // CB-03 RN-CBRES-13: con el barbero fijo se corrige cambiando de servicio; si no, de barbero.
+      case 'back-to-barber':
+        if (this.lockedBarber()) {
+          this.step.set(1);
+        } else {
+          this.cards.set(forgetBarbers(this.cards(), plan.summary));
+          this.step.set(2);
+          this.openCard(this.cards()[0]?.key ?? null);
+        }
+        break;
+
       case 'single-service':
         this.singleServiceFallback.emit({
           service: this.cards()[0]?.service ?? this.lines()[0]?.service ?? null,
@@ -471,7 +470,7 @@ export class CardBooking {
       return;
     }
 
-    this.setSlots(cardKey, { key, slots: [], loading: true, failed: false });
+    this.setSlots(cardKey, { key, periods: [], loading: true, failed: false });
     const stillAsked = (): boolean => {
       const current = this.cards().find((candidate) => candidate.key === cardKey);
       return current !== undefined && cardAvailabilityKey(current) === key;
@@ -484,11 +483,11 @@ export class CardBooking {
         this.settings.requireLocale(),
       ]);
       if (stillAsked()) {
-        this.setSlots(cardKey, { key, slots: flattenSlots(response, locale), loading: false, failed: false });
+        this.setSlots(cardKey, { key, periods: slotsByPeriod(response, locale), loading: false, failed: false });
       }
     } catch {
       if (stillAsked()) {
-        this.setSlots(cardKey, { key, slots: [], loading: false, failed: true });
+        this.setSlots(cardKey, { key, periods: [], loading: false, failed: true });
       }
     }
   }
@@ -501,10 +500,10 @@ export class CardBooking {
   private clashesFor(
     cards: readonly BookingCard[],
     index: number,
-    slots: readonly FlatSlot[],
+    periods: readonly PeriodSlots[],
   ): Map<string, string> {
     const clashes = new Map<string, string>();
-    for (const slot of slots) {
+    for (const slot of periods.flatMap((period) => period.slots)) {
       const other = clashIndex(cards, index, slot.startAtUtc);
       if (other !== -1) {
         clashes.set(slot.startAtUtc, `Choca con tu cita ${other + 1}`);
