@@ -1,5 +1,6 @@
 <p-dialog
-  [(visible)]="visible"
+  [visible]="visible()"
+  (visibleChange)="visible.set($event)"
   [modal]="true"
   [draggable]="false"
   [dismissableMask]="false"
@@ -125,7 +126,8 @@
         <p-step-panel [value]="numbers.barber">
           <ng-template #content>
             @if (visibleBarbers().length === 0) {
-              <p-message severity="info" [text]="service() ? 'Ningún profesional presta este servicio ahora mismo. Elige otro servicio.' : 'Este negocio todavía no publicó profesionales.'" />
+              <!-- Al paso 2 solo se llega con el servicio ya elegido. -->
+              <p-message severity="info" text="Ningún profesional presta este servicio ahora mismo. Elige otro servicio." />
             } @else {
               <div class="options">
                 <!--

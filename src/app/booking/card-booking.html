@@ -26,7 +26,8 @@
     <p-button label="Hacer otra reserva" icon="pi pi-calendar-plus" (onClick)="startOver()" />
   </div>
 } @else {
-  <p-stepper [(value)]="step" [linear]="false" styleClass="wizard">
+  <!-- El stepper solo emite el `value` numérico de un `p-step`. -->
+  <p-stepper [value]="step()" (valueChange)="step.set($event!)" [linear]="false" styleClass="wizard">
     <p-step-list>
       <p-step [value]="1">Servicios</p-step>
       <!-- M-08 RN-DISPO-65: con el barbero bloqueado no hay barbero que elegir. -->

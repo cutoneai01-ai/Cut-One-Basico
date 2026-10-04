@@ -107,6 +107,18 @@ describe('BarberSelect', () => {
       expect(parts(trigger())).toEqual(['Barbero:', 'Cualquier profesional', '45 min (aprox.)']);
       expect(trigger().querySelector('.pi-sparkles')).not.toBeNull();
     });
+
+    it('con «Cualquier profesional» sin tiempo base: sin minutos', async () => {
+      await render({ allowAny: true, anyBarber: true });
+
+      expect(parts(trigger())).toEqual(['Barbero:', 'Cualquier profesional']);
+    });
+
+    it('un barbero sin nombre es «Profesional»', async () => {
+      await render({ options: [{ barber: barber('nn', 'Sin nombre', { displayName: null }), durationMin: 30 }], barberId: 'nn' });
+
+      expect(parts(trigger())).toEqual(['Barbero:', 'Profesional', '30 min']);
+    });
   });
 
   describe('la ventana', () => {
@@ -246,6 +258,13 @@ describe('BarberSelect', () => {
       expect(clean(card.querySelector('.bpick__name')?.textContent)).toBe('Andrés Mejía');
       expect(card.textContent).toContain('barbero fijo, no se puede cambiar');
       expect(host().textContent).not.toContain('Cualquier profesional');
+    });
+
+    it('sin barbero elegido, la ficha es la del único que se ofrece', async () => {
+      await render({ options: [OPTIONS[1]], locked: true });
+
+      expect(clean(host().querySelector('.bpick--fixed .bpick__name')?.textContent)).toBe('Camilo Ríos');
+      expect(clean(host().querySelector('.bpick--fixed .bpick__meta')?.textContent)).toBe('40 min');
     });
   });
 

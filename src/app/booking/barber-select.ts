@@ -75,7 +75,7 @@ export class BarberSelect {
 
   /** La ficha del barbero fijo: el elegido, o el único que se ofrece. */
   protected readonly fixed = computed(() =>
-    this.locked() ? (this.selected() ?? this.options()[0] ?? null) : null,
+    this.locked() ? (this.selected() ?? this.options().at(0)) : null,
   );
 
   protected readonly selectedColor = computed(() => {

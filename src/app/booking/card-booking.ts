@@ -12,6 +12,7 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { Step, StepList, StepPanel, StepPanels, Stepper } from 'primeng/stepper';
+import type { ApiError } from '../core/api-error';
 import { dayLabels, formatLongDate, formatMoney, utcToZoned } from '../core/locale';
 import { BookingPolicyService } from '../data/booking-policy.service';
 import { BookingService } from '../data/booking.service';
@@ -235,10 +236,11 @@ export class CardBooking {
     this.cards.set(cards);
     this.step.set(2);
 
+    // `cardsForLines` da una tarjeta por línea, y aquí hay al menos una.
     const open = firstIncomplete(cards);
-    this.openCard(cards[open === -1 ? 0 : open]?.key ?? null);
+    this.openCard(cards[open === -1 ? 0 : open].key);
     for (const card of cards) {
-      this.ensureAvailability(card.key);
+      this.ensureAvailability(card);
     }
   }
 
@@ -272,7 +274,7 @@ export class CardBooking {
     const cards = chooseCardTime(this.cards(), index, startAtUtc);
     this.cards.set(cards);
     const next = firstIncomplete(cards);
-    this.openCard(next === -1 ? null : (cards[next]?.key ?? null));
+    this.openCard(next === -1 ? null : cards[next].key);
   }
 
   /** «Reintentar» tras un error de horas: el mismo día otra vez (CB-04 RN-CBMUL-05). */
@@ -335,7 +337,7 @@ export class CardBooking {
             ).appointments;
 
       this.failureAlert.set(null);
-      this.createdEmail.set(customer.email ?? '');
+      this.createdEmail.set(customer.email);
       this.created.set(appointments);
     } catch (error) {
       this.handleError(error);
@@ -368,7 +370,8 @@ export class CardBooking {
   private handleError(error: unknown): void {
     const failures = bookingItemFailures(error);
     if (failures !== null) {
-      this.failureAlert.set(error instanceof Error ? error.message : null);
+      // `bookingItemFailures` solo reconoce un `ApiError`.
+      this.failureAlert.set((error as ApiError).message);
       this.backToCardsMarking(failures);
       return;
     }
@@ -443,18 +446,17 @@ export class CardBooking {
   }
 
   /** Pide la disponibilidad de la tarjeta si la que hay no responde a su selección actual. */
-  private ensureAvailability(cardKey: number): void {
-    const card = this.cards().find((candidate) => candidate.key === cardKey);
-    const key = card ? cardAvailabilityKey(card) : null;
-    if (key !== null && this.availability().get(cardKey)?.key !== key) {
-      void this.loadAvailability(cardKey);
+  private ensureAvailability(card: BookingCard): void {
+    const key = cardAvailabilityKey(card);
+    if (key !== null && this.availability().get(card.key)?.key !== key) {
+      void this.loadAvailability(card);
     }
   }
 
   private reloadCard(index: number): void {
     const card = this.cards()[index];
     if (card) {
-      void this.loadAvailability(card.key);
+      void this.loadAvailability(card);
     }
   }
 
@@ -463,10 +465,10 @@ export class CardBooking {
    * aplica a su tarjeta y solo si la tarjeta sigue pidiendo lo mismo al llegar. Dos tarjetas que cargan a
    * la vez escriben cada una en la suya.
    */
-  private async loadAvailability(cardKey: number): Promise<void> {
-    const card = this.cards().find((candidate) => candidate.key === cardKey);
-    const key = card ? cardAvailabilityKey(card) : null;
-    if (!card || key === null) {
+  private async loadAvailability(card: BookingCard): Promise<void> {
+    const cardKey = card.key;
+    const key = cardAvailabilityKey(card);
+    if (key === null) {
       return;
     }
 

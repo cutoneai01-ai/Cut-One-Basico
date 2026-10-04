@@ -146,6 +146,14 @@ describe('tarjetas de la reserva múltiple', () => {
       expect(next[2]).toBe(cards[2]);
     });
 
+    it('una tarjeta que ya no existe no choca ni cambia nada', () => {
+      expect(clashIndex(base, 5, '2026-10-01T14:00:00Z')).toBe(-1);
+
+      const next = chooseCardTime(base, 5, '2026-10-01T14:00:00Z');
+      expect(next).toEqual(base);
+      expect(next).not.toBe(base);
+    });
+
     it('elegir hora quita la marca de fallo de esa tarjeta', () => {
       const cards = [card({ key: 1, failure: 'Ese horario acaba de ser reservado' })];
       expect(chooseCardTime(cards, 0, '2026-10-01T14:00:00Z')[0]?.failure).toBeNull();

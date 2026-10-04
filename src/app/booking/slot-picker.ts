@@ -100,26 +100,29 @@ export class SlotPicker {
     })),
   );
 
-  protected readonly active = computed(() => {
-    const tabs = this.tabs();
-    return tabs.find((tab) => tab.period === this.openPeriod()) ?? tabs[0] ?? null;
-  });
+  /** `openPeriod` siempre es uno de los turnos que llegaron; sin turnos no hay pestaña abierta. */
+  protected readonly active = computed(() =>
+    this.tabs().find((tab) => tab.period === this.openPeriod()),
+  );
 
   /** La rejilla del turno abierto, con lo que pinta cada hora ya resuelto. */
   protected readonly activeSlots = computed(() => {
-    const active = this.active();
-    const period = this.periods().find((candidate) => candidate.period === active?.period);
-    return (period?.slots ?? []).map((slot) => ({
-      slot,
-      chosen: sameInstant(this.time(), slot.startAtUtc),
-      clash: slot.available ? (this.clashes().get(slot.startAtUtc) ?? null) : null,
-    }));
+    const open = this.active()?.period;
+    return this.periods()
+      .filter((candidate) => candidate.period === open)
+      .flatMap((period) => period.slots)
+      .map((slot) => ({
+        slot,
+        chosen: sameInstant(this.time(), slot.startAtUtc),
+        clash: slot.available ? (this.clashes().get(slot.startAtUtc) ?? null) : null,
+      }));
   });
 
-  /** Un turno sin libres se pinta igual si alguna choca: así se lee el motivo de cada una. */
-  protected readonly showGrid = computed(
-    () => (this.active()?.free ?? 0) > 0 || this.activeSlots().some((entry) => entry.clash !== null),
-  );
+  /**
+   * Con alguna hora libre o que choca: un turno sin libres se pinta igual si alguna choca, para que se
+   * lea el motivo de cada una (M-08 RN-DISPO-55).
+   */
+  protected readonly showGrid = computed(() => this.activeSlots().some((entry) => entry.slot.available));
 
   /** Los motivos de choque del turno abierto, agrupados: «Choca con tu cita 1: 09:00, 09:15». */
   protected readonly clashNotes = computed(() => {
