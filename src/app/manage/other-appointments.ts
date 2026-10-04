@@ -33,8 +33,13 @@ import { isLive, shortWhen, statusLabel } from './manage-appointment';
     }
   `,
   styles: `
+    /* Sin citas no pinta nada, y tampoco ocupa un hueco en la pila de la vista (CB-05 RN-CBGES-04). */
+    :host {
+      display: contents;
+    }
+
     .others__title {
-      margin: 1.25rem 0 0.5rem;
+      margin: 0 0 0.5rem;
       font-size: 1rem;
     }
 

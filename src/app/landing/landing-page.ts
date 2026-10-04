@@ -11,7 +11,6 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
 import { applyPageMetadata } from '../core/page-metadata';
-import { resolveImage } from '../core/images';
 import { BookingWizard } from '../booking/booking-wizard';
 import { BookingPolicyService } from '../data/booking-policy.service';
 import { CatalogService } from '../data/catalog.service';
@@ -38,7 +37,8 @@ const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * Es el único sitio que llama a `ensureLoaded()`: los servicios de datos son singletons y las secciones
  * consumen sus señales, así que `/services` y `/barbers` se piden **una vez** por carga de página
  * (RF-G02 §5 RN-07). Añadir aquí un componente que cargue lo suyo por su cuenta reintroduciría la
- * regresión que se midió en producción en `pz-personalizado` el 2026-07-28.
+ * regresión que se midió en producción en `pz-personalizado` el 2026-07-28. Los ajustes los carga
+ * además el componente raíz, dueño del favicon (CB-07 RN-CBBAS-04).
  *
  * En `/profile/:barberId` es también el perfil del barbero (M-08 RN-DISPO-62, ADR-0061): la **misma**
  * landing filtrada por él, no una página aparte. Pasar de la landing al perfil y volver no recarga la
@@ -195,11 +195,10 @@ export class LandingPage {
     // M-08 RN-DISPO-37: la política, al cargar la página y no al abrir el asistente.
     void this.bookingPolicy.ensureLoaded();
 
-    // Título y favicon en cuanto llega el branding (RF-G02 §8): `index.html` es un shell único servido
-    // a todos los subdominios y no puede llevar el nombre de ningún tenant.
+    // El título en cuanto llega el branding: `index.html` es un shell común a todos los subdominios.
+    // El favicon no: lo pone el componente raíz en toda ruta (CB-07 RN-CBBAS-04).
     effect(() => {
-      const branding = this.branding();
-      applyPageMetadata({ title: branding.shop_name, logoUrl: resolveImage(branding.logo_url) });
+      applyPageMetadata({ title: this.branding().shop_name });
     });
 
     // M-08 RN-DISPO-63: un perfil que no es de un barbero público —inactivo, sin horario, inexistente o

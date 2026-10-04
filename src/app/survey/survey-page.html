@@ -1,13 +1,15 @@
 <!-- RN-06: esta página no lleva el landing entero. No hay nada que navegar, y las anclas del landing
      (#servicios, #barberos) no existen en esta ruta. Se identifica con `shopName` y `logoUrl` que vienen
-     en la propia respuesta del GET, así que **no se pide `/settings`** (RN-05). -->
+     en la propia respuesta del GET; el favicon sale de los ajustes públicos (CB-07 RN-CBBAS-04). -->
 <main class="page">
-  <section class="card">
+  <section class="card" [attr.aria-busy]="state() === 'loading'">
     @if (state() === 'loading') {
       <p-skeleton shape="circle" size="4rem" />
       <p-skeleton width="60%" height="1.5rem" />
       <p-skeleton width="80%" />
       <p-skeleton width="40%" height="2.5rem" />
+      <!-- CB-06 RN-CBENC-04 -->
+      <span class="cob-visually-hidden" role="status">Cargando la encuesta…</span>
     } @else if (state() === 'error') {
       <i class="pi pi-exclamation-triangle card__icon" aria-hidden="true"></i>
       <p-message severity="warn" [text]="errorMessage()" />
@@ -45,19 +47,29 @@
           [stars]="5"
         />
 
+        <!-- CB-06 RN-CBENC-03 y RN-CBENC-04: el tope del backend, con su contador, y un nombre accesible. -->
+        <label class="cob-visually-hidden" for="survey-comment">Comentario (opcional)</label>
         <textarea
           pTextarea
+          id="survey-comment"
           class="card__comment"
           rows="4"
-          maxlength="1000"
+          [attr.maxlength]="commentMax"
+          aria-describedby="survey-comment-count"
           placeholder="Cuéntanos algo más (opcional)"
           [ngModel]="comment()"
           (ngModelChange)="comment.set($event)"
         ></textarea>
+        <p class="card__counter cob-muted" id="survey-comment-count">{{ comment().length }}/{{ commentMax }}</p>
+
+        <!-- CB-06 RN-CBENC-02: el fallo va encima del botón y lo escrito se queda. -->
+        @if (submitError(); as message) {
+          <p-message class="card__alert" severity="error" [text]="message" />
+        }
 
         <p-button
-          label="Enviar mi opinión"
-          icon="pi pi-send"
+          [label]="submitError() ? 'Reintentar' : 'Enviar mi opinión'"
+          [icon]="submitError() ? 'pi pi-refresh' : 'pi pi-send'"
           [loading]="submitting()"
           [disabled]="rating() < 1 || submitting()"
           (onClick)="submit()"

@@ -1,6 +1,9 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
 import { Button } from 'primeng/button';
 import { RouterLink } from '@angular/router';
+import { applyPageMetadata } from '../core/page-metadata';
+import { SettingsService } from '../data/settings.service';
 
 /** Mismo criterio que `NotFound.tsx` de `pz-personalizado`: una salida, no una pantalla en blanco. */
 @Component({
@@ -27,4 +30,14 @@ import { RouterLink } from '@angular/router';
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class NotFoundPage {}
+export class NotFoundPage {
+  constructor() {
+    const doc = inject(DOCUMENT);
+    const settings = inject(SettingsService);
+    // CB-07 RN-CBBAS-05: el nombre sale de los ajustes que carga el componente raíz; sin él, solo el aviso.
+    effect(() => {
+      const shop = settings.branding().shop_name.trim();
+      applyPageMetadata({ title: shop ? `Página no encontrada · ${shop}` : 'Página no encontrada' }, doc);
+    });
+  }
+}

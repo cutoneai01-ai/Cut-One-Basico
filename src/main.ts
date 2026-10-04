@@ -2,18 +2,12 @@ import { bootstrapApplication } from '@angular/platform-browser';
 import { createAppConfig } from './app/app.config';
 import { App } from './app/app';
 import { installLightDarkFallback } from './app/core/light-dark-fallback';
+import { isPreviewPath } from './app/core/preview-path';
 import { applyColorScheme } from './app/theme/resolve-theme';
 import { applyThemeVars } from './app/theme/apply-theme';
 import { resolveStartupTheme } from './app/theme/startup-theme';
 import { THEMES } from './app/theme/themes';
 import { environment } from './environments/environment';
-
-/**
- * M-20 RN-CFG-41. Repetido a mano (no importado de `app.routes.ts`) porque `main.ts` corre antes de que el
- * router exista — necesita saber si está en `/__preview` sin poder preguntarle a nadie más que a
- * `window.location`.
- */
-const PREVIEW_PATH = '/__preview';
 
 // Marca del build, lo primero y sin condicionarla a `production`. Es la única forma de responder desde
 // fuera "¿qué código está publicado?" sin entrar al dashboard de Netlify: se abre la consola y se lee.
@@ -33,7 +27,7 @@ installLightDarkFallback();
  * olvido).
  */
 async function main(): Promise<void> {
-  const isPreview = window.location.pathname === PREVIEW_PATH;
+  const isPreview = isPreviewPath(window.location.pathname);
 
   // M-20 RN-CFG-41 ("cero peticiones al API"), y un punto que el diseño original no cubría en su lista
   // de cambios porque no tocaba `main.ts`: sin este corte, `resolveStartupTheme()` dispararía la

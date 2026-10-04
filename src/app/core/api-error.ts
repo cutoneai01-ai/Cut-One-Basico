@@ -28,6 +28,14 @@ export class ApiError extends Error {
 
 const GENERIC_MESSAGE = 'Ocurrió un error inesperado.';
 
+/** `code` del `ApiError` de una petición que no llegó al servidor (status 0): sin red, DNS, CORS. */
+export const NETWORK_ERROR = 'NETWORK_ERROR';
+
+/** Sin conexión, el cliente tiene que leer «Revisa tu conexión», no un error de la barbería (CB-07 RN-CBBAS-02). */
+export function isNetworkError(error: unknown): boolean {
+  return error instanceof ApiError && error.code === NETWORK_ERROR;
+}
+
 /**
  * Traduce `HttpErrorResponse` a `ApiError` leyendo `title`, `code` y `errors` del ProblemDetails del
  * backend. Va en un interceptor y no en cada servicio para que ningún consumidor tenga que conocer los
@@ -40,8 +48,11 @@ export const apiErrorInterceptor: HttpInterceptorFn = (request, next) =>
         return throwError(() => error);
       }
 
-      // `status: 0` es fallo de red o de DNS: no hay body que leer y el mensaje de Angular no le dice
-      // nada a un cliente final.
+      // CB-07 RN-CBBAS-02: el status 0 no trae body; su mensaje vale tal cual para quien no distinga el código.
+      if (error.status === 0) {
+        return throwError(() => new ApiError(0, 'Revisa tu conexión e inténtalo de nuevo.', NETWORK_ERROR));
+      }
+
       const body = (error.error ?? {}) as {
         title?: string;
         code?: string;

@@ -1,10 +1,8 @@
-import { DOCUMENT } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Message } from 'primeng/message';
 import { Skeleton } from 'primeng/skeleton';
 import { resolveImage } from '../core/images';
-import { applyPageMetadata } from '../core/page-metadata';
 import type { ManageAppointment } from '../data/public-api.models';
 import type { ManageLoadState } from './manage-appointment';
 
@@ -15,7 +13,7 @@ import type { ManageLoadState } from './manage-appointment';
  *
  * Esta página no lleva la landing entera: no hay nada que navegar y las anclas de la portada no
  * existen aquí. Se identifica con `shopName` y `logoUrl`, que vienen en la propia respuesta de
- * `GET manage`, así que no se pide `/settings` — mismo criterio que la página de encuesta.
+ * `GET manage`. El favicon no: sale de los ajustes públicos (CB-07 RN-CBBAS-04).
  */
 @Component({
   selector: 'cob-manage-frame',
@@ -63,10 +61,11 @@ import type { ManageLoadState } from './manage-appointment';
     </main>
   `,
   styles: `
+    /* CB-05 RN-CBGES-04: 1,5 rem entre la cabecera y la vista, como entre los bloques de la vista. */
     .page {
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 1.5rem;
       width: min(46rem, 100%);
       margin-inline: auto;
       padding: clamp(1.5rem, 5vw, 2.5rem) 1rem;
@@ -122,16 +121,4 @@ export class ManageFrame {
   readonly errorMessage = input('');
 
   protected readonly logo = computed(() => resolveImage(this.appointment()?.logoUrl ?? null));
-
-  constructor() {
-    const doc = inject(DOCUMENT);
-    // M-20 RN-CFG-80: el favicon es el logo de la barbería también aquí, con el `logoUrl` de la propia
-    // respuesta; sin logo, el de `index.html`. Solo el icono: el título lo pone cada vista al cargar la
-    // cita («Tu reserva · …») y no se toca.
-    effect(() => {
-      if (this.appointment()) {
-        applyPageMetadata({ logoUrl: this.logo() }, doc);
-      }
-    });
-  }
 }

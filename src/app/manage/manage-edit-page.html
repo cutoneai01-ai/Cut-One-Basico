@@ -63,7 +63,8 @@
           />
         </div>
 
-        <div class="actions">
+        <!-- CB-05 RN-CBGES-03: «Guardar cambios» y «Ver mi reserva» en la fila de las otras cinco vistas. -->
+        <div class="actions actions--with-back">
           <button
             type="button"
             class="btn btn--primary"
@@ -72,7 +73,7 @@
           >
             {{ submitting() ? 'Guardando…' : 'Guardar cambios' }}
           </button>
-          <a class="btn" [routerLink]="['/reserva', booking.appointmentId]">Volver</a>
+          <a class="back" [routerLink]="['/reserva', booking.appointmentId]">Ver mi reserva</a>
         </div>
         @if (!dirty()) {
           <p class="cob-muted">Cambia algo para poder guardar.</p>

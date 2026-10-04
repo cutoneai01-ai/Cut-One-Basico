@@ -36,12 +36,11 @@ export type AppointmentCardData = Pick<
           <dd>{{ price() }}</dd>
         }
       </dl>
-      <ng-content />
+      <div class="appt__extra"><ng-content /></div>
     </article>
   `,
   styles: `
     .appt {
-      margin-top: 0.75rem;
       padding: 0.875rem;
       border: 1px solid var(--cob-border);
       border-radius: var(--cob-radius);
@@ -74,6 +73,18 @@ export type AppointmentCardData = Pick<
 
     .appt__data dd {
       margin: 0;
+    }
+
+    /* Lo que la vista proyecta (sus acciones, el motivo de cancelar), separado de los datos de la cita. */
+    .appt__extra {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .appt__extra:empty {
+      display: none;
     }
 
     .tag {

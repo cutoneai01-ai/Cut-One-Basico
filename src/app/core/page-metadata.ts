@@ -9,8 +9,8 @@ export interface PageMetadata {
   /** El título de la pestaña. Ausente o vacío **no lo toca**: cada vista conserva el suyo. */
   readonly title?: string | null;
   /**
-   * El logo de la barbería, ya resuelto a una URL (M-20 RN-CFG-80). Vacío o ausente vuelve al favicon
-   * por defecto de `index.html`.
+   * El logo de la barbería, ya resuelto a una URL (M-20 RN-CFG-80). Vacío o `null` vuelve al favicon
+   * por defecto de `index.html`; ausente **no toca los iconos**, que tienen un único dueño (CB-07 RN-CBBAS-04).
    */
   readonly logoUrl?: string | null;
 }
@@ -21,9 +21,8 @@ const CREATED_MARK = 'cobGenerated';
 const DEFAULT_HREF = 'cobDefaultHref';
 
 /**
- * M-20 RN-CFG-80: el favicon es el logo de la barbería en la landing, en todas las vistas de
- * `/reserva/*` y en `/encuesta/:id`. Lo usan la portada (con el branding) y esas dos rutas (con el
- * `logoUrl` de su propia respuesta), que **no** piden `/settings`.
+ * M-20 RN-CFG-80: el favicon es el logo de la barbería en todas las rutas. Lo pone una sola vez el
+ * componente raíz con los ajustes públicos (CB-07 RN-CBBAS-04); cada vista solo pone su título.
  *
  * Con logo, el icono y el `apple-touch-icon` lo apuntan; `index.html` no declara `apple-touch-icon`,
  * así que se crea. Sin logo, el icono vuelve al `favicon.ico` de `index.html` y el `apple-touch-icon`
@@ -32,6 +31,10 @@ const DEFAULT_HREF = 'cobDefaultHref';
 export function applyPageMetadata(meta: PageMetadata, doc: Document = document): void {
   if (meta.title) {
     doc.title = meta.title;
+  }
+
+  if (meta.logoUrl === undefined) {
+    return;
   }
 
   const logo = meta.logoUrl?.trim() || null;

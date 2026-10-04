@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MessageService } from 'primeng/api';
-import { ApiError } from '../core/api-error';
+import { ApiError, isNetworkError } from '../core/api-error';
 import { formatMoney, utcToZoned } from '../core/locale';
 import { availabilityKey, bookingWindow, slotsByPeriod, type PeriodSlots } from '../booking/availability';
 import { firstClash } from '../booking/overlap';
@@ -264,7 +264,8 @@ export class ManageEditPage {
   }
 
   private async handleSaveError(error: unknown): Promise<void> {
-    if (!(error instanceof ApiError)) {
+    // CB-07 RN-CBBAS-02
+    if (!(error instanceof ApiError) || isNetworkError(error)) {
       this.messages.add({
         severity: 'error',
         summary: 'No pudimos guardar el cambio',

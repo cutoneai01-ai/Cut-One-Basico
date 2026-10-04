@@ -1,10 +1,18 @@
+import { Location } from '@angular/common';
+import { SpyLocation, provideLocationMocks } from '@angular/common/testing';
 import { Component, signal, type Type } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
-import { Router, provideRouter } from '@angular/router';
+import {
+  RedirectCommand,
+  Router,
+  provideRouter,
+  type ActivatedRouteSnapshot,
+  type RouterStateSnapshot,
+} from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { MessageService } from 'primeng/api';
 import { Subject, firstValueFrom } from 'rxjs';
-import { ApiError } from '../core/api-error';
+import { ApiError, NETWORK_ERROR } from '../core/api-error';
 import { clearTenantLocale, setTenantLocale, type TenantLocale } from '../core/locale';
 import { BookingService } from '../data/booking.service';
 import { CatalogService } from '../data/catalog.service';
@@ -570,7 +578,8 @@ describe('Gestión de la cita desde el correo', () => {
     });
   });
 
-  // M-20 RN-CFG-80: el favicon es el logo de la barbería en las vistas de `/reserva`, sin tocar el título.
+  // CB-07 RN-CBBAS-04: el favicon lo pone el componente raíz con los ajustes públicos; las vistas de
+  // `/reserva` solo ponen su título.
   describe('favicon', () => {
     let icon: HTMLLinkElement;
 
@@ -589,20 +598,28 @@ describe('Gestión de la cita desde el correo', () => {
     const touchIcon = (): HTMLLinkElement | null =>
       document.head.querySelector<HTMLLinkElement>("link[rel='apple-touch-icon']");
 
-    it('con logo: icono y apple-touch-icon apuntan al logo; el título es el de la vista', async () => {
+    it('con logo en la cita no toca el favicon; el título es el de la vista', async () => {
       await render(ManageGroupActionPage, grouped({ logoUrl: 'https://cdn.example/logo.png' }), { action: 'confirm' });
-
-      expect(icon.getAttribute('href')).toBe('https://cdn.example/logo.png');
-      expect(touchIcon()?.getAttribute('href')).toBe('https://cdn.example/logo.png');
-      expect(document.title).toBe('Tu reserva · Barbería Ejemplo');
-    });
-
-    it('sin logo: el favicon de index.html y ningún apple-touch-icon', async () => {
-      await render(ManageDetailPage, BASE);
 
       expect(icon.getAttribute('href')).toBe('favicon.ico');
       expect(touchIcon()).toBeNull();
       expect(document.title).toBe('Tu reserva · Barbería Ejemplo');
+    });
+
+    it('en ninguna de las seis vistas', async () => {
+      const booking = grouped({ logoUrl: 'https://cdn.example/logo.png' });
+      const views: [Type<unknown>, Record<string, unknown>][] = [
+        [ManageDetailPage, {}],
+        [ManageConfirmPage, {}],
+        [ManageCancelPage, {}],
+        [ManageEditPage, {}],
+        [ManageGroupActionPage, { action: 'confirm' }],
+        [ManageGroupActionPage, { action: 'cancel' }],
+      ];
+      for (const [view, inputs] of views) {
+        await render(view, booking, inputs);
+        expect(icon.getAttribute('href')).toBe('favicon.ico');
+      }
     });
 
     it('cita no encontrada: no toca el favicon', async () => {
@@ -610,6 +627,132 @@ describe('Gestión de la cita desde el correo', () => {
 
       expect(icon.getAttribute('href')).toBe('favicon.ico');
       expect(touchIcon()).toBeNull();
+    });
+  });
+
+  // CB-07 RN-CBBAS-02: sin red, «Revisa tu conexión»; un error del servidor, con su propio mensaje.
+  describe('sin conexión', () => {
+    /** Otro texto que el de las vistas, a propósito: así se ve que decide el código, no el mensaje. */
+    const offline = new ApiError(0, 'texto del interceptor', NETWORK_ERROR);
+
+    it('al cargar la cita: «Revisa tu conexión»', async () => {
+      const { host } = await render(ManageDetailPage, offline);
+
+      expect(text(host, 'p-message')).toBe('No pudimos cargar tu reserva. Revisa tu conexión.');
+    });
+
+    it('al cargar la cita, un error del servidor: su mensaje', async () => {
+      const { host } = await render(ManageDetailPage, new ApiError(500, 'La barbería no responde.'));
+
+      expect(text(host, 'p-message')).toBe('La barbería no responde.');
+    });
+
+    it('al confirmar: «Revisa tu conexión», y se puede reintentar', async () => {
+      const { fixture, host } = await render(ManageConfirmPage, BASE);
+      manage.confirm.mockRejectedValue(offline);
+
+      button(host, 'Confirmar esta cita').click();
+      await settle(fixture as ComponentFixture<unknown>);
+
+      expect(text(host, '.banner--err')).toBe('No pudimos confirmar tu cita. Revisa tu conexión e inténtalo de nuevo.');
+      expect(button(host, 'Confirmar esta cita').disabled).toBe(false);
+    });
+
+    it('al cancelar: «Revisa tu conexión»', async () => {
+      const { fixture, host } = await render(ManageCancelPage, BASE);
+      manage.cancel.mockRejectedValue(offline);
+
+      button(host, 'Cancelar esta cita').click();
+      await settle(fixture as ComponentFixture<unknown>);
+
+      expect(text(host, '.banner--err')).toBe('No pudimos cancelar tu cita. Revisa tu conexión e inténtalo de nuevo.');
+    });
+
+    it('al guardar un cambio: el aviso «Revisa tu conexión», sin recargar la rejilla', async () => {
+      const { fixture, page } = await render(ManageEditPage, BASE);
+      page['chooseTime']({ startAtUtc: '2026-10-01T15:00:00Z', label: '10:00', available: true, period: 'Morning' });
+      manage.reschedule.mockRejectedValue(offline);
+      const calls = manage.getAvailability.mock.calls.length;
+
+      await page['save']();
+      await settle(fixture as ComponentFixture<unknown>);
+
+      expect(addMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ summary: 'No pudimos guardar el cambio', detail: 'Revisa tu conexión e inténtalo de nuevo.' }),
+      );
+      expect(page['time']()).toBe('2026-10-01T15:00:00Z');
+      expect(manage.getAvailability.mock.calls.length).toBe(calls);
+    });
+  });
+
+  // CB-05 RN-CBGES-03: «Modificar reserva» usa la misma fila que las otras cinco vistas.
+  describe('«Modificar reserva»: botón y «Ver mi reserva»', () => {
+    it('«Guardar cambios» y «Ver mi reserva» en actions--with-back, sin el botón «Volver»', async () => {
+      const { host } = await render(ManageEditPage, BASE);
+
+      const back = host.querySelector<HTMLAnchorElement>('a.back')!;
+      expect(back.getAttribute('href')).toBe('/reserva/appt-2');
+      const container = back.parentElement!;
+      expect(container.classList).toContain('actions');
+      expect(container.classList).toContain('actions--with-back');
+      expect(Array.from(container.children).map((child) => clean(child.textContent))).toEqual([
+        'Guardar cambios',
+        'Ver mi reserva',
+      ]);
+      expect(all(host, 'a, button')).not.toContain('Volver');
+    });
+  });
+
+  // CB-05 RN-CBGES-04: la tarjeta de cada vista reparte el hueco entre sus bloques.
+  describe('espaciado de las vistas', () => {
+    it('la tarjeta apila sus bloques en columna y «Tus otras citas» no ocupa hueco propio', async () => {
+      const { host } = await render(ManageConfirmPage, BASE);
+
+      const card = host.querySelector<HTMLElement>('section.card')!;
+      expect(getComputedStyle(card).display).toBe('flex');
+      expect(getComputedStyle(card).flexDirection).toBe('column');
+      expect(getComputedStyle(host.querySelector('cob-other-appointments')!).display).toBe('contents');
+    });
+  });
+
+  // CB-05 RN-CBGES-06: una cita no editable dice por qué y cómo contactar a la barbería.
+  describe('detalle no editable: contacto', () => {
+    const notEditable = { ...BASE, editable: false, notEditableReason: 'Faltan menos de 2 horas para la cita.' };
+
+    function contact(host: HTMLElement): { href: string | null; label: string } | null {
+      const link = host.querySelector<HTMLAnchorElement>('.notice a.btn');
+      return link ? { href: link.getAttribute('href'), label: clean(link.textContent) } : null;
+    }
+
+    it('con WhatsApp (gana sobre el teléfono): el motivo y «Escribir por WhatsApp»', async () => {
+      const { host } = await render(ManageDetailPage, {
+        ...notEditable,
+        whatsappNumber: '+57 300 000 0000',
+        publicPhone: '601 555 0000',
+      });
+
+      expect(text(host, '.notice .banner--err')).toBe('Faltan menos de 2 horas para la cita.');
+      expect(contact(host)).toEqual({ href: 'https://wa.me/573000000000', label: 'Escribir por WhatsApp' });
+      expect(host.querySelector('.notice a.btn')?.getAttribute('target')).toBe('_blank');
+    });
+
+    it('solo con teléfono: «Llamar a la barbería»', async () => {
+      const { host } = await render(ManageDetailPage, { ...notEditable, publicPhone: '+57 (601) 555-0000' });
+
+      expect(contact(host)).toEqual({ href: 'tel:+576015550000', label: 'Llamar a la barbería' });
+    });
+
+    it('sin ninguno: solo el motivo', async () => {
+      const { host } = await render(ManageDetailPage, notEditable);
+
+      expect(text(host, '.notice .banner--err')).toBe('Faltan menos de 2 horas para la cita.');
+      expect(contact(host)).toBeNull();
+    });
+
+    it('editable: ni motivo ni contacto', async () => {
+      const { host } = await render(ManageDetailPage, { ...BASE, whatsappNumber: '3000000000' });
+
+      expect(host.querySelector('.notice')).toBeNull();
     });
   });
 
@@ -764,6 +907,7 @@ describe('enlaces viejos del correo (M-08 RN-DISPO-61)', () => {
     getAppointment.mockReset();
     TestBed.configureTestingModule({
       providers: [
+        provideLocationMocks(),
         provideRouter([
           { path: 'reserva/:appointmentId', canActivate: [legacyManageLinkGuard], component: DetailStub },
           { path: 'reserva/:appointmentId/confirmar', component: ConfirmStub },
@@ -791,6 +935,32 @@ describe('enlaces viejos del correo (M-08 RN-DISPO-61)', () => {
 
     await harness.navigateByUrl('/reserva/appt-2?cancelar=1&confirmar=1');
     expect(TestBed.inject(Router).url).toBe('/reserva/appt-2/confirmar');
+  });
+
+  // CB-05 RN-CBGES-07: la redirección sustituye la entrada del historial; Atrás no vuelve al enlace viejo.
+  it('la redirección reemplaza el enlace viejo en el historial', async () => {
+    const location = TestBed.inject(Location) as SpyLocation;
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/reserva/appt-1');
+
+    await harness.navigateByUrl('/reserva/appt-2?confirmar=1');
+
+    expect(location.urlChanges.at(-1)).toBe('replace: /reserva/appt-2/confirmar');
+    expect(location.urlChanges).not.toContain('/reserva/appt-2/confirmar');
+  });
+
+  it('el guard devuelve un RedirectCommand con replaceUrl', () => {
+    const route = {
+      paramMap: new Map([['appointmentId', 'appt-2']]),
+      queryParamMap: new Map([['cancelar', '1']]),
+    } as unknown as ActivatedRouteSnapshot;
+
+    const result = TestBed.runInInjectionContext(() => legacyManageLinkGuard(route, {} as RouterStateSnapshot));
+
+    expect(result).toBeInstanceOf(RedirectCommand);
+    const command = result as RedirectCommand;
+    expect(TestBed.inject(Router).serializeUrl(command.redirectTo)).toBe('/reserva/appt-2/cancelar');
+    expect(command.navigationBehaviorOptions?.replaceUrl).toBe(true);
   });
 
   it('sin parámetros viejos se queda en el detalle', async () => {

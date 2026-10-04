@@ -66,6 +66,9 @@ export class SettingsService {
   /** La petición de solo `keys=locale` en vuelo, para que dos llamadores no disparen dos. */
   private localeRequest: Promise<TenantLocale> | null = null;
 
+  /** La carga de `ensureLoaded()` en vuelo: ya trae `locale`, así que `requireLocale()` la espera. */
+  private loadRequest: Promise<void> | null = null;
+
   /**
    * Carga el branding una sola vez por vida de la aplicación.
    *
@@ -91,11 +94,10 @@ export class SettingsService {
     }
 
     // Si `main.ts` ya lanzó la petición previa al bootstrap, se consume esa — nunca las dos.
-    if (this.startupBundle) {
-      void this.consume(this.startupBundle);
-    } else {
-      void this.refresh();
-    }
+    const load = this.startupBundle ? this.consume(this.startupBundle) : this.refresh();
+    this.loadRequest = load.finally(() => {
+      this.loadRequest = null;
+    });
   }
 
   private async refresh(): Promise<void> {
@@ -185,8 +187,7 @@ export class SettingsService {
       return Promise.resolve(known);
     }
 
-    // `/reserva/:id` y `/encuesta/:id` no pasan por `ensureLoaded()`: el snapshot de una visita previa
-    // a la landing puede traerla ya, sin red.
+    // El snapshot de una visita previa puede traerla ya, sin red.
     const cached = readBrandingSnapshot<Partial<StoredPublicSnapshot>>();
     if (cached && isTenantLocale(cached.locale)) {
       setTenantLocale(cached.locale);
@@ -194,7 +195,12 @@ export class SettingsService {
     }
 
     if (!this.localeRequest) {
-      this.localeRequest = this.fetchLocale().finally(() => {
+      // Con la carga de los ajustes en vuelo (el componente raíz la lanza en toda ruta) no se pide dos veces.
+      const pending = this.loadRequest;
+      const request = pending
+        ? pending.then(() => tenantLocale() ?? this.fetchLocale())
+        : this.fetchLocale();
+      this.localeRequest = request.finally(() => {
         this.localeRequest = null;
       });
     }

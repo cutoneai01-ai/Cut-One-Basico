@@ -1,5 +1,5 @@
 import { inject } from '@angular/core';
-import { Router, type CanActivateFn } from '@angular/router';
+import { RedirectCommand, Router, type CanActivateFn } from '@angular/router';
 
 /**
  * Los correos enviados antes de las vistas por acción llevan `/reserva/:id?confirmar=1` y
@@ -15,5 +15,11 @@ export const legacyManageLinkGuard: CanActivateFn = (route) => {
   const action =
     query.get('confirmar') === '1' ? 'confirmar' : query.get('cancelar') === '1' ? 'cancelar' : null;
 
-  return action && appointmentId ? inject(Router).createUrlTree(['/reserva', appointmentId, action]) : true;
+  if (!action || !appointmentId) {
+    return true;
+  }
+
+  // CB-05 RN-CBGES-07: sustituye el enlace viejo en el historial, para que Atrás no vuelva a él.
+  const target = inject(Router).createUrlTree(['/reserva', appointmentId, action]);
+  return new RedirectCommand(target, { replaceUrl: true });
 };
