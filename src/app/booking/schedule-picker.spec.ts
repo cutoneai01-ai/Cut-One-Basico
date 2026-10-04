@@ -1,7 +1,9 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { providePrimeNG } from 'primeng/config';
 import type { PublicBarber } from '../data/public-api.models';
 import type { PeriodSlots } from './availability';
+import { BarberSelect } from './barber-select';
 import { SchedulePicker } from './schedule-picker';
 
 // El barbero, el día y la hora de una cita (tarjeta de la múltiple y «Modificar reserva»): el selector
@@ -80,5 +82,27 @@ describe('SchedulePicker', () => {
     host.querySelector<HTMLButtonElement>('cob-slot-picker p-button button')!.click();
 
     expect(events).toEqual(['día 2026-10-01', 'hora 2026-10-01T14:00:00Z', 'reintentar']);
+  });
+
+  it('reenvía el barbero elegido en la ventana, también «Cualquier profesional»', () => {
+    render({ allowAny: true });
+    const chosen: (PublicBarber | null)[] = [];
+    fixture.componentInstance.barberChosen.subscribe((value) => chosen.push(value));
+    const select = fixture.debugElement.query(By.directive(BarberSelect)).componentInstance as BarberSelect;
+
+    select.chosen.emit(ana);
+    select.chosen.emit(null);
+
+    expect(chosen).toEqual([ana, null]);
+  });
+
+  it('sin la agenda de la barbería, su «Reintentar» se reenvía', () => {
+    const host = render({ days: [], daysStatus: 'failed' });
+    let retried = 0;
+    fixture.componentInstance.retryDays.subscribe(() => retried++);
+
+    host.querySelector<HTMLButtonElement>('cob-slot-picker p-button button')!.click();
+
+    expect(retried).toBe(1);
   });
 });

@@ -26,17 +26,17 @@ export function starFills(value: number): number[] {
   selector: 'cob-rating-stars',
   imports: [Tag],
   template: `
-    @if (text(); as value) {
-      <span class="rating" role="img" [attr.aria-label]="value + ' de 5'">
+    @if (view(); as shown) {
+      <span class="rating" role="img" [attr.aria-label]="shown.text + ' de 5'">
         <span class="rating__stars">
-          @for (fill of fills(); track $index) {
+          @for (fill of shown.fills; track $index) {
             <span class="star">
               <i class="pi pi-star star__empty"></i>
               <span class="star__fill" [style.width.%]="fill"><i class="pi pi-star-fill"></i></span>
             </span>
           }
         </span>
-        <span class="rating__num">{{ value }}</span>
+        <span class="rating__num">{{ shown.text }}</span>
       </span>
     } @else {
       <p-tag value="Nuevo" icon="pi pi-sparkles" severity="info" />
@@ -92,9 +92,8 @@ export class RatingStars {
   /** M-23 RN-CAL-11: `null` es «sin reseñas», nunca cero estrellas. */
   readonly rating = input<number | null>(null);
 
-  protected readonly text = computed(() => {
+  protected readonly view = computed(() => {
     const rating = this.rating();
-    return rating === null ? null : formatRating(rating);
+    return rating === null ? null : { text: formatRating(rating), fills: starFills(rating) };
   });
-  protected readonly fills = computed(() => starFills(this.rating() ?? 0));
 }

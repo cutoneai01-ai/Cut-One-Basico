@@ -1,4 +1,5 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { MessageService } from 'primeng/api';
 import { providePrimeNG } from 'primeng/config';
 import { Subject, firstValueFrom } from 'rxjs';
@@ -16,6 +17,8 @@ import { SettingsService } from '../data/settings.service';
 import type { PeriodSlots } from './availability';
 import { CardBooking, type SingleServiceFallback } from './card-booking';
 import { CardBookingState } from './card-booking.state';
+import { SchedulePicker } from './schedule-picker';
+import { ServicePicker } from './service-picker';
 
 // El asistente de tarjetas (M-08 RN-DISPO-60): una tarjeta por servicio con su barbero, su día y su
 // hora; el mismo barbero no se pisa (RN-DISPO-55); cada tarjeta aplica solo su disponibilidad
@@ -387,6 +390,38 @@ describe('CardBooking: asistente de tarjetas', () => {
       expect(starts(flow['cardViews']()[0]!.periods).every((start) => start.startsWith('2026-10-02'))).toBe(true);
       expect(flow['cardViews']()[0]!.slotsLoading).toBe(false);
     });
+
+    it('el error tardío del día que una tarjeta dejó también se descarta', async () => {
+      const byDate = new Map<string, Subject<AvailabilityResponse>>([
+        ['2026-10-01', new Subject()],
+        ['2026-10-02', new Subject()],
+      ]);
+      booking.getAvailability.mockImplementation((_b: string | null, _s: string, date: string) =>
+        firstValueFrom(byDate.get(date)!),
+      );
+      await toCards(cut);
+      flow['chooseBarber'](0, juan);
+      flow['chooseDate'](0, '2026-10-02');
+      await settle();
+
+      byDate.get('2026-10-02')!.next(availability('2026-10-02'));
+      await settle();
+      byDate.get('2026-10-01')!.error(new Error('sin red'));
+      await settle();
+
+      expect(flow['cardViews']()[0]!.slotsFailed).toBe(false);
+      expect(starts(flow['cardViews']()[0]!.periods).every((start) => start.startsWith('2026-10-02'))).toBe(true);
+    });
+
+    it('una tarjeta que no existe no pide horas', async () => {
+      await toCards(cut);
+      booking.getAvailability.mockClear();
+
+      flow['chooseBarber'](5, juan);
+      flow['retryCard'](5);
+
+      expect(booking.getAvailability).not.toHaveBeenCalled();
+    });
   });
 
   describe('confirmar', () => {
@@ -566,5 +601,283 @@ describe('CardBooking: asistente de tarjetas', () => {
         { service: cut, customer: { fullName: 'Laura Martínez', email: 'laura@correo.com', phone: '300', notes: '' } },
       ]);
     });
+  });
+
+  describe('por la interfaz', () => {
+    const button = (root: ParentNode, label: string): HTMLButtonElement =>
+      Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find(
+        (candidate) => clean(candidate.textContent) === label,
+      )!;
+    const day = (date: string): HTMLButtonElement =>
+      host().querySelector<HTMLButtonElement>(`.bcard--open button.day[data-day="${date}"]`)!;
+    const schedule = (): SchedulePicker =>
+      fixture.debugElement.query(By.directive(SchedulePicker)).componentInstance as SchedulePicker;
+    const submit = (): void => host().querySelector<HTMLButtonElement>('form button[type="submit"]')!.click();
+
+    it('se añade y se quita en el selector, y su «Continuar» lleva a las tarjetas', async () => {
+      fixture.detectChanges();
+      host().querySelector<HTMLButtonElement>('button[aria-label="Añadir Corte"]')!.click();
+      host().querySelector<HTMLButtonElement>('button[aria-label="Añadir Barba"]')!.click();
+      await settle();
+      host().querySelector<HTMLButtonElement>('button[aria-label="Quitar Barba del resumen"]')!.click();
+      await settle();
+
+      expect(flow['lines']().map((line) => line.service.id)).toEqual(['corte']);
+
+      button(host().querySelector('cob-service-picker .summary')!, 'Continuar').click();
+      await settle();
+
+      expect(flow['step']()).toBe(2);
+      expect(heads().map((head) => clean(head.querySelector('strong')?.textContent))).toEqual([
+        '1. Corte · 30 min · $ 35.000',
+      ]);
+    });
+
+    it('un «Continuar» sin servicios no hace nada', async () => {
+      fixture.detectChanges();
+      const picker = fixture.debugElement.query(By.directive(ServicePicker)).componentInstance as ServicePicker;
+
+      picker.proceed.emit();
+      await settle();
+
+      expect(flow['step']()).toBe(1);
+      expect(flow['cards']()).toEqual([]);
+    });
+
+    it('barbero, día y hora en la tarjeta; el mismo día no vuelve a pedir horas', async () => {
+      await toCards(cut);
+
+      schedule().barberChosen.emit(juan);
+      await settle();
+      expect(booking.getAvailability).toHaveBeenLastCalledWith('juan', 'corte', '2026-10-01');
+      const calls = booking.getAvailability.mock.calls.length;
+
+      day('2026-10-01').click();
+      await settle();
+      expect(booking.getAvailability).toHaveBeenCalledTimes(calls);
+
+      day('2026-10-02').click();
+      await settle();
+      expect(booking.getAvailability).toHaveBeenLastCalledWith('juan', 'corte', '2026-10-02');
+
+      openSlots()[0]!.click();
+      await settle();
+      expect(card(0).startAtUtc).toBe('2026-10-02T14:00:00Z');
+      expect(statuses()).toEqual(['Juan · vie 2 oct · 09:00']);
+    });
+
+    it('elegir día antes que barbero no pide horas', async () => {
+      await toCards(cut);
+      booking.getAvailability.mockClear();
+
+      day('2026-10-02').click();
+      await settle();
+
+      expect(card(0).date).toBe('2026-10-02');
+      expect(booking.getAvailability).not.toHaveBeenCalled();
+    });
+
+    it('«Continuar», «Atrás» y la cabecera del stepper mueven entre pasos; con todas completas se abre la primera', async () => {
+      await toCards(cut);
+      await complete(0, juan, '2026-10-01T14:00:00Z');
+
+      button(host().querySelector('.side')!, 'Continuar').click();
+      await settle();
+      expect(flow['step']()).toBe(3);
+
+      button(host().querySelector('form')!, 'Atrás').click();
+      await settle();
+      expect(flow['step']()).toBe(2);
+
+      button(host().querySelector('.layout__main > .nav')!, 'Atrás').click();
+      await settle();
+      expect(flow['step']()).toBe(1);
+
+      button(host().querySelector('cob-service-picker .summary')!, 'Continuar').click();
+      await settle();
+      expect(flow['step']()).toBe(2);
+      expect(expanded()).toEqual(['true']);
+
+      host().querySelector<HTMLButtonElement>('p-step-list p-step button')!.click();
+      await settle();
+      expect(flow['step']()).toBe(1);
+    });
+
+    it('«Continuar» de las tarjetas no avanza mientras falte alguna hora', async () => {
+      await toCards(cut, beard);
+      await complete(0, juan, '2026-10-01T14:00:00Z');
+
+      flow['continueToDetails']();
+
+      expect(flow['step']()).toBe(2);
+    });
+
+    it('enviar el formulario: sin datos marca los errores; con datos reserva una sola vez aunque se pulse dos', async () => {
+      let resolve!: (value: AppointmentCreatedResponse) => void;
+      booking.createAppointment.mockReturnValue(new Promise((done) => (resolve = done)));
+      await toCards(cut);
+      await complete(0, juan, '2026-10-01T14:00:00Z');
+      flow['continueToDetails']();
+      await settle();
+
+      submit();
+      await settle();
+      expect(booking.createAppointment).not.toHaveBeenCalled();
+      expect(host().querySelectorAll('cob-customer-fields p-message').length).toBe(2);
+
+      fillForm();
+      submit();
+      submit();
+      expect(booking.createAppointment).toHaveBeenCalledTimes(1);
+
+      resolve(created(1));
+      await settle();
+      expect(clean(host().querySelector('.done h3')?.textContent)).toBe('¡Listo! Reservaste tu cita');
+    });
+  });
+
+  describe('errores de la reserva de una tarjeta', () => {
+    async function oneCardDetails(): Promise<void> {
+      await toCards(cut);
+      await complete(0, juan, '2026-10-01T14:00:00Z');
+      flow['continueToDetails']();
+      fillForm();
+    }
+
+    const summary = (): string => (addMessage.mock.calls[0]![0] as { summary: string }).summary;
+
+    for (const code of ['SLOT_TAKEN', 'DATE_OUT_OF_RANGE']) {
+      it(`${code}: vuelve a la tarjeta, marcada y sin hora, y recarga sus horas`, async () => {
+        booking.createAppointment.mockRejectedValue(new ApiError(409, 'No.', code));
+        await oneCardDetails();
+        booking.getAvailability.mockClear();
+
+        await flow['confirm']();
+        await settle();
+
+        expect(flow['step']()).toBe(2);
+        expect(card(0).startAtUtc).toBeNull();
+        expect(statuses()).toEqual([summary()]);
+        expect(expanded()).toEqual(['true']);
+        expect(booking.getAvailability).toHaveBeenCalledWith('juan', 'corte', '2026-10-01');
+      });
+    }
+
+    it('SERVICE_NOT_FOUND: vuelve a empezar desde «Servicios»', async () => {
+      booking.createAppointment.mockRejectedValue(new ApiError(404, 'No.', 'SERVICE_NOT_FOUND'));
+      await oneCardDetails();
+
+      await flow['confirm']();
+
+      expect(flow['step']()).toBe(1);
+      expect(flow['lines']()).toEqual([]);
+      expect(flow['cards']()).toEqual([]);
+      expect(flow['openKey']()).toBeNull();
+    });
+
+    it('409 BOOKING_ITEMS_FAILED con un índice que no existe: avisa y no abre ninguna tarjeta', async () => {
+      booking.createAppointment.mockRejectedValue(
+        new ApiError(409, 'Una cita ya no se puede reservar.', 'BOOKING_ITEMS_FAILED', undefined, {
+          failures: [{ index: 7, code: 'SLOT_TAKEN', message: 'Ocupado.' }],
+        }),
+      );
+      await oneCardDetails();
+
+      await flow['confirm']();
+      await settle();
+
+      expect(flow['step']()).toBe(2);
+      expect(clean(host().querySelector('[role="alert"]')?.textContent)).toBe('Una cita ya no se puede reservar.');
+      expect(card(0).startAtUtc).toBe('2026-10-01T14:00:00Z');
+      expect(expanded()).toEqual(['false']);
+    });
+
+    describe('si la reserva se vacía mientras se envía (otra apertura del asistente)', () => {
+      let reject!: (error: unknown) => void;
+
+      beforeEach(async () => {
+        booking.createAppointment.mockImplementation(() => new Promise((_, fail) => (reject = fail)));
+        await oneCardDetails();
+      });
+
+      it('SERVICE_NOT_OFFERED_BY_BARBER no abre ninguna tarjeta', async () => {
+        const pending = flow['confirm']();
+        TestBed.inject(CardBookingState).reset();
+        reject(new ApiError(400, 'No.', 'SERVICE_NOT_OFFERED_BY_BARBER'));
+        await pending;
+
+        expect(flow['step']()).toBe(2);
+        expect(flow['openKey']()).toBeNull();
+      });
+
+      it('MULTI_SERVICE_BOOKING_DISABLED sigue con el servicio ofrecido en la apertura nueva, o con ninguno', async () => {
+        const fallbacks: SingleServiceFallback[] = [];
+        flow.singleServiceFallback.subscribe((fallback) => fallbacks.push(fallback));
+        const state = TestBed.inject(CardBookingState);
+
+        const first = flow['confirm']();
+        state.reset();
+        state.offer(beard);
+        reject(new ApiError(409, 'No', 'MULTI_SERVICE_BOOKING_DISABLED'));
+        await first;
+
+        state.reset();
+        await oneCardDetails();
+        const second = flow['confirm']();
+        state.reset();
+        reject(new ApiError(409, 'No', 'MULTI_SERVICE_BOOKING_DISABLED'));
+        await second;
+
+        expect(fallbacks.map((fallback) => fallback.service)).toEqual([beard, null]);
+      });
+    });
+  });
+
+  it('un barbero sin nombre es «Profesional» en el estado de su tarjeta', async () => {
+    const nameless: PublicBarber = { ...juan, displayName: null };
+    fixture.componentRef.setInput('barbers', [nameless, andres]);
+    await toCards(cut);
+    await complete(0, nameless, '2026-10-01T14:00:00Z');
+
+    expect(statuses()).toEqual(['Profesional · jue 1 oct · 09:00']);
+  });
+});
+
+describe('CardBooking: sin la política de reservas', () => {
+  it('las tarjetas nacen sin día y no se piden horas', async () => {
+    setTenantLocale(LOCALE);
+    const getAvailability = vi.fn();
+    TestBed.configureTestingModule({
+      imports: [CardBooking],
+      providers: [
+        providePrimeNG({ theme: 'none' }),
+        MessageService,
+        {
+          provide: BookingService,
+          useValue: { getBookingWindow: () => Promise.reject(new Error('sin red')), getAvailability },
+        },
+        { provide: SettingsService, useValue: { requireLocale: () => Promise.resolve(LOCALE) } },
+        CardBookingState,
+      ],
+    });
+    await TestBed.inject(BookingPolicyService).ensureLoaded();
+    const fixture = TestBed.createComponent(CardBooking);
+    fixture.componentRef.setInput('services', [cut]);
+    fixture.componentRef.setInput('barbers', [juan]);
+    fixture.detectChanges();
+
+    TestBed.inject(CardBookingState).offer(cut);
+    fixture.componentInstance['continueToCards']();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance['cards']()[0]?.date).toBe('');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'No hay días disponibles para reservar.',
+    );
+    expect(getAvailability).not.toHaveBeenCalled();
+
+    fixture.destroy();
+    clearTenantLocale();
   });
 });

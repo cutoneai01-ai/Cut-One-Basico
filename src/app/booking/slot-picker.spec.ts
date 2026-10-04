@@ -75,6 +75,13 @@ describe('SlotPicker', () => {
 
       expect(retried).toBe(1);
     });
+
+    it('sin días que ofrecer lo dice, y no pinta horas', () => {
+      render({ days: [], periods: DAY });
+
+      expect(message()).toBe('No hay días disponibles para reservar.');
+      expect(tabs()).toEqual([]);
+    });
   });
 
   describe('estados del día', () => {
@@ -214,6 +221,31 @@ describe('SlotPicker', () => {
       list.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
       fixture.detectChanges();
       expect(selectedTab()).toBe('Mañana');
+    });
+
+    it('la flecha izquierda da la vuelta, Fin va al último y otra tecla no hace nada', () => {
+      render({ periods: DAY });
+      const list = host().querySelector<HTMLElement>('[role="tablist"]')!;
+      const press = (key: string): KeyboardEvent => {
+        const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+        list.dispatchEvent(event);
+        fixture.detectChanges();
+        return event;
+      };
+
+      press('ArrowLeft');
+      expect(selectedTab()).toBe('Mañana');
+      press('ArrowLeft');
+      expect(selectedTab()).toBe('Noche');
+      expect(document.activeElement?.id).toBe('slots-tab-Evening');
+
+      press('Home');
+      press('End');
+      expect(selectedTab()).toBe('Noche');
+
+      const other = press('a');
+      expect(selectedTab()).toBe('Noche');
+      expect(other.defaultPrevented).toBe(false);
     });
   });
 

@@ -51,8 +51,13 @@ export function createCustomerForm(formBuilder: FormBuilder) {
 
 export type CustomerForm = ReturnType<typeof createCustomerForm>;
 
-/** El cliente tal como lo espera el backend: sin espacios sobrantes y con los opcionales vacíos en nulo. */
-export function customerInput(form: CustomerForm): CreateAppointmentInput['customer'] {
+/**
+ * El cliente tal como lo espera el backend: sin espacios sobrantes y con los opcionales vacíos en nulo.
+ * El correo nunca es nulo: aquí es obligatorio.
+ */
+export function customerInput(
+  form: CustomerForm,
+): CreateAppointmentInput['customer'] & { readonly email: string } {
   const values = form.getRawValue();
   return {
     fullName: values.fullName.trim(),

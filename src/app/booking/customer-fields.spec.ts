@@ -99,6 +99,25 @@ describe('CustomerFields', () => {
     expect(form.controls.phone.value).toBe('3001234567');
   });
 
+  it('solo dígitos entran tal cual', () => {
+    type('3001234567');
+
+    expect(phone().value).toBe('3001234567');
+    expect(form.controls.phone.value).toBe('3001234567');
+  });
+
+  it('un correo inválido muestra el error al tocarlo', () => {
+    const email = host().querySelector<HTMLInputElement>('#email')!;
+    email.value = 'laura@';
+    email.dispatchEvent(new Event('input'));
+    email.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+
+    expect(host().querySelector('p-message')?.textContent?.trim()).toBe(
+      'Necesitamos un correo válido: es donde llega la confirmación.',
+    );
+  });
+
   it('16 dígitos se quedan en 15', () => {
     type('1234567890123456');
 

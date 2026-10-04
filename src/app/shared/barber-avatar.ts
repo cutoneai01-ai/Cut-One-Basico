@@ -50,10 +50,7 @@ export class BarberAvatar {
   readonly barber = input<AvatarBarber | null>(null);
   readonly size = input<AvatarSize>('sm');
 
-  protected readonly photo = computed(() => {
-    const barber = this.barber();
-    return barber ? resolveImage(barber.photoUrl) : undefined;
-  });
+  protected readonly photo = computed(() => resolveImage(this.barber()?.photoUrl));
   protected readonly initials = computed(() => barberInitials(this.barber()?.displayName ?? null));
   protected readonly color = computed(() => {
     const barber = this.barber();

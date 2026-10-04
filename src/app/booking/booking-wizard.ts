@@ -372,7 +372,7 @@ export class BookingWizard {
     }
 
     if (!this.days().includes(this.date())) {
-      this.date.set(this.days()[0] ?? '');
+      this.date.set(this.firstDay());
     }
 
     const policy = this.bookingPolicy.state();
@@ -486,9 +486,8 @@ export class BookingWizard {
   /** «Reintentar» tras un error de la política: con ella llegan los días (CB-03 RN-CBRES-08). */
   protected async retryPolicy(): Promise<void> {
     await this.bookingPolicy.retry();
-    if (!this.days().includes(this.date())) {
-      this.date.set(this.days()[0] ?? '');
-    }
+    // Sin política no había días, así que tampoco día elegido: el primero de los que lleguen.
+    this.date.set(this.firstDay());
     if (this.availabilityRequest()) {
       void this.loadAvailability();
     }
@@ -510,14 +509,14 @@ export class BookingWizard {
   protected startOver(): void {
     this.clearSingle();
     this.form.reset();
-    this.date.set(this.days()[0] ?? '');
+    this.date.set(this.firstDay());
     this.step.set(1);
   }
 
   /** Al paso anterior de los que se ven: con barbero bloqueado, del Horario al Servicio. */
   protected back(): void {
     const steps = this.steps();
-    this.step.set(steps[Math.max(0, steps.indexOf(this.step()) - 1)] ?? 1);
+    this.step.set(steps[Math.max(0, steps.indexOf(this.step()) - 1)]);
   }
 
   /** Clic en una cabecera del stepper: llega su número visible, no el interno. */
@@ -655,6 +654,11 @@ export class BookingWizard {
       this.slotsLoading.set(false);
       this.slotsFailed.set(true);
     }
+  }
+
+  /** El primer día reservable, o vacío sin política (CB-03 RN-CBRES-08). */
+  private firstDay(): string {
+    return this.days()[0] ?? '';
   }
 
   private firstIncompleteStep(): number {
