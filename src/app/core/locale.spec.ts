@@ -117,6 +117,24 @@ describe('utcToZoned (M-02 RN-TEN-20), con el proceso en Pacific/Auckland', () =
   it('sin configuración lanza en vez de caer a una zona (ADR-0040)', () => {
     expect(() => utcToZoned('2026-09-26T15:00:00Z')).toThrow();
   });
+
+  it('un instante que no se puede leer lanza en vez de pintar «NaN»', () => {
+    expect(() => utcToZoned('no-es-una-fecha', BOGOTA_COP)).toThrow('Instante inválido: no-es-una-fecha');
+  });
+
+  it('un motor que devuelve «24» a medianoche, o que omite una parte, no rompe el formato', () => {
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'formatToParts').mockReturnValue([
+      { type: 'year', value: '2026' },
+      { type: 'month', value: '01' },
+      { type: 'day', value: '15' },
+      { type: 'hour', value: '24' },
+    ]);
+    try {
+      expect(utcToZoned('2026-01-14T23:00:00Z', MADRID_EUR)).toEqual({ date: '2026-01-15', time: '00:' });
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
 });
 
 describe('todayInBusinessZone (M-02 RN-TEN-20)', () => {

@@ -65,4 +65,27 @@ describe('PopularSection', () => {
     expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual(['Reservar este servicio: corte', 'Reservar este servicio: cejas']);
     expect(texts(host, 'p-button')).toEqual(['Reservar este servicio', 'Reservar este servicio']);
   });
+  it('con imagen y categoría las pinta; sin imagen, el hueco con su icono', () => {
+    const host = render(
+      [{ ...popular('corte', 1), imageUrl: 'https://cdn.example/corte.webp', category: 'Cortes' }, popular('cejas', 2)],
+      null,
+    );
+
+    expect(host.querySelector('img.cob-media')?.getAttribute('src')).toBe('https://cdn.example/corte.webp');
+    expect(host.querySelectorAll('.cob-media--empty')).toHaveLength(1);
+    expect(texts(host, '.popular-card__category')).toEqual(['Cortes']);
+  });
+
+  it('«Reservar este servicio» entrega el servicio elegido', () => {
+    const fixture = TestBed.createComponent(PopularSection);
+    const cejas = popular('cejas', 2);
+    fixture.componentRef.setInput('services', [popular('corte', 1), cejas]);
+    fixture.detectChanges();
+    const selected = vi.fn();
+    fixture.componentInstance.serviceSelected.subscribe(selected);
+
+    (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('p-button button')[1].click();
+
+    expect(selected).toHaveBeenCalledWith(cejas);
+  });
 });

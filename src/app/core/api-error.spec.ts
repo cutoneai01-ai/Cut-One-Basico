@@ -1,7 +1,7 @@
-import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpClient, HttpRequest, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, throwError } from 'rxjs';
 import { ApiError, NETWORK_ERROR, apiErrorInterceptor, isNetworkError } from './api-error';
 
 // CB-07 RN-CBBAS-02: todo error HTTP llega como `ApiError`, y la falta de conexión con su propio código.
@@ -54,6 +54,19 @@ describe('apiErrorInterceptor', () => {
 
     expect(error).toMatchObject({ status: 500, message: 'Ocurrió un error inesperado.', code: undefined });
     expect(isNetworkError(error)).toBe(false);
+  });
+});
+
+describe('apiErrorInterceptor con un error que no es HTTP', () => {
+  it('lo deja pasar tal cual: no lo disfraza de error del servidor', async () => {
+    const original = new Error('fallo de otro interceptor');
+    const request = new HttpRequest('GET', '/api/v1/public/x');
+
+    const error = await firstValueFrom(apiErrorInterceptor(request, () => throwError(() => original))).catch(
+      (e: unknown) => e,
+    );
+
+    expect(error).toBe(original);
   });
 });
 

@@ -742,6 +742,23 @@ describe('LandingPage: perfil del barbero', () => {
       expect(router.url).toBe('/');
     });
 
+    it('con el barbero ya descartado, un clic antes de salir a / no deja ninguna reserva pendiente', async () => {
+      // La salida a / se retiene para pulsar en la ventana entre descartarlo y navegar.
+      const navigateByUrl = router.navigateByUrl.bind(router);
+      vi.spyOn(router, 'navigateByUrl').mockImplementation((url, extras) =>
+        extras?.replaceUrl ? Promise.resolve(true) : navigateByUrl(url, extras),
+      );
+      const open = vi.spyOn(BookingWizard.prototype, 'open');
+      await harness.navigateByUrl(`/profile/${NOBODY_ID}`);
+
+      page().querySelector<HTMLButtonElement>('cob-hero-section button')!.click();
+      catalog.barbers.set([felipe, ana, { ...felipe, id: NOBODY_ID }]);
+      await settle();
+
+      expect(open).not.toHaveBeenCalled();
+      expect(router.url).toBe(`/profile/${NOBODY_ID}`);
+    });
+
     it('resuelto el barbero, el botón abre al momento', async () => {
       await harness.navigateByUrl(`/profile/${FELIPE_ID}`);
       const open = vi.spyOn(BookingWizard.prototype, 'open');

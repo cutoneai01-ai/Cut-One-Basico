@@ -82,3 +82,25 @@ describe('CrossfadeImage', () => {
     expect(describeLayers()).toEqual(['b.webp']);
   });
 });
+
+@Component({
+  imports: [CrossfadeImage],
+  template: '<cob-crossfade-image src="a.webp" [alt]="alt()" />',
+})
+class AltHost {
+  readonly alt = signal('Nuestro espacio');
+}
+
+describe('CrossfadeImage: cambio de texto alternativo', () => {
+  it('cambiar solo el alt no cruza ninguna imagen', async () => {
+    const fixture = TestBed.createComponent(AltHost);
+    await fixture.whenStable();
+
+    fixture.componentInstance.alt.set('Nuestra casa');
+    await fixture.whenStable();
+
+    const images = (fixture.nativeElement as HTMLElement).querySelectorAll('img.crossfade-image');
+    expect(images).toHaveLength(1);
+    expect(images[0].classList.contains('crossfade-image--out')).toBe(false);
+  });
+});

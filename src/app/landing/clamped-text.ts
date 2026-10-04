@@ -4,9 +4,9 @@ import {
   Component,
   ElementRef,
   OnDestroy,
-  ViewChild,
   input,
   signal,
+  viewChild,
 } from '@angular/core';
 
 /**
@@ -28,7 +28,7 @@ import {
 export class ClampedText implements AfterViewInit, OnDestroy {
   readonly text = input.required<string>();
 
-  @ViewChild('textEl') private readonly textEl?: ElementRef<HTMLParagraphElement>;
+  private readonly textEl = viewChild.required<ElementRef<HTMLParagraphElement>>('textEl');
 
   protected readonly expanded = signal(false);
   protected readonly overflowing = signal(false);
@@ -38,9 +38,7 @@ export class ClampedText implements AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     this.checkOverflow();
     this.observer = new ResizeObserver(() => this.checkOverflow());
-    if (this.textEl) {
-      this.observer.observe(this.textEl.nativeElement);
-    }
+    this.observer.observe(this.textEl().nativeElement);
   }
 
   ngOnDestroy(): void {
@@ -55,10 +53,7 @@ export class ClampedText implements AfterViewInit, OnDestroy {
     if (this.expanded()) {
       return;
     }
-    const el = this.textEl?.nativeElement;
-    if (!el) {
-      return;
-    }
+    const el = this.textEl().nativeElement;
     this.overflowing.set(el.scrollHeight - el.clientHeight > 1);
   }
 }

@@ -115,6 +115,38 @@ describe('BarbersSection', () => {
     });
   });
 
+  describe('estados del equipo', () => {
+    function renderState(state: { loading?: boolean; failed?: boolean }): HTMLElement {
+      fixture = TestBed.createComponent(BarbersSection);
+      fixture.componentRef.setInput('barbers', []);
+      fixture.componentRef.setInput('loading', state.loading ?? false);
+      fixture.componentRef.setInput('failed', state.failed ?? false);
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('cargando: tres tarjetas esqueleto y ningún aviso', () => {
+      const host = renderState({ loading: true });
+
+      expect(host.querySelectorAll('.skeleton-card')).toHaveLength(3);
+      expect(host.querySelector('p-message')).toBeNull();
+    });
+
+    it('si falló, lo dice; y sin profesionales publicados, también', () => {
+      expect(text(renderState({ failed: true }).querySelector('p-message'))).toBe(
+        'No pudimos cargar el equipo. Vuelve a intentarlo en un momento.',
+      );
+      expect(text(renderState({}).querySelector('p-message'))).toBe('Todavía no hay profesionales publicados.');
+    });
+
+    it('sin especialidad no pinta la línea, ni en la foto ni en la descripción', () => {
+      const host = render(barber({ specialty: null, description: 'Tijera y navaja.' }));
+
+      expect(host.querySelector('.barber-card__specialty')).toBeNull();
+      expect(text(host.querySelector('.barber-card__back-name'))).toBe('Barbero Ejemplo');
+    });
+  });
+
   // CB-01 RN-CBPOR-07: la descripción se abre con el ⓘ en el mismo espacio.
   describe('descripción', () => {
     const DESC = 'Tijera y navaja, cortes clásicos de toda la vida.';
