@@ -670,7 +670,7 @@ describe('Gestión de la cita desde el correo', () => {
 
     it('al guardar un cambio: el aviso «Revisa tu conexión», sin recargar la rejilla', async () => {
       const { fixture, page } = await render(ManageEditPage, BASE);
-      page['chooseTime']({ startAtUtc: '2026-10-01T15:00:00Z', label: '10:00', available: true, period: 'Morning' });
+      page['chooseTime']('2026-10-01T15:00:00Z');
       manage.reschedule.mockRejectedValue(offline);
       const calls = manage.getAvailability.mock.calls.length;
 
