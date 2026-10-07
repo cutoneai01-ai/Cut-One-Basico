@@ -1,5 +1,5 @@
 import { PREVIEW_PRESETS } from './preview-presets';
-import { resolvePreviewBranding, resolvePreviewTheme } from './preview-theme-resolver';
+import { resolvePreviewBranding, resolvePreviewTerminology, resolvePreviewTheme } from './preview-theme-resolver';
 
 describe('resolvePreviewTheme', () => {
   it('resuelve el preset elegido cuando no hay overrides', () => {
@@ -112,5 +112,26 @@ describe('resolvePreviewBranding', () => {
     expect(resolvePreviewBranding({ branding: { shopName: 123 } })).toBeUndefined();
     expect(resolvePreviewBranding({ branding: { logoUrl: 123 } })).toBeUndefined();
     expect(resolvePreviewBranding({ branding: null })).toBeUndefined();
+  });
+});
+
+describe('resolvePreviewTerminology', () => {
+  const SPA = {
+    staffSingular: 'colaborador',
+    staffPlural: 'colaboradores',
+    businessSingular: 'spa',
+    businessPlural: 'spas',
+    businessGender: 'masculine',
+  };
+
+  it('devuelve la terminología validada y normalizada', () => {
+    expect(resolvePreviewTerminology({ terminology: { ...SPA, businessSingular: ' Spa ' } })).toEqual(SPA);
+  });
+
+  it('devuelve undefined sin terminología o con una forma que no reconoce, sin lanzar', () => {
+    expect(resolvePreviewTerminology({})).toBeUndefined();
+    expect(resolvePreviewTerminology({ terminology: null })).toBeUndefined();
+    expect(resolvePreviewTerminology({ terminology: 'spa' })).toBeUndefined();
+    expect(resolvePreviewTerminology({ terminology: { ...SPA, businessGender: 'neutral' } })).toBeUndefined();
   });
 });

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { Button } from 'primeng/button';
 import { resolveImage } from '../core/images';
+import { TermPipe } from '../shared/term.pipe';
 import { formatMoney } from '../core/locale';
 import { durationFor, type PublicService } from '../data/public-api.models';
 import {
@@ -30,7 +31,7 @@ export interface ServicePickerOption {
  */
 @Component({
   selector: 'cob-service-picker',
-  imports: [Button],
+  imports: [Button, TermPipe],
   templateUrl: './service-picker.html',
   styleUrl: './service-picker.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -26,32 +26,12 @@ import { getCompanySubdomain } from './tenant';
 export const PUBLIC_SETTINGS_KEY = 'public-settings';
 
 /**
- * La versión forma parte de la clave a propósito: el snapshot guarda la *forma* del branding (y,
- * desde `v2`, del tema) de la build que lo escribió. Al añadir o renombrar un campo, subirla hace que
- * las entradas viejas dejen de leerse, en vez de fusionarse a medias sobre `DEFAULTS`.
- *
- * `v2` desde que el snapshot gana el campo `theme` (ver cabecera de este archivo). Antes de eso,
- * arrancaba en v1 porque era la primera forma de este repo; no tiene por qué coincidir con la de
- * `pz-personalizado` — son dos esquemas independientes bajo el mismo prefijo.
- *
- * `v3` desde que `Branding` gana `maps_url` (M-20 RN-CFG-53). Sin este salto, un visitante con
- * snapshot guardado seguiría viendo la dirección sin enlace **hasta 24 h** y sin ningún error:
- * `mergeBrandingSnapshot()` fusiona sobre `DEFAULTS` y el campo ausente cae a `''`, que es
- * exactamente la rama de degradación (`RN-CFG-51`) — indistinguible de un tenant que no configuró el
- * enlace. Las tres aplicaciones siguen con versiones distintas a propósito.
- *
- * `v4` desde que el snapshot guarda también la clave `locale` —zona y moneda de la barbería, M-02
- * RN-TEN-20 y RN-TEN-21—. Un snapshot `v3` no la tiene, y sin el salto se leería y la landing no
- * sabría en qué zona pintar las horas. El prefijo `public-settings:` no cambia: es lo que borra el
- * panel.
- *
- * `v5` el 2026-09-30, sin cambio de forma: es la forma de vaciar desde nuestro lado el snapshot que
- * cada visitante tiene guardado, sin pedirle que borre la caché. Con las tarjetas de servicio sin estilo
- * en Chrome, el síntoma solo aparecía en navegadores con snapshot (en incógnito cargaba bien), porque
- * el snapshot adelanta el arranque. La causa se corrigió en `services-section.html`; el salto garantiza
- * que nadie arranque con un snapshot escrito por la build anterior.
+ * Va en la clave para que un snapshot de otra forma deje de leerse en vez de fusionarse a medias sobre
+ * `DEFAULTS`; se sube al cambiar lo que guarda. `v6`: guarda `terminology`, y uno anterior pintaría
+ * Barbería en un tenant de otro tipo (M-02 RN-TEN-50). El prefijo no cambia: es lo que borra el panel.
+ * Es independiente de la versión de `pz-personalizado`, que comparte prefijo con otro esquema.
  */
-const STORAGE_VERSION = 'v5';
+const STORAGE_VERSION = 'v6';
 
 /**
  * Pasado este tiempo el snapshot se descarta aunque siga en localStorage, y no es negociable: sin él,

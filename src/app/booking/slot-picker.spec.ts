@@ -1,5 +1,6 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { providePrimeNG } from 'primeng/config';
+import { resetTenantTerminology, setTenantTerminology } from '../core/tenant-terminology';
 import type { PeriodSlots, SlotOption } from './availability';
 import { SlotPicker } from './slot-picker';
 
@@ -19,6 +20,8 @@ const DAY: PeriodSlots[] = [
 ];
 
 describe('SlotPicker', () => {
+  afterEach(() => resetTenantTerminology());
+
   let fixture: ComponentFixture<SlotPicker>;
   let picker: SlotPicker;
 
@@ -277,5 +280,21 @@ describe('SlotPicker', () => {
       slots()[0]!.click();
       expect(chosen).toEqual([]);
     });
+  });
+
+  it('con la terminología de un spa: «la agenda del spa» y «Elige un colaborador» (M-02 RN-TEN-51)', () => {
+    setTenantTerminology({
+      staffSingular: 'colaborador',
+      staffPlural: 'colaboradores',
+      businessSingular: 'spa',
+      businessPlural: 'spas',
+      businessGender: 'masculine',
+    });
+
+    render({ days: [], daysStatus: 'failed' });
+    expect(message()).toBe('No pudimos cargar la agenda del spa.');
+
+    render({ days: ['2026-10-01'], daysStatus: 'ready', barberSelected: false });
+    expect(clean(host().textContent)).toContain('Elige un colaborador para ver sus horas.');
   });
 });

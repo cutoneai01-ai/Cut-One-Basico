@@ -6,7 +6,7 @@
         <cob-barber-avatar [barber]="barber()" size="xxl" />
 
         <div class="mybarber__info">
-          <span class="cob-eyebrow">Tu barbero</span>
+          <span class="cob-eyebrow">Tu {{ 'staff' | term }}</span>
           <h2 class="mybarber__name" id="tu-barbero-nombre">{{ name() }}</h2>
 
           @if (barber().specialty) {

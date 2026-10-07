@@ -1,5 +1,14 @@
 import { ApiError, NETWORK_ERROR } from '../core/api-error';
+import { termForms } from '../core/terminology';
 import { bookingItemFailures, planForBookingError } from './booking-errors';
+
+const SPA = termForms({
+  staffSingular: 'colaborador',
+  staffPlural: 'colaboradores',
+  businessSingular: 'spa',
+  businessPlural: 'spas',
+  businessGender: 'masculine',
+});
 
 function apiError(code: string, message = 'mensaje del servidor', status = 409): ApiError {
   return new ApiError(status, message, code);
@@ -48,6 +57,9 @@ describe('planForBookingError', () => {
   });
 
   it('reinicia el wizard si el barbero o el servicio ya no existen', () => {
+    expect(planForBookingError(apiError('BARBER_NOT_FOUND', 'x', 404)).detail).toBe(
+      'El barbero o el servicio cambió. Vuelve a empezar la reserva.',
+    );
     expect(planForBookingError(apiError('BARBER_NOT_FOUND', 'x', 404)).reaction).toBe('restart');
     expect(planForBookingError(apiError('SERVICE_NOT_FOUND', 'x', 404)).reaction).toBe('restart');
   });
@@ -63,7 +75,16 @@ describe('planForBookingError', () => {
     const plan = planForBookingError(apiError('MULTI_SERVICE_BOOKING_DISABLED', 'x', 409));
 
     expect(plan.reaction).toBe('single-service');
-    expect(plan.summary).toContain('varios servicios');
+    expect(plan.summary).toBe('Esta barbería ya no permite reservar varios servicios');
+  });
+
+  it('con la terminología de un spa, los textos usan sus palabras (M-02 RN-TEN-51)', () => {
+    expect(planForBookingError(apiError('BARBER_NOT_FOUND', 'x', 404), SPA).detail).toBe(
+      'El colaborador o el servicio cambió. Vuelve a empezar la reserva.',
+    );
+    expect(planForBookingError(apiError('MULTI_SERVICE_BOOKING_DISABLED', 'x', 409), SPA).summary).toBe(
+      'Este spa ya no permite reservar varios servicios',
+    );
   });
 
   it('cualquier 429 muestra el mensaje del servidor y se queda (M-08 RN-DISPO-43)', () => {

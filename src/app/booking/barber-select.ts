@@ -15,6 +15,7 @@ import { barberColor } from '../core/barber-identity';
 import type { PublicBarber } from '../data/public-api.models';
 import { BarberAvatar } from '../shared/barber-avatar';
 import { RatingStars } from '../shared/rating-stars';
+import { TermPipe } from '../shared/term.pipe';
 import { matchesBarber } from './barber-search';
 
 /** Un barbero que se puede elegir, con lo que tarda en el servicio de la cita (M-08 RN-DISPO-35). */
@@ -32,7 +33,7 @@ let nextId = 0;
  */
 @Component({
   selector: 'cob-barber-select',
-  imports: [BarberAvatar, Dialog, InputText, Message, RatingStars],
+  imports: [BarberAvatar, Dialog, InputText, Message, RatingStars, TermPipe],
   templateUrl: './barber-select.html',
   styleUrl: './barber-select.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -49,8 +50,8 @@ export class BarberSelect {
   readonly anyBarber = input(false);
   /** El barbero del perfil, que no se puede cambiar (M-08 RN-DISPO-65): ficha sin botón ni ventana. */
   readonly locked = input(false);
-  /** Nombre accesible del botón cuando hay varios en pantalla («Barbero de la cita 2»). */
-  readonly label = input('Barbero');
+  /** Nombre accesible del botón cuando hay varios en pantalla; sin él, la palabra de personal. */
+  readonly label = input<string | null>(null);
 
   /** `null` es «Cualquier profesional». */
   readonly chosen = output<PublicBarber | null>();

@@ -31,7 +31,7 @@
     <p-step-list>
       <p-step [value]="1">Servicios</p-step>
       <!-- M-08 RN-DISPO-65: con el barbero bloqueado no hay barbero que elegir. -->
-      <p-step [value]="2" [disabled]="step() < 2">{{ lockedBarber() ? 'Día y hora' : 'Barbero, día y hora' }}</p-step>
+      <p-step [value]="2" [disabled]="step() < 2">{{ lockedBarber() ? 'Día y hora' : ('Staff' | term) + ', día y hora' }}</p-step>
       <p-step [value]="3" [disabled]="step() < 3">Tus datos</p-step>
     </p-step-list>
 
@@ -103,7 +103,7 @@
                       <cob-schedule-picker
                         [idPrefix]="'card-' + view.card.key"
                         [serviceName]="view.card.service.name"
-                        [barberLabel]="'Barbero de la cita ' + (view.index + 1)"
+                        [barberLabel]="('Staff' | term) + ' de la cita ' + (view.index + 1)"
                         [barberOptions]="view.barberOptions"
                         [allowAny]="true"
                         [anyDurationMin]="view.card.service.durationMin"

@@ -10,7 +10,7 @@
       <span class="bpick__meta">{{ option.durationMin }} min</span>
     </span>
     <i class="pi pi-lock bpick__end" aria-hidden="true"></i>
-    <span class="cob-visually-hidden">(barbero fijo, no se puede cambiar)</span>
+    <span class="cob-visually-hidden">({{ 'staff' | term }} fijo, no se puede cambiar)</span>
   </div>
 } @else {
   <button
@@ -31,7 +31,7 @@
       <span class="bpick__placeholder" aria-hidden="true"><i class="pi pi-user"></i></span>
     }
     <span class="bpick__text">
-      <span class="cob-visually-hidden">{{ label() }}: </span>
+      <span class="cob-visually-hidden">{{ label() ?? ('Staff' | term) }}: </span>
       @if (selected(); as option) {
         <span class="bpick__name">{{ nameOf(option.barber) }}</span>
         <span class="bpick__meta">{{ option.durationMin }} min</span>
@@ -41,7 +41,7 @@
           <span class="bpick__meta">{{ minutes }} min (aprox.)</span>
         }
       } @else {
-        <span class="bpick__name">Seleccionar barbero</span>
+        <span class="bpick__name">Seleccionar {{ 'staff' | term }}</span>
       }
     </span>
     <i class="pi pi-chevron-down bpick__end" aria-hidden="true"></i>
@@ -63,13 +63,13 @@
   >
     <ng-template #header let-labelledBy="ariaLabelledBy">
       <div class="dlg__titles" [id]="labelledBy">
-        <p class="cob-eyebrow dlg__eyebrow">Elige tu barbero</p>
+        <p class="cob-eyebrow dlg__eyebrow">Elige tu {{ 'staff' | term }}</p>
         <h2 class="dlg__title">{{ serviceName() }}</h2>
       </div>
     </ng-template>
 
     <div #body class="dlg">
-      <label class="cob-visually-hidden" [for]="uid + '-search'">Buscar barbero</label>
+      <label class="cob-visually-hidden" [for]="uid + '-search'">Buscar {{ 'staff' | term }}</label>
       <div class="search">
         <i class="pi pi-search" aria-hidden="true"></i>
         <input
@@ -87,10 +87,10 @@
 
       @if (cards().length === 0 && !showAny()) {
         <p class="empty" role="status">
-          Ningún barbero coincide con «{{ query().trim() }}». Prueba con otro nombre o especialidad.
+          Ningún {{ 'staff' | term }} coincide con «{{ query().trim() }}». Prueba con otro nombre o especialidad.
         </p>
       } @else {
-        <div class="grid" role="group" aria-label="Barberos">
+        <div class="grid" role="group" [attr.aria-label]="'Staffs' | term">
           <!-- CB-04 RN-CBMUL-02: «Cualquier profesional» no es un nombre: se aparta mientras se busca. -->
           @if (showAny()) {
             <button type="button" class="opt" [attr.aria-pressed]="anySelected()" (click)="choose(null)">

@@ -1,8 +1,8 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, signal } from '@angular/core';
 import { setTenantLocale, tenantLocale, type TenantLocale } from '../core/locale';
 import type { Branding } from '../data/branding';
 import type { SettingsService } from '../data/settings.service';
-import { PREVIEW_BRANDING, PREVIEW_LOCALE } from './preview-fixtures';
+import { PREVIEW_LOCALE, previewBranding } from './preview-fixtures';
 import type { PreviewBrandingOverride } from './preview-theme-resolver';
 
 /**
@@ -23,9 +23,17 @@ import type { PreviewBrandingOverride } from './preview-theme-resolver';
 export class PreviewSettingsService
   implements Pick<SettingsService, 'branding' | 'loading' | 'ensureLoaded' | 'locale' | 'requireLocale'>
 {
-  private readonly state = signal<Branding>(PREVIEW_BRANDING);
+  private readonly override = signal<PreviewBrandingOverride>({});
 
-  readonly branding = this.state.asReadonly();
+  /** La fixture con la terminología vigente, y encima el nombre y el logo reales si llegaron. */
+  readonly branding = computed<Branding>(() => {
+    const { shopName, logoUrl } = this.override();
+    return {
+      ...previewBranding(),
+      ...(shopName ? { shop_name: shopName } : {}),
+      ...(logoUrl ? { logo_url: logoUrl } : {}),
+    };
+  });
   readonly loading = signal(false).asReadonly();
   readonly locale = tenantLocale;
 
@@ -48,13 +56,13 @@ export class PreviewSettingsService
    * nombre y el logo reales del tenant para que el operador evalúe el tema sobre la marca real en vez
    * de sobre "Barbería Ejemplo". Es **solo lectura** — mostrar no es editar (ADR-0033) —
    * y toca ÚNICAMENTE esos dos campos: el resto del branding sigue siendo el de fixture, a propósito
-   * (ver el docblock de `PREVIEW_BRANDING`).
+   * (ver el docblock de `previewBranding`).
    */
   applyBrandingOverride(override: PreviewBrandingOverride): void {
-    this.state.update((current) => ({
+    this.override.update((current) => ({
       ...current,
-      ...(override.shopName ? { shop_name: override.shopName } : {}),
-      ...(override.logoUrl ? { logo_url: override.logoUrl } : {}),
+      ...(override.shopName ? { shopName: override.shopName } : {}),
+      ...(override.logoUrl ? { logoUrl: override.logoUrl } : {}),
     }));
   }
 }

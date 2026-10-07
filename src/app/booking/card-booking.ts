@@ -45,6 +45,7 @@ import { CardBookingState, type CardSlots } from './card-booking.state';
 import { CustomerFields, customerInput, type CustomerForm } from './customer-fields';
 import { SchedulePicker } from './schedule-picker';
 import { ServicePicker } from './service-picker';
+import { TermPipe } from '../shared/term.pipe';
 import { addLine, removeLine, totalPrice } from './service-selection';
 
 /** Constantes compartidas: una lista nueva en cada cálculo volvería a elegir el turno abierto. */
@@ -84,6 +85,7 @@ export interface SingleServiceFallback {
     StepPanel,
     StepPanels,
     Stepper,
+    TermPipe,
   ],
   templateUrl: './card-booking.html',
   styleUrl: './card-booking.css',

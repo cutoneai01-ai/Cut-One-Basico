@@ -4,23 +4,34 @@ import {
   readBrandingSnapshot,
   writeBrandingSnapshot,
 } from './public-content.storage';
+import { getCompanySubdomain } from './tenant';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 describe('brandingStorageKey', () => {
   it('lleva el prefijo del contrato con el panel', () => {
-    // Si el PREFIJO cambia, el panel deja de invalidar este caché y el fallo es silencioso
-    // (M-20 RN-CFG-48). La VERSIÓN, en cambio, sube a propósito cada vez que cambia la forma del
-    // snapshot (M-20 RN-CFG-53): `v2` cuando ganó el campo `theme`, `v3` desde que `Branding` gana
-    // `maps_url`, `v4` desde que guarda la clave `locale` (M-02 RN-TEN-20), `v5` para vaciar los snapshots de todos los visitantes
-    // sin pedirles que borren la caché. Este test se actualiza con
-    // ella — lo que vigila es que el salto sea deliberado.
-    expect(brandingStorageKey('cut-test')).toBe(`${PUBLIC_SETTINGS_KEY}:v5:cut-test`);
+    // El prefijo es contrato con el panel (M-20 RN-CFG-48); la versión sube a propósito al cambiar la
+    // forma del snapshot: `v6` guarda `terminology` (M-02 RN-TEN-50).
+    expect(brandingStorageKey('cut-test')).toBe(`${PUBLIC_SETTINGS_KEY}:v6:cut-test`);
     expect(PUBLIC_SETTINGS_KEY).toBe('public-settings');
   });
 
   it('separa por subdominio', () => {
     expect(brandingStorageKey('cut-test')).not.toBe(brandingStorageKey('pzbarbershop'));
+  });
+});
+
+describe('snapshot de la versión anterior', () => {
+  afterEach(() => localStorage.clear());
+
+  it('un snapshot v5 (sin terminología) no se lee: la clave vigente es otra', () => {
+    const now = Date.now();
+    localStorage.setItem(
+      `${PUBLIC_SETTINGS_KEY}:v5:${getCompanySubdomain()}`,
+      JSON.stringify({ savedAt: now, data: { shop_name: 'Viejo' } }),
+    );
+
+    expect(readBrandingSnapshot(now)).toBeUndefined();
   });
 });
 

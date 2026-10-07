@@ -1,6 +1,7 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { providePrimeNG } from 'primeng/config';
+import { resetTenantTerminology, setTenantTerminology } from '../core/tenant-terminology';
 import type { PublicBarber } from '../data/public-api.models';
 import { ProfileBarberSection } from './profile-barber-section';
 
@@ -19,6 +20,8 @@ function barber(overrides: Partial<PublicBarber> = {}): PublicBarber {
 }
 
 describe('ProfileBarberSection: «Tu barbero»', () => {
+  afterEach(() => resetTenantTerminology());
+
   let fixture: ComponentFixture<ProfileBarberSection>;
 
   beforeEach(() => {
@@ -157,5 +160,19 @@ describe('ProfileBarberSection: «Tu barbero»', () => {
     const host = render(barber());
 
     expect(host.querySelector('.mybarber__link')?.getAttribute('href')).toMatch(/#servicios$/);
+  });
+
+  it('con la terminología de un spa, «Tu colaborador» (M-02 RN-TEN-51)', () => {
+    setTenantTerminology({
+      staffSingular: 'colaborador',
+      staffPlural: 'colaboradores',
+      businessSingular: 'spa',
+      businessPlural: 'spas',
+      businessGender: 'masculine',
+    });
+
+    const host = render(barber());
+
+    expect(text(host, '.cob-eyebrow')).toBe('Tu colaborador');
   });
 });

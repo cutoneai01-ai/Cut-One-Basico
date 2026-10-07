@@ -1,4 +1,6 @@
 import { ApiError, isNetworkError } from '../core/api-error';
+import { tenantTerms } from '../core/tenant-terminology';
+import type { TermForms } from '../core/terminology';
 import type { BookingItemFailure } from '../data/public-api.models';
 
 /**
@@ -32,7 +34,7 @@ export interface BookingErrorPlan {
  * hora"). Sustituirlos por un texto propio los volvería inútiles y los desincronizaría del backend en
  * cuanto alguien cambie el umbral.
  */
-export function planForBookingError(error: unknown): BookingErrorPlan {
+export function planForBookingError(error: unknown, terms: TermForms = tenantTerms()): BookingErrorPlan {
   // Sin red el interceptor ya entrega un `ApiError` con `NETWORK_ERROR` (CB-07 RN-CBBAS-02).
   if (!(error instanceof ApiError) || isNetworkError(error)) {
     return {
@@ -100,7 +102,7 @@ export function planForBookingError(error: unknown): BookingErrorPlan {
     case 'SERVICE_NOT_FOUND':
       return {
         summary: 'La selección ya no está disponible',
-        detail: 'El barbero o el servicio cambió. Vuelve a empezar la reserva.',
+        detail: `El ${terms.staff} o el servicio cambió. Vuelve a empezar la reserva.`,
         reaction: 'restart',
       };
 
@@ -117,7 +119,7 @@ export function planForBookingError(error: unknown): BookingErrorPlan {
     // hace cumplir el servidor, así que la única salida es seguir con uno.
     case 'MULTI_SERVICE_BOOKING_DISABLED':
       return {
-        summary: 'Esta barbería ya no permite reservar varios servicios',
+        summary: `${terms.EstaBiz} ya no permite reservar varios servicios`,
         detail: 'Elige un solo servicio para continuar con tu reserva.',
         reaction: 'single-service',
       };

@@ -1,3 +1,6 @@
+import { tenantTerms } from '../core/tenant-terminology';
+import type { TermForms } from '../core/terminology';
+
 /** Un enlace del menú o del pie a una sección de la página (su `id`, sin `#`). */
 export interface NavLink {
   readonly section: string;
@@ -16,13 +19,14 @@ export interface PaintedSections {
  * CB-01 RN-CBPOR-02: el menú y el pie solo enlazan secciones que se pintan, en el orden de la página.
  * «Contacto» no está porque es el propio pie, que se pinta siempre.
  */
-export function navLinks(painted: PaintedSections): NavLink[] {
+export function navLinks(painted: PaintedSections, terms: TermForms = tenantTerms()): NavLink[] {
   const links: NavLink[] = [];
   if (painted.services) {
     links.push({ section: 'servicios', label: 'Servicios' });
   }
   if (painted.team) {
-    links.push({ section: 'barberos', label: 'Barberos' });
+    // El ancla `#barberos` no cambia: hay enlaces que ya la llevan (M-02 RN-TEN-51).
+    links.push({ section: 'barberos', label: terms.Staffs });
   }
   if (painted.about) {
     links.push({ section: 'nosotros', label: 'Sobre Nosotros' });

@@ -1,4 +1,13 @@
+import { termForms } from '../core/terminology';
 import { shopContact } from './shop-contact';
+
+const SPA = termForms({
+  staffSingular: 'colaborador',
+  staffPlural: 'colaboradores',
+  businessSingular: 'spa',
+  businessPlural: 'spas',
+  businessGender: 'masculine',
+});
 
 // CB-05 RN-CBGES-06: el contacto de la barbería para una cita que no se puede tocar.
 
@@ -17,6 +26,10 @@ describe('shopContact', () => {
       label: 'Llamar a la barbería',
       icon: 'pi pi-phone',
     });
+  });
+
+  it('con la terminología de un spa, «Llamar al spa» (M-02 RN-TEN-51)', () => {
+    expect(shopContact({ whatsappNumber: '', publicPhone: '601 555 0000' }, SPA)?.label).toBe('Llamar al spa');
   });
 
   it('sin ninguno, o con texto sin dígitos, nulo', () => {

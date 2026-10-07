@@ -4,6 +4,7 @@ import { Card } from 'primeng/card';
 import type { PublicBarber } from '../data/public-api.models';
 import { BarberAvatar } from '../shared/barber-avatar';
 import { RatingStars } from '../shared/rating-stars';
+import { TermPipe } from '../shared/term.pipe';
 import { ClampedText } from './clamped-text';
 import { SectionLink } from './section-link';
 
@@ -17,7 +18,7 @@ import { SectionLink } from './section-link';
  */
 @Component({
   selector: 'cob-profile-barber-section',
-  imports: [BarberAvatar, Button, Card, ClampedText, RatingStars, SectionLink],
+  imports: [BarberAvatar, Button, Card, ClampedText, RatingStars, SectionLink, TermPipe],
   templateUrl: './profile-barber-section.html',
   styleUrl: './profile-barber-section.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

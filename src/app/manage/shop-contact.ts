@@ -1,3 +1,5 @@
+import { tenantTerms } from '../core/tenant-terminology';
+import type { TermForms } from '../core/terminology';
 import type { ManageAppointment } from '../data/public-api.models';
 
 /** Cómo contactar a la barbería desde una cita que no se puede tocar. */
@@ -12,12 +14,15 @@ export interface ShopContact {
  * y en móvil —que es donde se abre un correo— abre la conversación directamente. Sin ninguno, nulo:
  * no se inventa un «comunícate con la barbería» que no dice cómo (CB-05 RN-CBGES-06).
  */
-export function shopContact(booking: Pick<ManageAppointment, 'whatsappNumber' | 'publicPhone'>): ShopContact | null {
+export function shopContact(
+  booking: Pick<ManageAppointment, 'whatsappNumber' | 'publicPhone'>,
+  terms: TermForms = tenantTerms(),
+): ShopContact | null {
   const whatsapp = booking.whatsappNumber.replace(/[^0-9]/g, '');
   if (whatsapp) {
     return { href: `https://wa.me/${whatsapp}`, label: 'Escribir por WhatsApp', icon: 'pi pi-whatsapp' };
   }
 
   const phone = booking.publicPhone.replace(/[^0-9+]/g, '');
-  return phone ? { href: `tel:${phone}`, label: 'Llamar a la barbería', icon: 'pi pi-phone' } : null;
+  return phone ? { href: `tel:${phone}`, label: `Llamar ${terms.aLaBiz}`, icon: 'pi pi-phone' } : null;
 }

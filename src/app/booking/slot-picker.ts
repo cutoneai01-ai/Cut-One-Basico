@@ -13,6 +13,7 @@ import { Button } from 'primeng/button';
 import { Message } from 'primeng/message';
 import { ProgressSpinner } from 'primeng/progressspinner';
 import { dayLabels, sameInstant } from '../core/locale';
+import { TermPipe } from '../shared/term.pipe';
 import type { BookingPolicyState } from '../data/booking-policy.service';
 import type { SlotPeriod } from '../data/public-api.models';
 import { dayState, initialPeriod, type PeriodSlots, type SlotOption } from './availability';
@@ -34,7 +35,7 @@ const PERIOD_UI: Record<SlotPeriod, { readonly label: string; readonly icon: str
  */
 @Component({
   selector: 'cob-slot-picker',
-  imports: [Button, Message, ProgressSpinner],
+  imports: [Button, Message, ProgressSpinner, TermPipe],
   templateUrl: './slot-picker.html',
   styleUrl: './slot-picker.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

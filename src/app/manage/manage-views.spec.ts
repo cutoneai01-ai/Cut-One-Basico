@@ -17,6 +17,7 @@ import { BarberSelect } from '../booking/barber-select';
 import { SchedulePicker } from '../booking/schedule-picker';
 import { ApiError, NETWORK_ERROR } from '../core/api-error';
 import { clearTenantLocale, setTenantLocale, type TenantLocale } from '../core/locale';
+import { resetTenantTerminology, setTenantTerminology } from '../core/tenant-terminology';
 import { BookingService } from '../data/booking.service';
 import { CatalogService } from '../data/catalog.service';
 import { ManageBookingService } from '../data/manage-booking.service';
@@ -227,7 +228,10 @@ describe('Gestión de la cita desde el correo', () => {
     addMessage = vi.spyOn(TestBed.inject(MessageService), 'add');
   });
 
-  afterEach(() => clearTenantLocale());
+  afterEach(() => {
+    clearTenantLocale();
+    resetTenantTerminology();
+  });
 
   const fixtures: ComponentFixture<unknown>[] = [];
   afterEach(() => fixtures.splice(0).forEach((fixture) => fixture.destroy()));
@@ -282,6 +286,7 @@ describe('Gestión de la cita desde el correo', () => {
 
       expect(text(host, 'cob-appointment-card')).toContain('Corte');
       expect(text(host, 'cob-appointment-card')).toContain('Pendiente de confirmar');
+      expect(all(host, 'cob-appointment-card dt')[0]).toBe('Barbero');
       expect(text(host, 'cob-appointment-card')).toContain('jueves, 1 de octubre de 2026 · 09:00 – 09:30');
       expect(links(host)).toEqual({
         Confirmar: '/reserva/appt-2/confirmar',
@@ -759,6 +764,41 @@ describe('Gestión de la cita desde el correo', () => {
     });
   });
 
+  // M-02 RN-TEN-51: las palabras salen de la terminología; con Barbería, el texto de siempre.
+  describe('con la terminología de un spa', () => {
+    beforeEach(() =>
+      setTenantTerminology({
+        staffSingular: 'colaborador',
+        staffPlural: 'colaboradores',
+        businessSingular: 'spa',
+        businessPlural: 'spas',
+        businessGender: 'masculine',
+      }),
+    );
+
+    it('el detalle dice «Colaborador» y «Llamar al spa»', async () => {
+      const { host } = await render(ManageDetailPage, {
+        ...BASE,
+        shopName: 'Spa Sereno',
+        editable: false,
+        notEditableReason: 'Faltan menos de 2 horas para la cita.',
+        publicPhone: '601 555 0000',
+      });
+
+      expect(all(host, 'cob-appointment-card dt')[0]).toBe('Colaborador');
+      expect(text(host, '.notice a.btn')).toBe('Llamar al spa');
+      expect(host.textContent).not.toMatch(/barber/i);
+    });
+
+    it('«Cambiar tu cita» dice «el colaborador» y su selector se llama «Colaborador»', async () => {
+      const { host } = await render(ManageEditPage, { ...BASE, shopName: 'Spa Sereno' });
+
+      expect(text(host, '.lead')).toBe('Cambia el servicio, el colaborador, el día o la hora de tu cita.');
+      expect(text(host, 'cob-schedule-picker .row__label')).toBe('Colaborador');
+      expect(host.textContent).not.toMatch(/barber/i);
+    });
+  });
+
   describe('editar', () => {
     const slotButtons = (host: HTMLElement): HTMLButtonElement[] =>
       Array.from(host.querySelectorAll<HTMLButtonElement>('button.slot'));
@@ -771,6 +811,8 @@ describe('Gestión de la cita desde el correo', () => {
       expect(manage.getAvailability).toHaveBeenCalledWith('appt-2', 'juan', 'corte', '2026-10-01');
       // CB-05 RN-CBGES-05: el barbero en el botón del selector con ventana, sin «Cualquier profesional».
       expect(all(host, 'cob-barber-select .bpick__name')).toEqual(['Juan']);
+      expect(text(host, '.lead')).toBe('Cambia el servicio, el barbero, el día o la hora de tu cita.');
+      expect(text(host, 'cob-schedule-picker .row__label')).toBe('Barbero');
       expect(barberNames()).toEqual(['Juan', 'Camilo']);
       expect(host.textContent).not.toContain('Cualquier profesional');
       // Y el turno de la hora de la cita abierto, con ella marcada.

@@ -13,7 +13,8 @@ import {
   isWellFormedPreviewThemeMessage,
 } from './preview-protocol';
 import { PreviewSettingsService } from './preview-settings.service';
-import { resolvePreviewBranding, resolvePreviewTheme } from './preview-theme-resolver';
+import { setTenantTerminology } from '../core/tenant-terminology';
+import { resolvePreviewBranding, resolvePreviewTerminology, resolvePreviewTheme } from './preview-theme-resolver';
 
 // `index.html:82` estampa esta función en `window`; no hay un `.d.ts` global para ella porque hasta
 // este archivo ningún TypeScript del proyecto la llamaba (el splash se ocultaba solo, por altura de
@@ -119,6 +120,11 @@ export class PreviewPage {
     const branding = resolvePreviewBranding(data.theme);
     if (branding) {
       this.settings.applyBrandingOverride(branding);
+    }
+
+    const terminology = resolvePreviewTerminology(data.theme);
+    if (terminology) {
+      setTenantTerminology(terminology);
     }
 
     // El eco dice lo aplicado, no lo recibido (M-20 RN-CFG-45): es lo que hace visible que un valor nuevo

@@ -5,6 +5,7 @@ import { MessageService } from 'primeng/api';
 import { providePrimeNG } from 'primeng/config';
 import { ApiError } from '../core/api-error';
 import { clearTenantLocale, setTenantLocale, type TenantLocale } from '../core/locale';
+import { resetTenantTerminology, setTenantTerminology } from '../core/tenant-terminology';
 import { BookingService } from '../data/booking.service';
 import { CatalogService } from '../data/catalog.service';
 import type {
@@ -129,6 +130,7 @@ describe('BookingWizard: el asistente de un servicio, por la interfaz', () => {
   afterEach(() => {
     fixture.destroy();
     clearTenantLocale();
+    resetTenantTerminology();
     vi.restoreAllMocks();
   });
 
@@ -215,6 +217,24 @@ describe('BookingWizard: el asistente de un servicio, por la interfaz', () => {
       referralBarberId: null,
     });
     expect(clean(document.body.querySelector('.done__code')?.textContent)).toBe('Código de confirmación CODE-1');
+  });
+
+  /** Los rótulos de los pasos del asistente, en orden. */
+  const stepLabels = (): string[] =>
+    Array.from(document.body.querySelectorAll('p-step .p-step-title')).map((title) => clean(title.textContent));
+
+  it('con la terminología de un spa el paso 2 es «Colaborador» y ningún texto dice «barbero» (M-02 RN-TEN-51)', async () => {
+    setTenantTerminology({
+      staffSingular: 'colaborador',
+      staffPlural: 'colaboradores',
+      businessSingular: 'spa',
+      businessPlural: 'spas',
+      businessGender: 'masculine',
+    });
+    await toDetails();
+
+    expect(stepLabels()).toEqual(['Servicio', 'Colaborador', 'Horario', 'Tus datos']);
+    expect(document.body.textContent).not.toMatch(/barber/i);
   });
 
   it('«Atrás» de cada paso vuelve al anterior', async () => {

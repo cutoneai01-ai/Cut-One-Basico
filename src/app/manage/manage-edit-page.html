@@ -18,9 +18,9 @@
         <h1 class="card__title">Cambiar tu cita</h1>
         <p class="cob-muted lead">
           @if (hasGroup()) {
-            Cambia el servicio, el barbero, el día o la hora de esta cita. Las demás no se tocan.
+            Cambia el servicio, el {{ 'staff' | term }}, el día o la hora de esta cita. Las demás no se tocan.
           } @else {
-            Cambia el servicio, el barbero, el día o la hora de tu cita.
+            Cambia el servicio, el {{ 'staff' | term }}, el día o la hora de tu cita.
           }
         </p>
 

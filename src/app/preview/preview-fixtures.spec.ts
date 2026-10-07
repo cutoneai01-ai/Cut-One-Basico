@@ -1,10 +1,22 @@
+import { termForms, type Terminology } from '../core/terminology';
 import {
-  PREVIEW_BARBERS,
-  PREVIEW_BRANDING,
   PREVIEW_POPULAR_SERVICES,
   PREVIEW_SERVICES,
   PREVIEW_TESTIMONIALS,
+  previewBarbers,
+  previewBranding,
 } from './preview-fixtures';
+
+const PREVIEW_BARBERS = previewBarbers();
+const PREVIEW_BRANDING = previewBranding();
+
+const SPA: Terminology = {
+  staffSingular: 'colaborador',
+  staffPlural: 'colaboradores',
+  businessSingular: 'spa',
+  businessPlural: 'spas',
+  businessGender: 'masculine',
+};
 
 // M-20 RN-CFG-47: "el contenido tiene que ser obviamente falso — nunca una copia del contenido de
 // pzbarbershop". Mismo espíritu que el test de `DEFAULTS` en `data/branding.spec.ts` (RF-F02): es la
@@ -55,6 +67,26 @@ describe('fixtures de /__preview', () => {
       expect(service.isPopular).toBe(true);
       expect(service.rank).toBe(index + 1);
     });
+  });
+
+  it('con la terminología por defecto los nombres de ejemplo dicen Barbería, como siempre', () => {
+    expect(PREVIEW_BARBERS[0].displayName).toBe('Barbero Ejemplo Uno');
+    expect(PREVIEW_BRANDING.shop_name).toBe('Barbería Ejemplo');
+    expect(PREVIEW_BRANDING.hero_subtitle).toBe('Agenda en minutos — esto es una vista previa, no una barbería real.');
+  });
+
+  it('con la de un spa, los nombres de ejemplo usan sus palabras (M-02 RN-TEN-51)', () => {
+    const terms = termForms(SPA);
+
+    expect(previewBarbers(terms).map((barber) => barber.displayName)).toEqual([
+      'Colaborador Ejemplo Uno',
+      'Colaborador Ejemplo Dos',
+      'Colaborador Ejemplo Tres',
+      'Colaborador Ejemplo Cuatro',
+      'Colaborador Ejemplo Cinco',
+    ]);
+    expect(previewBranding(terms).shop_name).toBe('Spa Ejemplo');
+    expect(previewBranding(terms).hero_subtitle).toBe('Agenda en minutos — esto es una vista previa, no un spa real.');
   });
 
   it('hay al menos dos barberos, para poder mostrar la tarjeta "cualquier profesional"', () => {

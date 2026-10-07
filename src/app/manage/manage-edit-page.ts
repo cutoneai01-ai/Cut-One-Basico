@@ -20,6 +20,7 @@ import { ActionNotAllowed } from './action-not-allowed';
 import { AppointmentCard } from './appointment-card';
 import { injectManageAppointment, isLive, otherAppointments } from './manage-appointment';
 import { ManageFrame } from './manage-frame';
+import { TermPipe } from '../shared/term.pipe';
 
 /** El servicio de la cita como lo describe la respuesta, para cuando ya no está en el catálogo. */
 function serviceOf(booking: ManageAppointment): PublicService {
@@ -47,7 +48,7 @@ function serviceOf(booking: ManageAppointment): PublicService {
  */
 @Component({
   selector: 'cob-manage-edit-page',
-  imports: [ActionNotAllowed, AppointmentCard, ManageFrame, RouterLink, SchedulePicker],
+  imports: [ActionNotAllowed, AppointmentCard, ManageFrame, RouterLink, SchedulePicker, TermPipe],
   templateUrl: './manage-edit-page.html',
   styleUrl: './manage-views.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

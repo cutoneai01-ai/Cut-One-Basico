@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { formatMoney } from '../core/locale';
 import type { ManageGroupAppointment } from '../data/public-api.models';
+import { TermPipe } from '../shared/term.pipe';
 import { isLive, statusLabel, timeRange } from './manage-appointment';
 
 /** Lo que hace falta para pintar una cita: lo tienen la cita del enlace y cada cita del grupo. */
@@ -18,6 +19,7 @@ export type AppointmentCardData = Pick<
  */
 @Component({
   selector: 'cob-appointment-card',
+  imports: [TermPipe],
   template: `
     <article class="appt">
       <div class="appt__top">
@@ -27,7 +29,7 @@ export type AppointmentCardData = Pick<
         </span>
       </div>
       <dl class="appt__data">
-        <dt>Barbero</dt>
+        <dt>{{ 'Staff' | term }}</dt>
         <dd>{{ appointment().barberName }}</dd>
         <dt>Cuándo</dt>
         <dd>{{ appointment().dateEs }} · {{ range() }}</dd>

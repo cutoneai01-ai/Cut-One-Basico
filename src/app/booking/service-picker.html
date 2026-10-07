@@ -112,7 +112,7 @@
           <!-- M-08 RN-DISPO-65: desde el perfil, todas con su barbero. -->
           <span>Cada servicio será una cita, con {{ name }}, en su propio día y hora.</span>
         } @else {
-          <span>Cada servicio será una cita, con su propio barbero, día y hora.</span>
+          <span>Cada servicio será una cita, con su propio {{ 'staff' | term }}, día y hora.</span>
         }
       </p>
     }

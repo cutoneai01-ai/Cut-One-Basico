@@ -16,7 +16,7 @@
     } @else if (daysStatus() === 'failed') {
       <!-- CB-03 RN-CBRES-08: sin política es un fallo de red, no un día sin turnos. -->
       <div class="retry">
-        <p-message severity="error" text="No pudimos cargar la agenda de la barbería." />
+        <p-message severity="error" [text]="'No pudimos cargar la agenda ' + ('deLaBiz' | term) + '.'" />
         <p-button
           label="Reintentar"
           icon="pi pi-refresh"
@@ -56,7 +56,7 @@
         <p class="row__label">Hora</p>
       }
       @if (!barberSelected()) {
-        <p class="cob-muted">Elige un barbero para ver sus horas.</p>
+        <p class="cob-muted">Elige un {{ 'staff' | term }} para ver sus horas.</p>
       } @else if (loading()) {
         <div class="loading" role="status">
           <p-progressSpinner [style]="{ width: '2.5rem', height: '2.5rem' }" />

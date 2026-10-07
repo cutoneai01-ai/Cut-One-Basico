@@ -64,7 +64,7 @@
       <p-step-list>
         <p-step [value]="1">Servicio</p-step>
         @if (!lockedBarber()) {
-          <p-step [value]="numbers.barber" [disabled]="step() < 2">Barbero</p-step>
+          <p-step [value]="numbers.barber" [disabled]="step() < 2">{{ 'Staff' | term }}</p-step>
         }
         <p-step [value]="numbers.schedule" [disabled]="step() < 3">Horario</p-step>
         <p-step [value]="numbers.details" [disabled]="step() < 4">Tus datos</p-step>

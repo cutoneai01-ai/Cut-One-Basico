@@ -1,5 +1,6 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { providePrimeNG } from 'primeng/config';
+import { resetTenantTerminology, setTenantTerminology } from '../core/tenant-terminology';
 import type { PublicBarber } from '../data/public-api.models';
 import { BarberSelect, type BarberOption } from './barber-select';
 
@@ -45,6 +46,7 @@ describe('BarberSelect', () => {
   afterEach(() => {
     fixture.destroy();
     vi.restoreAllMocks();
+    resetTenantTerminology();
   });
 
   async function render(inputs: Record<string, unknown> = {}): Promise<void> {
@@ -129,6 +131,8 @@ describe('BarberSelect', () => {
       expect(trigger().getAttribute('aria-expanded')).toBe('true');
       expect(clean(dialog()!.querySelector('.dlg__title')?.textContent)).toBe('Fade + barba');
       expect(clean(dialog()!.querySelector('.dlg__eyebrow')?.textContent)).toBe('Elige tu barbero');
+      expect(clean(dialog()!.querySelector('label')?.textContent)).toBe('Buscar barbero');
+      expect(dialog()!.querySelector('[role="group"]')?.getAttribute('aria-label')).toBe('Barberos');
       expect(names()).toEqual(['Cualquier profesional', 'Andrés Mejía', 'Camilo Ríos', 'Julián Pardo']);
       expect(clean(cards()[0]!.textContent)).toContain('Te asignamos uno de los disponibles');
 
@@ -274,5 +278,28 @@ describe('BarberSelect', () => {
     expect(clean(host().querySelector('p-message')?.textContent)).toBe(
       'Ningún profesional presta este servicio ahora mismo.',
     );
+  });
+
+  it('con la terminología de un spa, cada texto dice «colaborador» (M-02 RN-TEN-51)', async () => {
+    setTenantTerminology({
+      staffSingular: 'colaborador',
+      staffPlural: 'colaboradores',
+      businessSingular: 'spa',
+      businessPlural: 'spas',
+      businessGender: 'masculine',
+    });
+    await render();
+
+    expect(clean(trigger().textContent)).toBe('Colaborador: Seleccionar colaborador');
+    await open();
+    expect(clean(dialog()!.querySelector('.dlg__eyebrow')?.textContent)).toBe('Elige tu colaborador');
+    expect(clean(dialog()!.querySelector('label')?.textContent)).toBe('Buscar colaborador');
+    expect(dialog()!.querySelector('[role="group"]')?.getAttribute('aria-label')).toBe('Colaboradores');
+    await search('zzz');
+    expect(clean(dialog()!.querySelector('.empty')?.textContent)).toMatch(/^Ningún colaborador coincide/);
+
+    await render({ options: [OPTIONS[0]], barberId: 'andres', locked: true });
+    expect(host().textContent).toContain('colaborador fijo, no se puede cambiar');
+    expect(`${host().textContent} ${dialog()?.textContent ?? ''}`).not.toMatch(/barber/i);
   });
 });

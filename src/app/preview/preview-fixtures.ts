@@ -1,4 +1,6 @@
 import type { TenantLocale } from '../core/locale';
+import { tenantTerms } from '../core/tenant-terminology';
+import type { TermForms } from '../core/terminology';
 import type { Branding } from '../data/branding';
 import type { PopularService, PublicBarber, PublicService, PublicTestimonial } from '../data/public-api.models';
 
@@ -20,38 +22,39 @@ import type { PopularService, PublicBarber, PublicService, PublicTestimonial } f
 // Las imágenes son las semillas que YA se empaquetan (`public/seed/`, ver `core/images.ts`): cero
 // bytes nuevos en el artefacto.
 
-export const PREVIEW_BARBERS: readonly PublicBarber[] = [
+/** El equipo de ejemplo sin nombre: el nombre lleva la palabra de personal del tenant (M-02 RN-TEN-51). */
+const PREVIEW_TEAM: readonly (Omit<PublicBarber, 'displayName'> & { readonly ordinal: string })[] = [
   {
     id: 'preview-barber-1',
-    displayName: 'Barbero Ejemplo Uno',
+    ordinal: 'Uno',
     specialty: 'Cortes clásicos',
     photoUrl: 'barber-1.webp',
     rating: 4.8,
   },
   {
     id: 'preview-barber-2',
-    displayName: 'Barbero Ejemplo Dos',
+    ordinal: 'Dos',
     specialty: 'Fade y diseño',
     photoUrl: 'barber-2.webp',
     rating: 4.6,
   },
   {
     id: 'preview-barber-3',
-    displayName: 'Barbero Ejemplo Tres',
+    ordinal: 'Tres',
     specialty: 'Barba y afeitado',
     photoUrl: 'barber-3.webp',
     rating: 4.9,
   },
   {
     id: 'preview-barber-4',
-    displayName: 'Barbero Ejemplo Cuatro',
+    ordinal: 'Cuatro',
     specialty: 'Color y tratamientos',
     photoUrl: 'barber-4.webp',
     rating: 4.7,
   },
   {
     id: 'preview-barber-5',
-    displayName: 'Barbero Ejemplo Cinco',
+    ordinal: 'Cinco',
     specialty: 'Cortes infantiles',
     photoUrl: 'barber-5.webp',
     // M-04 RN-EQ-23: un barbero «Nuevo», para que la previsualización del tema enseñe el tag y la tarjeta
@@ -61,7 +64,15 @@ export const PREVIEW_BARBERS: readonly PublicBarber[] = [
   },
 ];
 
-const ALL_BARBER_IDS = PREVIEW_BARBERS.map((barber) => barber.id);
+/** El equipo de ejemplo con la terminología vigente: «Barbero Ejemplo Uno» / «Colaborador Ejemplo Uno». */
+export function previewBarbers(terms: TermForms = tenantTerms()): PublicBarber[] {
+  return PREVIEW_TEAM.map(({ ordinal, ...barber }) => ({
+    ...barber,
+    displayName: `${terms.Staff} Ejemplo ${ordinal}`,
+  }));
+}
+
+const PREVIEW_BARBER_IDS = PREVIEW_TEAM.map((barber) => barber.id);
 
 export const PREVIEW_SERVICES: readonly PublicService[] = [
   {
@@ -73,7 +84,7 @@ export const PREVIEW_SERVICES: readonly PublicService[] = [
     category: 'Cortes',
     isPopular: true,
     imageUrl: 'service-haircut.webp',
-    barberIds: ALL_BARBER_IDS,
+    barberIds: PREVIEW_BARBER_IDS,
   },
   {
     id: 'preview-service-beard',
@@ -84,7 +95,7 @@ export const PREVIEW_SERVICES: readonly PublicService[] = [
     category: 'Barba',
     isPopular: true,
     imageUrl: 'service-beard.webp',
-    barberIds: [PREVIEW_BARBERS[0].id, PREVIEW_BARBERS[2].id],
+    barberIds: [PREVIEW_BARBER_IDS[0], PREVIEW_BARBER_IDS[2]],
   },
   {
     id: 'preview-service-vip',
@@ -95,7 +106,7 @@ export const PREVIEW_SERVICES: readonly PublicService[] = [
     category: 'Combos',
     isPopular: true,
     imageUrl: 'service-vip.webp',
-    barberIds: ALL_BARBER_IDS,
+    barberIds: PREVIEW_BARBER_IDS,
   },
   {
     id: 'preview-service-fade',
@@ -106,7 +117,7 @@ export const PREVIEW_SERVICES: readonly PublicService[] = [
     category: 'Cortes',
     isPopular: false,
     imageUrl: 'service-fade.webp',
-    barberIds: [PREVIEW_BARBERS[1].id, PREVIEW_BARBERS[3].id],
+    barberIds: [PREVIEW_BARBER_IDS[1], PREVIEW_BARBER_IDS[3]],
   },
   {
     id: 'preview-service-eyebrows',
@@ -117,7 +128,7 @@ export const PREVIEW_SERVICES: readonly PublicService[] = [
     category: 'Detalles',
     isPopular: false,
     imageUrl: 'service-eyebrows.webp',
-    barberIds: ALL_BARBER_IDS,
+    barberIds: PREVIEW_BARBER_IDS,
   },
   {
     id: 'preview-service-wax',
@@ -128,7 +139,7 @@ export const PREVIEW_SERVICES: readonly PublicService[] = [
     category: 'Detalles',
     isPopular: false,
     imageUrl: 'service-wax.webp',
-    barberIds: [PREVIEW_BARBERS[4].id],
+    barberIds: [PREVIEW_BARBER_IDS[4]],
   },
 ];
 
@@ -167,29 +178,31 @@ export const PREVIEW_TESTIMONIALS: readonly PublicTestimonial[] = [
  * resto del contenido (`about_us_text`, testimonios, catálogo…) sigue siendo de mentira a propósito —
  * este archivo no es un editor de contenido, solo de tema.
  */
-export const PREVIEW_BRANDING: Branding = {
-  logo_url: '',
-  shop_name: 'Barbería Ejemplo',
-  slogan: 'Estilo y tradición (vista previa)',
-  hero_image_url: 'service-vip.webp',
-  hero_title: 'Tu mejor corte, cada vez',
-  hero_subtitle: 'Agenda en minutos — esto es una vista previa, no una barbería real.',
-  est_year: '2020',
-  location: 'Ciudad Ejemplo',
-  // Vacío a propósito: la dirección de la vista previa es de mentira, así que un enlace de mapa
-  // llevaría a cualquier parte. La vista previa es de TEMA, no de contenido, y además así ejercita la
-  // rama de degradación sin enlace (M-20 RN-CFG-51).
-  maps_url: '',
-  schedule: 'Lun a sáb, 9:00 a.m. – 7:00 p.m.',
-  about_us_title: 'Sobre nosotros (ejemplo)',
-  about_us_text:
-    'Contenido de muestra para previsualizar el tema. Ninguno de estos datos pertenece a un tenant real.',
-  about_us_images: ['service-haircut.webp', 'service-fade.webp', 'barber-2.webp'],
-  public_phone: '3000000000',
-  instagram_url: '',
-  whatsapp_number: '3000000000',
-  rating_score: 4.8,
-};
+export function previewBranding(terms: TermForms = tenantTerms()): Branding {
+  return {
+    logo_url: '',
+    shop_name: `${terms.Biz} Ejemplo`,
+    slogan: 'Estilo y tradición (vista previa)',
+    hero_image_url: 'service-vip.webp',
+    hero_title: 'Tu mejor corte, cada vez',
+    hero_subtitle: `Agenda en minutos — esto es una vista previa, no ${terms.unaBiz} real.`,
+    est_year: '2020',
+    location: 'Ciudad Ejemplo',
+    // Vacío a propósito: la dirección de la vista previa es de mentira, así que un enlace de mapa
+    // llevaría a cualquier parte. La vista previa es de TEMA, no de contenido, y además así ejercita la
+    // rama de degradación sin enlace (M-20 RN-CFG-51).
+    maps_url: '',
+    schedule: 'Lun a sáb, 9:00 a.m. – 7:00 p.m.',
+    about_us_title: 'Sobre nosotros (ejemplo)',
+    about_us_text:
+      'Contenido de muestra para previsualizar el tema. Ninguno de estos datos pertenece a un tenant real.',
+    about_us_images: ['service-haircut.webp', 'service-fade.webp', 'barber-2.webp'],
+    public_phone: '3000000000',
+    instagram_url: '',
+    whatsapp_number: '3000000000',
+    rating_score: 4.8,
+  };
+}
 
 /**
  * Zona y moneda de fixture (M-02 RN-TEN-21). La vista previa no pide nada al API (M-20 RN-CFG-41), así

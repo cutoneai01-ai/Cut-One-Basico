@@ -3,6 +3,7 @@ import { Component } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { providePrimeNG } from 'primeng/config';
+import { resetTenantTerminology, setTenantTerminology } from '../core/tenant-terminology';
 import { DEFAULTS, type Branding } from '../data/branding';
 import { navLinks, type NavLink } from './nav-links';
 import { SiteHeader } from './site-header';
@@ -32,6 +33,7 @@ describe('SiteHeader', () => {
 
   afterEach(() => {
     TestBed.inject(Location).go('/');
+    resetTenantTerminology();
   });
 
   function render(profile: boolean, links: readonly NavLink[] = profile ? PROFILE : ALL): HTMLElement {
@@ -126,5 +128,20 @@ describe('SiteHeader', () => {
       expect(host.querySelector('.brand__logo')).toBeNull();
       expect(text(host.querySelector('.brand__text'))).toBe('Cut Test');
     });
+  });
+
+  it('con la terminología de un spa, el ancla del equipo se llama «Colaboradores» (M-02 RN-TEN-51)', () => {
+    setTenantTerminology({
+      staffSingular: 'colaborador',
+      staffPlural: 'colaboradores',
+      businessSingular: 'spa',
+      businessPlural: 'spas',
+      businessGender: 'masculine',
+    });
+
+    const host = render(false, navLinks({ services: true, team: true, about: true }));
+
+    expect(navTexts(host)).toEqual(['Servicios', 'Colaboradores', 'Sobre Nosotros', 'Contacto']);
+    expect(host.querySelector('.nav a[href="/#barberos"]')).not.toBeNull();
   });
 });

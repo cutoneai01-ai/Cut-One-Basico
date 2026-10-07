@@ -3,6 +3,7 @@ import type { BookingPolicyState } from '../data/booking-policy.service';
 import type { PublicBarber } from '../data/public-api.models';
 import type { PeriodSlots } from './availability';
 import { BarberSelect, type BarberOption } from './barber-select';
+import { TermPipe } from '../shared/term.pipe';
 import { SlotPicker } from './slot-picker';
 
 /**
@@ -13,11 +14,11 @@ import { SlotPicker } from './slot-picker';
  */
 @Component({
   selector: 'cob-schedule-picker',
-  imports: [BarberSelect, SlotPicker],
+  imports: [BarberSelect, SlotPicker, TermPipe],
   template: `
     <div class="schedule">
       <div class="row" role="group" [attr.aria-labelledby]="idPrefix() + '-barber'">
-        <p class="row__label" [id]="idPrefix() + '-barber'">Barbero</p>
+        <p class="row__label" [id]="idPrefix() + '-barber'">{{ 'Staff' | term }}</p>
         <cob-barber-select
           [serviceName]="serviceName()"
           [options]="barberOptions()"
@@ -85,7 +86,8 @@ export class SchedulePicker {
   readonly anyBarber = input(false);
   /** El barbero es el del perfil y no se puede cambiar (M-08 RN-DISPO-65). */
   readonly barberLocked = input(false);
-  readonly barberLabel = input('Barbero');
+  /** Nombre accesible del selector; sin él, la palabra de personal. */
+  readonly barberLabel = input<string | null>(null);
 
   readonly days = input.required<readonly string[]>();
   readonly daysStatus = input<BookingPolicyState['status']>('ready');

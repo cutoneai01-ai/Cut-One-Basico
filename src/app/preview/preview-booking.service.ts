@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import type { BookingWindow } from '../booking/availability';
 import { addDays, todayInBusinessZone } from '../core/locale';
+import { tenantTerms } from '../core/tenant-terminology';
 import { PREVIEW_LOCALE } from './preview-fixtures';
 import type { BookingService } from '../data/booking.service';
 import type {
@@ -83,7 +84,7 @@ export class PreviewBookingService
       appointmentId: 'preview-appointment',
       confirmationCode: 'PREVIEW-0000',
       status: 'Confirmed',
-      barberName: 'Barbero Ejemplo',
+      barberName: `${tenantTerms().Staff} Ejemplo`,
       serviceName: 'Servicio de ejemplo',
       startAtUtc: input.startAtUtc,
       durationMin: 30,
@@ -105,7 +106,7 @@ export class PreviewBookingService
         appointmentId: `preview-appointment-${index + 1}`,
         confirmationCode: 'PREVIEW-0000',
         status: 'Confirmed',
-        barberName: 'Barbero Ejemplo',
+        barberName: `${tenantTerms().Staff} Ejemplo`,
         serviceName: 'Servicio de ejemplo',
         startAtUtc: item.startAtUtc,
         durationMin: 30,

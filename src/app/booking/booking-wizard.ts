@@ -25,6 +25,7 @@ import { planForBookingError } from './booking-errors';
 import { CardBooking, type SingleServiceFallback } from './card-booking';
 import { CardBookingState } from './card-booking.state';
 import { CustomerFields, createCustomerForm, customerInput } from './customer-fields';
+import { TermPipe } from '../shared/term.pipe';
 import { SlotPicker } from './slot-picker';
 
 /**
@@ -71,6 +72,7 @@ const LOCKED_STEPS: readonly number[] = [1, 3, 4];
     StepPanel,
     StepPanels,
     Stepper,
+    TermPipe,
   ],
   // El estado de la múltiple vive aquí y no en `CardBooking`, que muere al cerrar el diálogo
   // (CB-03 RN-CBRES-12).

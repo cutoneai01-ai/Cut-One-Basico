@@ -1,4 +1,13 @@
+import { termForms } from '../core/terminology';
 import { navLinks } from './nav-links';
+
+const SPA = termForms({
+  staffSingular: 'colaborador',
+  staffPlural: 'colaboradores',
+  businessSingular: 'spa',
+  businessPlural: 'spas',
+  businessGender: 'masculine',
+});
 
 // CB-01 RN-CBPOR-02: solo se enlaza lo que se pinta, en el orden de la página.
 
@@ -20,6 +29,12 @@ describe('navLinks', () => {
 
   it('sin servicios que enseñar no hay «Servicios», y sin equipo (el perfil) no hay «Barberos»', () => {
     expect(sections({ services: false, team: false, about: true })).toEqual(['Sobre Nosotros #nosotros']);
+  });
+
+  it('con la terminología de un spa, el equipo se llama con su palabra y el ancla no cambia', () => {
+    expect(navLinks({ services: false, team: true, about: false }, SPA)).toEqual([
+      { section: 'barberos', label: 'Colaboradores' },
+    ]);
   });
 
   it('sin nada, ninguno', () => {

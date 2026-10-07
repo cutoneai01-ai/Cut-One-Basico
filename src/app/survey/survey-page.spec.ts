@@ -1,6 +1,7 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { providePrimeNG } from 'primeng/config';
 import { ApiError, NETWORK_ERROR } from '../core/api-error';
+import { resetTenantTerminology, setTenantTerminology } from '../core/tenant-terminology';
 import type { SurveyInfo } from '../data/public-api.models';
 import { SurveysService } from '../data/surveys.service';
 import { SurveyPage } from './survey-page';
@@ -42,6 +43,7 @@ describe('SurveyPage', () => {
 
   afterEach(() => {
     fixture.destroy();
+    resetTenantTerminology();
     document.head.querySelectorAll("link[rel='icon'], link[rel='apple-touch-icon']").forEach((link) => link.remove());
   });
 
@@ -274,5 +276,23 @@ describe('SurveyPage', () => {
 
       expect(clean(host.querySelector('p-message')?.textContent)).toContain('Algo falló en la barbería.');
     });
+  });
+
+  it('con la terminología de un spa no dice «barbero» en ningún sitio: su texto ya es neutro (M-02 RN-TEN-51)', async () => {
+    const spaInfo: SurveyInfo = { ...INFO, shopName: 'Spa Sereno' };
+    const barbershopText = clean((await render(spaInfo)).textContent);
+    fixture.destroy();
+
+    setTenantTerminology({
+      staffSingular: 'colaborador',
+      staffPlural: 'colaboradores',
+      businessSingular: 'spa',
+      businessPlural: 'spas',
+      businessGender: 'masculine',
+    });
+    const spaText = clean((await render(spaInfo)).textContent);
+
+    expect(spaText).toBe(barbershopText);
+    expect(spaText).not.toMatch(/barber/i);
   });
 });

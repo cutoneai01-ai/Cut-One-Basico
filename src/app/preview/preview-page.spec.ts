@@ -5,6 +5,7 @@ import { providePrimeNG } from 'primeng/config';
 import { environment } from '../../environments/environment';
 import { routes } from '../app.routes';
 import { clearTenantLocale } from '../core/locale';
+import { resetTenantTerminology, tenantTerms } from '../core/tenant-terminology';
 import { LandingPage } from '../landing/landing-page';
 import { DARK_MODE_CLASS } from '../theme/themes';
 import { PreviewPage } from './preview-page';
@@ -50,6 +51,7 @@ describe('PreviewPage', () => {
     delete window.__hideCutOneSplash;
     document.documentElement.classList.remove(DARK_MODE_CLASS);
     clearTenantLocale();
+    resetTenantTerminology();
     vi.restoreAllMocks();
   });
 
@@ -138,6 +140,30 @@ describe('PreviewPage', () => {
     expect(settings.branding().logo_url).toBe('/real.png');
   });
 
+  it('con theme.terminology, los datos de ejemplo hablan con las palabras de la compañía', () => {
+    embed(`${GESTION}/`);
+    render();
+    const settings = TestBed.inject(PreviewSettingsService);
+
+    send({
+      type: 'cob-preview:theme',
+      protocol: PREVIEW_PROTOCOL_VERSION,
+      theme: {
+        preset: 'noche',
+        terminology: {
+          staffSingular: 'colaborador',
+          staffPlural: 'colaboradores',
+          businessSingular: 'spa',
+          businessPlural: 'spas',
+          businessGender: 'masculine',
+        },
+      },
+    });
+
+    expect(tenantTerms().Staffs).toBe('Colaboradores');
+    expect(settings.branding().shop_name).toBe('Spa Ejemplo');
+  });
+
   it('sin theme.branding, la marca de ejemplo se queda', () => {
     embed(`${GESTION}/`);
     render();
@@ -147,6 +173,7 @@ describe('PreviewPage', () => {
     send({ type: 'cob-preview:theme', protocol: PREVIEW_PROTOCOL_VERSION, theme: { preset: 'noche' } });
 
     expect(settings.branding()).toEqual(before);
+    expect(tenantTerms().Staffs).toBe('Barberos');
   });
 
   it('un sobre mal formado responde bad-payload', () => {

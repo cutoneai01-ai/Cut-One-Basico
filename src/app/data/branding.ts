@@ -76,6 +76,11 @@ export interface PublicSettingsBundle {
    * defecto (ADR-0040): se vuelve a pedir.
    */
   locale?: unknown;
+  /**
+   * Palabras de personal y de negocio del tipo de compañía (M-02 RN-TEN-50). `unknown` porque solo
+   * `parseTerminology()` decide si es usable; si falta, la landing habla de Barbería.
+   */
+  terminology?: unknown;
 }
 
 /**
@@ -88,6 +93,8 @@ export interface StoredPublicSnapshot extends Branding {
   theme?: RawTheme;
   /** La clave `locale` cruda, validada al leer con `isTenantLocale()`. */
   locale?: unknown;
+  /** La clave `terminology` cruda, validada al leer con `parseTerminology()`. */
+  terminology?: unknown;
 }
 
 /**

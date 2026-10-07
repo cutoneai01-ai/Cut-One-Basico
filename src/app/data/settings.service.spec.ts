@@ -2,6 +2,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { clearTenantLocale, setTenantLocale, type TenantLocale } from '../core/locale';
+import { readBrandingSnapshot } from '../core/public-content.storage';
+import { resetTenantTerminology, tenantTerms } from '../core/tenant-terminology';
 import { writeBrandingSnapshot } from '../core/public-content.storage';
 import { STARTUP_SETTINGS_BUNDLE } from '../theme/startup-theme';
 import { DEFAULTS, type PublicSettingsBundle, type StoredPublicSnapshot } from './branding';
@@ -50,6 +52,7 @@ describe('SettingsService', () => {
   afterEach(() => {
     controller.verify();
     clearTenantLocale();
+    resetTenantTerminology();
     localStorage.clear();
   });
 
@@ -66,11 +69,11 @@ describe('SettingsService', () => {
     expect(service.locale()).toEqual(LOCALE);
   });
 
-  it('sin petición previa pide una vez las cuatro claves', async () => {
+  it('sin petición previa pide una vez todas las claves, terminología incluida', async () => {
     const service = setup();
 
     service.ensureLoaded();
-    settingsRequests('branding,hero,theme,locale')[0]!.flush(BUNDLE);
+    settingsRequests('branding,hero,theme,locale,terminology')[0]!.flush(BUNDLE);
     await flushMicrotasks();
 
     expect(service.branding().shop_name).toBe('Cut Test');
@@ -84,7 +87,7 @@ describe('SettingsService', () => {
     await flushMicrotasks();
     expect(settingsRequests('locale')).toHaveLength(0);
 
-    settingsRequests('branding,hero,theme,locale')[0]!.flush(BUNDLE);
+    settingsRequests('branding,hero,theme,locale,terminology')[0]!.flush(BUNDLE);
     await expect(locale).resolves.toEqual(LOCALE);
     await flushMicrotasks();
     controller.expectNone('/api/v1/public/settings');
@@ -108,7 +111,7 @@ describe('SettingsService', () => {
 
     service.ensureLoaded();
     expect(service.loading()).toBe(true);
-    settingsRequests('branding,hero,theme,locale')[0]!.flush(null, { status: 500, statusText: 'Server Error' });
+    settingsRequests('branding,hero,theme,locale,terminology')[0]!.flush(null, { status: 500, statusText: 'Server Error' });
     await flushMicrotasks();
 
     expect(service.loading()).toBe(false);
@@ -125,7 +128,7 @@ describe('SettingsService', () => {
     expect(service.loading()).toBe(false);
     expect(service.branding().shop_name).toBe('Desde caché');
     expect(service.locale()).toEqual(LOCALE);
-    settingsRequests('branding,hero,theme,locale')[0]!.flush(BUNDLE);
+    settingsRequests('branding,hero,theme,locale,terminology')[0]!.flush(BUNDLE);
     await flushMicrotasks();
     expect(service.branding().shop_name).toBe('Cut Test');
   });
@@ -215,5 +218,47 @@ describe('SettingsService', () => {
     settingsRequests('locale')[0]!.flush({ locale: LOCALE });
 
     await expect(locale).resolves.toEqual(LOCALE);
+  });
+
+  describe('terminología (M-02 RN-TEN-50)', () => {
+    const SPA_RAW = {
+      staff_singular: 'colaborador',
+      staff_plural: 'colaboradores',
+      business_singular: 'spa',
+      business_plural: 'spas',
+      business_gender: 'masculine',
+    };
+
+    it('la del bundle se aplica y se guarda en el snapshot', async () => {
+      const service = setup(Promise.resolve({ ...BUNDLE, terminology: SPA_RAW }));
+
+      service.ensureLoaded();
+      await flushMicrotasks();
+
+      expect(tenantTerms().Staff).toBe('Colaborador');
+      expect(readBrandingSnapshot<StoredPublicSnapshot>()?.terminology).toEqual(SPA_RAW);
+    });
+
+    it('la del snapshot pinta al instante, antes de la revalidación', () => {
+      writeBrandingSnapshot<Partial<StoredPublicSnapshot>>({ shop_name: 'Desde caché', locale: LOCALE, terminology: SPA_RAW });
+      const service = setup();
+
+      service.ensureLoaded();
+
+      expect(tenantTerms().laBiz).toBe('el spa');
+      settingsRequests('branding,hero,theme,locale,terminology')[0]!.flush({ ...BUNDLE, terminology: SPA_RAW });
+    });
+
+    it('un bundle sin la clave deja Barbería, sin error ni otra petición', async () => {
+      writeBrandingSnapshot<Partial<StoredPublicSnapshot>>({ shop_name: 'Desde caché', locale: LOCALE, terminology: SPA_RAW });
+      const service = setup();
+
+      service.ensureLoaded();
+      settingsRequests('branding,hero,theme,locale,terminology')[0]!.flush(BUNDLE);
+      await flushMicrotasks();
+
+      expect(service.branding().shop_name).toBe('Cut Test');
+      expect(tenantTerms().Staffs).toBe('Barberos');
+    });
   });
 });

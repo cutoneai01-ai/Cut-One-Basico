@@ -9,6 +9,7 @@ import {
   type RadiusKey,
 } from '../theme/theme-catalog';
 import { PALETTES, THEMES, type PaletteName, type ThemeDescriptor } from '../theme/themes';
+import { parseTerminology, type Terminology } from '../core/terminology';
 import { PREVIEW_PRESETS, isPreviewPresetKey } from './preview-presets';
 
 /**
@@ -27,6 +28,8 @@ export interface PreviewThemePayload {
   readonly density?: unknown;
   readonly buttonStyle?: unknown;
   readonly branding?: unknown;
+  /** Las palabras del tipo de la compañía, en la forma de `Terminology` (M-02 RN-TEN-51). Opcional. */
+  readonly terminology?: unknown;
 }
 
 function isPalette(value: unknown): value is PaletteName {
@@ -106,4 +109,24 @@ function isPreviewBrandingOverride(value: unknown): value is PreviewBrandingOver
  * desconfía. */
 export function resolvePreviewBranding(payload: PreviewThemePayload): PreviewBrandingOverride | undefined {
   return isPreviewBrandingOverride(payload.branding) ? payload.branding : undefined;
+}
+
+/**
+ * La terminología de la compañía previsualizada, o `undefined` si no viene o no es válida: entonces la
+ * vista previa sigue en Barbería, como la landing sin la clave (M-02 RN-TEN-50).
+ */
+export function resolvePreviewTerminology(payload: PreviewThemePayload): Terminology | undefined {
+  if (payload.terminology === null || typeof payload.terminology !== 'object') {
+    return undefined;
+  }
+  const t = payload.terminology as Record<string, unknown>;
+  return (
+    parseTerminology({
+      staff_singular: t['staffSingular'],
+      staff_plural: t['staffPlural'],
+      business_singular: t['businessSingular'],
+      business_plural: t['businessPlural'],
+      business_gender: t['businessGender'],
+    }) ?? undefined
+  );
 }

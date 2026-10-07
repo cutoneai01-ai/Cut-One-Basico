@@ -11,6 +11,7 @@ import {
   readBrandingSnapshot,
   writeBrandingSnapshot,
 } from '../core/public-content.storage';
+import { applyTenantTerminology } from '../core/tenant-terminology';
 import { applyTheme } from '../theme/apply-theme';
 import { resolveTheme } from '../theme/resolve-theme';
 import { STARTUP_SETTINGS_BUNDLE } from '../theme/startup-theme';
@@ -84,6 +85,7 @@ export class SettingsService {
     const cached = readBrandingSnapshot<Partial<StoredPublicSnapshot>>();
     if (cached) {
       this.state.set(mergeBrandingSnapshot(cached));
+      applyTenantTerminology(cached.terminology);
       // Un snapshot sin `locale` válido no siembra nada: la revalidación de abajo lo trae, y si
       // tampoco llega ahí, `applyBundle` lo vuelve a pedir. Nunca se cae a una zona por defecto.
       if (isTenantLocale(cached.locale)) {
@@ -102,14 +104,14 @@ export class SettingsService {
 
   private async refresh(): Promise<void> {
     try {
-      // Una sola petición para las tres claves, `theme` incluida junto a `branding` y `hero`. En el
+      // Una sola petición para todas las claves, `theme` incluida junto a `branding` y `hero`. En el
       // backend son columnas de la misma fila de `CompanySetting`, así que pedirlas por separado eran
       // invocaciones Lambda y RTT extra para resolver un único SELECT — y, medido en X-Ray el
       // 2026-07-28, hasta tres cold starts simultáneos por carga de página. No se separan por
       // comodidad de tipado.
       const bundle = await firstValueFrom(
         this.http.get<PublicSettingsBundle>('/api/v1/public/settings', {
-          params: { keys: 'branding,hero,theme,locale' },
+          params: { keys: 'branding,hero,theme,locale,terminology' },
         }),
       );
 
@@ -162,7 +164,15 @@ export class SettingsService {
       setTenantLocale(locale);
     }
 
-    writeBrandingSnapshot<StoredPublicSnapshot>({ ...fresh, theme: bundle.theme, locale });
+    // Sin la clave, Barbería: no se espera ni se vuelve a pedir (M-02 RN-TEN-50).
+    applyTenantTerminology(bundle.terminology);
+
+    writeBrandingSnapshot<StoredPublicSnapshot>({
+      ...fresh,
+      theme: bundle.theme,
+      locale,
+      terminology: bundle.terminology,
+    });
     applyTheme(resolveTheme(bundle.theme));
 
     if (!locale) {

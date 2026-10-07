@@ -3,6 +3,7 @@ import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { NavigationEnd, Router, provideRouter } from '@angular/router';
 import { providePrimeNG } from 'primeng/config';
 import { filter, firstValueFrom } from 'rxjs';
+import { resetTenantTerminology, setTenantTerminology } from '../core/tenant-terminology';
 import type { PublicBarber } from '../data/public-api.models';
 import { BarbersSection } from './barbers-section';
 
@@ -23,6 +24,8 @@ function barber(overrides: Partial<PublicBarber>): PublicBarber {
 class ProfileStub {}
 
 describe('BarbersSection', () => {
+  afterEach(() => resetTenantTerminology());
+
   let fixture: ComponentFixture<BarbersSection>;
 
   beforeEach(() => {
@@ -293,5 +296,24 @@ describe('BarbersSection', () => {
       // Con «reducir movimiento», sin transición del contorno.
       expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{ \.barber-card\[[^\]]+\] \{ transition: none; \}/);
     });
+  });
+
+  it('con la terminología de un spa no dice «barbero» en ningún sitio: su texto ya es neutro (M-02 RN-TEN-51)', () => {
+    setTenantTerminology({
+      staffSingular: 'colaborador',
+      staffPlural: 'colaboradores',
+      businessSingular: 'spa',
+      businessPlural: 'spas',
+      businessGender: 'masculine',
+    });
+
+    const host = render(barber({ displayName: 'Ana Ruiz' }));
+
+    expect(Array.from(host.querySelectorAll('.cob-section__head > *')).map(text)).toEqual([
+      'Nuestro equipo',
+      'Profesionales al mando',
+      'Agenda directamente con quien prefieras.',
+    ]);
+    expect(host.textContent).not.toMatch(/barber/i);
   });
 });

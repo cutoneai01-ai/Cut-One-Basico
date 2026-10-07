@@ -5,6 +5,7 @@ import { providePrimeNG } from 'primeng/config';
 import { Subject, firstValueFrom } from 'rxjs';
 import { ApiError } from '../core/api-error';
 import { clearTenantLocale, formatLongDate, setTenantLocale, type TenantLocale } from '../core/locale';
+import { resetTenantTerminology, setTenantTerminology } from '../core/tenant-terminology';
 import { BookingPolicyService } from '../data/booking-policy.service';
 import { BookingService } from '../data/booking.service';
 import type {
@@ -144,6 +145,7 @@ describe('CardBooking: asistente de tarjetas', () => {
   afterEach(() => {
     fixture.destroy();
     clearTenantLocale();
+    resetTenantTerminology();
   });
 
   async function settle(): Promise<void> {
@@ -267,6 +269,37 @@ describe('CardBooking: asistente de tarjetas', () => {
       expect(card(0).barberId).toBe('andres');
       expect(booking.getAvailability).toHaveBeenCalledWith('andres', 'barba', '2026-10-01');
     });
+  });
+
+  it('con la terminología de un spa, el paso, las tarjetas y el aviso dicen «colaborador» (M-02 RN-TEN-51)', async () => {
+    setTenantTerminology({
+      staffSingular: 'colaborador',
+      staffPlural: 'colaboradores',
+      businessSingular: 'spa',
+      businessPlural: 'spas',
+      businessGender: 'masculine',
+    });
+    fixture.detectChanges();
+    flow['addService'](cut);
+    flow['addService'](beard);
+    await settle();
+    expect(clean(host().querySelector('cob-service-picker .summary__notice span')?.textContent)).toBe(
+      'Cada servicio será una cita, con su propio colaborador, día y hora.',
+    );
+
+    flow['continueToCards']();
+    await settle();
+
+    expect(Array.from(host().querySelectorAll('p-step .p-step-title')).map((t) => clean(t.textContent))).toEqual([
+      'Servicios',
+      'Colaborador, día y hora',
+      'Tus datos',
+    ]);
+    expect(clean(host().querySelector('.bcard--open .row__label')?.textContent)).toBe('Colaborador');
+    expect(clean(host().querySelector('.bcard--open button.bpick')?.textContent)).toBe(
+      'Colaborador de la cita 1: Seleccionar colaborador',
+    );
+    expect(host().textContent).not.toMatch(/barber/i);
   });
 
   describe('el mismo barbero no se pisa (M-08 RN-DISPO-55)', () => {

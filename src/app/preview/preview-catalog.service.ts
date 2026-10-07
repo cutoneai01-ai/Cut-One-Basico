@@ -1,7 +1,7 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, signal } from '@angular/core';
 import type { CatalogService } from '../data/catalog.service';
 import type { PublicBarber, PublicService } from '../data/public-api.models';
-import { PREVIEW_BARBERS, PREVIEW_SERVICES } from './preview-fixtures';
+import { PREVIEW_SERVICES, previewBarbers } from './preview-fixtures';
 
 /**
  * Doble de `CatalogService` para `/__preview` (M-20 RN-CFG-41). Sin `HttpClient`: ver el docblock de
@@ -23,7 +23,8 @@ export class PreviewCatalogService
   // aunque en preview nunca se mute, es la forma exacta la que tiene que coincidir para que el `Pick`
   // de la cabecera de esta clase atrape una divergencia real en vez de una de solo lectura.
   readonly services = signal<PublicService[]>([...PREVIEW_SERVICES]).asReadonly();
-  readonly barbers = signal<PublicBarber[]>([...PREVIEW_BARBERS]).asReadonly();
+  // El nombre de ejemplo sigue a la terminología que mande GestionCutOne (M-02 RN-TEN-51).
+  readonly barbers = computed<PublicBarber[]>(() => previewBarbers());
   readonly loading = signal(false).asReadonly();
   readonly failed = signal(false).asReadonly();
 
