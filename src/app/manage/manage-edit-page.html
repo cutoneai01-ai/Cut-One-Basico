@@ -5,7 +5,7 @@
         <h1 class="card__title">¡Cita actualizada!</h1>
         <p class="banner banner--ok" role="status">Te enviamos los datos nuevos por correo.</p>
         <cob-appointment-card [appointment]="booking" [showPrice]="true" />
-        <a class="back" [routerLink]="['/reserva', booking.appointmentId]">Ver mi reserva</a>
+        <a class="back" [routerLink]="['/booking', booking.appointmentId]">Ver mi reserva</a>
       </section>
     } @else if (!booking.editable) {
       <cob-action-not-allowed
@@ -71,7 +71,7 @@
           >
             {{ submitting() ? 'Guardando…' : 'Guardar cambios' }}
           </button>
-          <a class="back" [routerLink]="['/reserva', booking.appointmentId]">Ver mi reserva</a>
+          <a class="back" [routerLink]="['/booking', booking.appointmentId]">Ver mi reserva</a>
         </div>
         @if (!dirty()) {
           <p class="cob-muted">Cambia algo para poder guardar.</p>

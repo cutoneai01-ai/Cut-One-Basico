@@ -207,7 +207,7 @@ export class LandingPage {
   private leavingProfile = false;
 
   /**
-   * Cuántas veces se llegó al perfil con `#reservar` (CB-02 RN-CBPER-04): cada llegada abre el asistente
+   * Cuántas veces se llegó al perfil con `#book` (CB-02 RN-CBPER-04): cada llegada abre el asistente
    * una vez. `ActivatedRoute.fragment` solo emite cuando el fragmento cambia.
    */
   private readonly bookingArrivals = toSignal(
@@ -233,7 +233,7 @@ export class LandingPage {
       applyPageMetadata({ title: pageTitle(this.branding().shop_name, this.profileBarber()) });
     });
 
-    // CB-02 RN-CBPER-04 y RN-CBPER-05: una llegada con `#reservar` es una reserva pedida; la pedida
+    // CB-02 RN-CBPER-04 y RN-CBPER-05: una llegada con `#book` es una reserva pedida; la pedida
     // antes de resolver al barbero se abre al resolverlo, nunca sin él.
     effect(() => {
       const arrivals = this.bookingArrivals();
@@ -290,7 +290,7 @@ export class LandingPage {
   }
 
   /**
-   * Quita `#reservar` sustituyendo la entrada: recargar, volver con «Atrás» o copiar la URL no reabren
+   * Quita `#book` sustituyendo la entrada: recargar, volver con «Atrás» o copiar la URL no reabren
    * el asistente (CB-02 RN-CBPER-04, una vez por llegada).
    */
   private clearBookingFragment(): void {

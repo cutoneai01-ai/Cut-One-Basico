@@ -7,7 +7,7 @@ import { OtherAppointments } from './other-appointments';
 import { shopContact } from './shop-contact';
 
 /**
- * `/reserva/:id`: el **detalle**, de solo lectura (M-08 RN-DISPO-61). La cita con su estado y un
+ * `/booking/:id`: el **detalle**, de solo lectura (M-08 RN-DISPO-61). La cita con su estado y un
  * enlace por acción —Confirmar, Editar, Cancelar—, cada uno solo si la cita lo permite. Con grupo,
  * debajo las demás citas con su enlace, y «Confirmar todas» / «Cancelar todas» si alguna lo permite.
  *
@@ -29,13 +29,13 @@ import { shopContact } from './shop-contact';
             @if (booking.confirmable || booking.editable || booking.cancelable) {
               <div class="actions">
                 @if (booking.confirmable) {
-                  <a class="btn btn--primary" [routerLink]="['/reserva', booking.appointmentId, 'confirmar']">Confirmar</a>
+                  <a class="btn btn--primary" [routerLink]="['/booking', booking.appointmentId, 'confirm']">Confirmar</a>
                 }
                 @if (booking.editable) {
-                  <a class="btn" [routerLink]="['/reserva', booking.appointmentId, 'editar']">Editar</a>
+                  <a class="btn" [routerLink]="['/booking', booking.appointmentId, 'reschedule']">Editar</a>
                 }
                 @if (booking.cancelable) {
-                  <a class="btn" [routerLink]="['/reserva', booking.appointmentId, 'cancelar']">Cancelar</a>
+                  <a class="btn" [routerLink]="['/booking', booking.appointmentId, 'cancel']">Cancelar</a>
                 }
               </div>
             }
@@ -66,10 +66,10 @@ import { shopContact } from './shop-contact';
           @if (booking.group?.anyConfirmable || booking.group?.anyCancelable) {
             <div class="actions">
               @if (booking.group?.anyConfirmable) {
-                <a class="btn" [routerLink]="['/reserva', booking.appointmentId, 'confirmar-todas']">Confirmar todas</a>
+                <a class="btn" [routerLink]="['/booking', booking.appointmentId, 'confirm-all']">Confirmar todas</a>
               }
               @if (booking.group?.anyCancelable) {
-                <a class="btn" [routerLink]="['/reserva', booking.appointmentId, 'cancelar-todas']">Cancelar todas</a>
+                <a class="btn" [routerLink]="['/booking', booking.appointmentId, 'cancel-all']">Cancelar todas</a>
               }
             </div>
           }

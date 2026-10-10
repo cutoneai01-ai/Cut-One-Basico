@@ -12,7 +12,7 @@ export type AppointmentCardData = Pick<
 
 /**
  * Una cita, con su estado: servicio, barbero, cuándo y precio. La usan todas las vistas de
- * `/reserva/:id` (M-08 RN-DISPO-61), que debajo proyectan sus botones.
+ * `/booking/:id` (M-08 RN-DISPO-61), que debajo proyectan sus botones.
  *
  * `dateEs` llega ya formateada por el backend en la zona de la barbería y se pinta tal cual; la hora
  * sale del instante, también en la zona de la barbería (M-02 RN-TEN-20).

@@ -22,14 +22,14 @@ export interface PaintedSections {
 export function navLinks(painted: PaintedSections, terms: TermForms = tenantTerms()): NavLink[] {
   const links: NavLink[] = [];
   if (painted.services) {
-    links.push({ section: 'servicios', label: 'Servicios' });
+    links.push({ section: 'services', label: 'Servicios' });
   }
   if (painted.team) {
-    // El ancla `#barberos` no cambia: hay enlaces que ya la llevan (M-02 RN-TEN-51).
-    links.push({ section: 'barberos', label: terms.Staffs });
+    // Ancla neutral al tipo de negocio; el texto sí sale de la terminología (M-08 RN-DISPO-75).
+    links.push({ section: 'team', label: terms.Staffs });
   }
   if (painted.about) {
-    links.push({ section: 'nosotros', label: 'Sobre Nosotros' });
+    links.push({ section: 'about', label: 'Sobre Nosotros' });
   }
   return links;
 }

@@ -17,23 +17,23 @@ describe('navLinks', () => {
 
   it('con todo pintado, las tres en el orden de la página', () => {
     expect(sections({ services: true, team: true, about: true })).toEqual([
-      'Servicios #servicios',
-      'Barberos #barberos',
-      'Sobre Nosotros #nosotros',
+      'Servicios #services',
+      'Barberos #team',
+      'Sobre Nosotros #about',
     ]);
   });
 
   it('sin «Nosotros» no hay «Sobre Nosotros»', () => {
-    expect(sections({ services: true, team: true, about: false })).toEqual(['Servicios #servicios', 'Barberos #barberos']);
+    expect(sections({ services: true, team: true, about: false })).toEqual(['Servicios #services', 'Barberos #team']);
   });
 
   it('sin servicios que enseñar no hay «Servicios», y sin equipo (el perfil) no hay «Barberos»', () => {
-    expect(sections({ services: false, team: false, about: true })).toEqual(['Sobre Nosotros #nosotros']);
+    expect(sections({ services: false, team: false, about: true })).toEqual(['Sobre Nosotros #about']);
   });
 
-  it('con la terminología de un spa, el equipo se llama con su palabra y el ancla no cambia', () => {
+  it('con la terminología de un spa, el equipo se llama con su palabra y el ancla es neutral', () => {
     expect(navLinks({ services: false, team: true, about: false }, SPA)).toEqual([
-      { section: 'barberos', label: 'Colaboradores' },
+      { section: 'team', label: 'Colaboradores' },
     ]);
   });
 

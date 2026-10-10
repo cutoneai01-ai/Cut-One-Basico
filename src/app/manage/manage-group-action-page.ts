@@ -21,7 +21,6 @@ const COPY = {
     skipped: 'No se pudieron confirmar:',
     none: 'No hay citas que confirmar',
     noneReason: 'Ninguna de tus citas se puede confirmar ahora.',
-    single: 'confirmar',
   },
   cancel: {
     title: 'Cancelar todas tus citas',
@@ -31,16 +30,15 @@ const COPY = {
     skipped: 'No se pudieron cancelar:',
     none: 'No hay citas que cancelar',
     noneReason: 'Ninguna de tus citas se puede cancelar ahora.',
-    single: 'cancelar',
   },
 } as const;
 
 /**
- * `/reserva/:id/confirmar-todas` y `/reserva/:id/cancelar-todas` (M-08 RN-DISPO-58, RN-DISPO-61): las
+ * `/booking/:id/confirm-all` y `/booking/:id/cancel-all` (M-08 RN-DISPO-58, RN-DISPO-61): las
  * citas vivas del grupo y un botón que **pide clic**; nada se ejecuta al abrir la pantalla. El
  * resultado dice cuáles cambiaron y cuáles se saltaron, con el motivo que redacta el servidor.
  *
- * Una cita sin grupo no tiene «todas»: la ruta redirige a `/confirmar` o `/cancelar` de esa cita.
+ * Una cita sin grupo no tiene «todas»: la ruta redirige a `/confirm` o `/cancel` de esa cita.
  */
 @Component({
   selector: 'cob-manage-group-action-page',
@@ -69,7 +67,7 @@ const COPY = {
               <!-- M-08 RN-DISPO-72: el mismo contenedor que en la vista de la acción, aunque aquí ya no
                    haya botón, para que «Ver mi reserva» no salte de sitio al terminar. -->
               <div class="actions actions--with-back">
-                <a class="back" [routerLink]="['/reserva', booking.appointmentId]">Ver mi reserva</a>
+                <a class="back" [routerLink]="['/booking', booking.appointmentId]">Ver mi reserva</a>
               </div>
             </section>
           } @else if (actionable() === 0) {
@@ -115,7 +113,7 @@ const COPY = {
                 >
                   {{ busy() ? copy().busy : copy().button(actionable()) }}
                 </button>
-                <a class="back" [routerLink]="['/reserva', booking.appointmentId]">Ver mi reserva</a>
+                <a class="back" [routerLink]="['/booking', booking.appointmentId]">Ver mi reserva</a>
               </div>
               @if (failure(); as message) {
                 <p class="banner banner--err" role="alert">{{ message }}</p>
@@ -208,7 +206,8 @@ export class ManageGroupActionPage {
   /** Sin grupo no hay «todas»: la acción de esa cita sola, sin dejar la ruta «-todas» en el historial. */
   private redirectWithoutGroup(booking: ManageAppointment): void {
     if (!booking.group) {
-      void this.router.navigate(['/reserva', booking.appointmentId, COPY[this.action()].single], {
+      // La acción se llama igual que su subruta: `confirm` y `cancel` (M-08 RN-DISPO-75).
+      void this.router.navigate(['/booking', booking.appointmentId, this.action()], {
         replaceUrl: true,
       });
     }

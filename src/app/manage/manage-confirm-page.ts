@@ -10,7 +10,7 @@ import { ManageFrame } from './manage-frame';
 import { OtherAppointments } from './other-appointments';
 
 /**
- * `/reserva/:id/confirmar`: confirmar **esta** cita (M-08 RN-DISPO-57, RN-DISPO-61).
+ * `/booking/:id/confirm`: confirmar **esta** cita (M-08 RN-DISPO-57, RN-DISPO-61).
  *
  * **No llama a la API hasta el clic.** Los antivirus y los clientes de correo abren los enlaces por su
  * cuenta, y una pantalla que confirmara al abrirse confirmaría citas que el cliente nunca vio. Si la
@@ -30,14 +30,14 @@ import { OtherAppointments } from './other-appointments';
             </p>
             <cob-appointment-card [appointment]="booking" />
             <cob-other-appointments [appointments]="others()" />
-            <a class="back" [routerLink]="['/reserva', booking.appointmentId]">Ver mi reserva</a>
+            <a class="back" [routerLink]="['/booking', booking.appointmentId]">Ver mi reserva</a>
           </section>
         } @else if (booking.status === 'Confirmed') {
           <section class="card">
             <h1 class="card__title">Tu cita ya está confirmada</h1>
             <cob-appointment-card [appointment]="booking" />
             <cob-other-appointments [appointments]="others()" />
-            <a class="back" [routerLink]="['/reserva', booking.appointmentId]">Ver mi reserva</a>
+            <a class="back" [routerLink]="['/booking', booking.appointmentId]">Ver mi reserva</a>
           </section>
         } @else if (rejection() || !booking.confirmable) {
           <cob-action-not-allowed
@@ -55,7 +55,7 @@ import { OtherAppointments } from './other-appointments';
                 <button type="button" class="btn btn--primary" [disabled]="busy()" (click)="confirm()">
                   {{ busy() ? 'Confirmando…' : 'Confirmar esta cita' }}
                 </button>
-                <a class="back" [routerLink]="['/reserva', booking.appointmentId]">Ver mi reserva</a>
+                <a class="back" [routerLink]="['/booking', booking.appointmentId]">Ver mi reserva</a>
               </div>
             </cob-appointment-card>
             @if (failure(); as message) {

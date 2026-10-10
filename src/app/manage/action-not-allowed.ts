@@ -5,7 +5,7 @@ import { AppointmentCard } from './appointment-card';
 import { shopContact } from './shop-contact';
 
 /**
- * «Acción no permitida», **una sola vez** para todas las vistas de `/reserva/:id` (M-08 RN-DISPO-61):
+ * «Acción no permitida», **una sola vez** para todas las vistas de `/booking/:id` (M-08 RN-DISPO-61):
  * el título de la acción, el motivo **que redacta el servidor** (`notConfirmableReason`,
  * `notCancelableReason`, `notEditableReason` o el mensaje de un 409) y, si la barbería publicó cómo
  * contactarla, el botón para hacerlo.
@@ -31,7 +31,7 @@ import { shopContact } from './shop-contact';
             <i [class]="link.icon" aria-hidden="true"></i>&nbsp;{{ link.label }}
           </a>
         }
-        <a class="back" [routerLink]="['/reserva', appointment().appointmentId]">Ver mi reserva</a>
+        <a class="back" [routerLink]="['/booking', appointment().appointmentId]">Ver mi reserva</a>
       </div>
     </section>
   `,

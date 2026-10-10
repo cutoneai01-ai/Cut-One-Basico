@@ -60,7 +60,7 @@ describe('SiteHeader', () => {
     const host = render(true);
 
     expect(navTexts(host)).toEqual(['Servicios', 'Sobre Nosotros', 'Contacto']);
-    expect(host.querySelector('.nav a')?.getAttribute('href')).toBe('/profile/abc#servicios');
+    expect(host.querySelector('.nav a')?.getAttribute('href')).toBe('/profile/abc#services');
   });
 
   it('solo enlaza lo que recibe; «Contacto» siempre, porque el pie siempre se pinta', () => {
@@ -68,8 +68,8 @@ describe('SiteHeader', () => {
 
     expect(navTexts(host)).toEqual(['Barberos', 'Contacto']);
     expect(Array.from(host.querySelectorAll('.nav a')).map((a) => a.getAttribute('href'))).toEqual([
-      '/#barberos',
-      '/#contacto',
+      '/#team',
+      '/#contact',
     ]);
   });
 
@@ -142,6 +142,6 @@ describe('SiteHeader', () => {
     const host = render(false, navLinks({ services: true, team: true, about: true }));
 
     expect(navTexts(host)).toEqual(['Servicios', 'Colaboradores', 'Sobre Nosotros', 'Contacto']);
-    expect(host.querySelector('.nav a[href="/#barberos"]')).not.toBeNull();
+    expect(host.querySelector('.nav a[href="/#team"]')).not.toBeNull();
   });
 });

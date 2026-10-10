@@ -8,7 +8,7 @@ import type { ManageAppointment, ManageGroupAppointment } from '../data/public-a
 import { SettingsService } from '../data/settings.service';
 
 /**
- * Lo que comparten las seis vistas de `/reserva/:id` (M-08 RN-DISPO-61): cargar la cita del enlace y
+ * Lo que comparten las seis vistas de `/booking/:id` (M-08 RN-DISPO-61): cargar la cita del enlace y
  * las ayudas para pintar su estado y el de las demás citas del grupo.
  */
 

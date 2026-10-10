@@ -2,13 +2,13 @@ import { Location } from '@angular/common';
 import { Directive, computed, inject, input } from '@angular/core';
 
 /**
- * Ancla a una sección de la página en la que está (`<a cobSectionLink="servicios">`).
+ * Ancla a una sección de la página en la que está (`<a cobSectionLink="services">`).
  *
- * **No vale un `href="#servicios"` a secas.** `index.html` declara `<base href="/">`, y un fragmento
+ * **No vale un `href="#services"` a secas.** `index.html` declara `<base href="/">`, y un fragmento
  * suelto se resuelve contra la base, no contra la página: en `/profile/{id}` (M-08 RN-DISPO-62) ese
- * enlace apunta a `/#servicios`, el navegador lo trata como otro documento y **recarga la landing
+ * enlace apunta a `/#services`, el navegador lo trata como otro documento y **recarga la landing
  * normal**, con lo que el cliente pierde el perfil del barbero. Pasaba también en `/?utm_source=…`, que
- * saltaba a `/#servicios` sin sus parámetros.
+ * saltaba a `/#services` sin sus parámetros.
  *
  * Aquí el href lleva la ruta y los parámetros de la página actual más el fragmento: el navegador lo ve
  * como un salto dentro del mismo documento, igual que antes en `/`, y el router lo atiende con el

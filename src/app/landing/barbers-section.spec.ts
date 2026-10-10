@@ -101,13 +101,13 @@ describe('BarbersSection', () => {
       expect(await click(link)).toBe(`/profile/${FELIPE_ID}`);
     });
 
-    it('«Agendar con {nombre}» lleva al perfil con #reservar, y navega sin recargar', async () => {
+    it('«Agendar con {nombre}» lleva al perfil con #book, y navega sin recargar', async () => {
       const host = render(barber({ id: FELIPE_ID }));
       const book = host.querySelector<HTMLAnchorElement>('a.barber-card__book')!;
 
       expect(text(book)).toBe('Agendar con Barbero Ejemplo');
-      expect(book.getAttribute('href')).toBe(`/profile/${FELIPE_ID}#reservar`);
-      expect(await click(book)).toBe(`/profile/${FELIPE_ID}#reservar`);
+      expect(book.getAttribute('href')).toBe(`/profile/${FELIPE_ID}#book`);
+      expect(await click(book)).toBe(`/profile/${FELIPE_ID}#book`);
     });
 
     it('sin nombre, «Profesional»', () => {

@@ -21,8 +21,8 @@ describe('recoverFromStaleChunk', () => {
   it('recarga una vez hacia la URL a la que iba', () => {
     const navigate = vi.fn();
 
-    expect(recoverFromStaleChunk(stale, '/reserva/1', navigate, 1_000_000)).toBe(true);
-    expect(navigate).toHaveBeenCalledWith('/reserva/1');
+    expect(recoverFromStaleChunk(stale, '/booking/1', navigate, 1_000_000)).toBe(true);
+    expect(navigate).toHaveBeenCalledWith('/booking/1');
   });
 
   it('no entra en bucle si vuelve a fallar enseguida', () => {

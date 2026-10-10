@@ -7,7 +7,7 @@ import type { ManageAppointment } from '../data/public-api.models';
 import type { ManageLoadState } from './manage-appointment';
 
 /**
- * El marco de las vistas de `/reserva/:id` (M-08 RN-DISPO-61): la cabecera con la barbería y los
+ * El marco de las vistas de `/booking/:id` (M-08 RN-DISPO-61): la cabecera con la barbería y los
  * estados comunes —cargando, cita no encontrada y error de carga—. El contenido de la vista solo se
  * pinta con la cita cargada.
  *

@@ -42,7 +42,7 @@ export function createAppConfig(
         routes,
         // `appointmentId` llega como input del componente de encuesta, sin inyectar `ActivatedRoute`.
         withComponentInputBinding(),
-        // Las anclas del landing (#servicios, #barberos, …) son links del propio header.
+        // Las anclas del landing (#services, #team, …) son links del propio header.
         withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }),
         // Una pestaña abierta durante un despliegue pide chunks que ya no existen: se recarga sola
         // en vez de obligar al visitante a borrar la caché (`core/stale-chunk.ts`).

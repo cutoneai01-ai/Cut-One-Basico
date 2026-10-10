@@ -159,7 +159,7 @@ describe('ProfileBarberSection: «Tu barbero»', () => {
   it('con servicios, «Ver sus servicios» lleva a su sección', () => {
     const host = render(barber());
 
-    expect(host.querySelector('.mybarber__link')?.getAttribute('href')).toMatch(/#servicios$/);
+    expect(host.querySelector('.mybarber__link')?.getAttribute('href')).toMatch(/#services$/);
   });
 
   it('con la terminología de un spa, «Tu colaborador» (M-02 RN-TEN-51)', () => {

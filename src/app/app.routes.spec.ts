@@ -12,8 +12,8 @@ import { PopularServicesService } from './data/popular.service';
 import { SettingsService } from './data/settings.service';
 import { TestimonialsService } from './data/testimonials.service';
 import { LandingPage } from './landing/landing-page';
-import { legacyBarberLinkGuard } from './landing/legacy-barber-link';
-import { legacyManageLinkGuard } from './manage/legacy-links';
+import { legacyAnchorGuard } from './legacy/legacy-anchors';
+import { legacyBarberLinkGuard } from './legacy/legacy-barber-link';
 import { ManageCancelPage } from './manage/manage-cancel-page';
 import { ManageConfirmPage } from './manage/manage-confirm-page';
 import { ManageDetailPage } from './manage/manage-detail-page';
@@ -48,23 +48,24 @@ describe('rutas de la aplicación', () => {
     ['', LandingPage],
     ['profile/:barberId', LandingPage],
     ['__preview', PreviewPage],
-    ['encuesta/:appointmentId', SurveyPage],
-    ['reserva/:appointmentId', ManageDetailPage],
-    ['reserva/:appointmentId/confirmar', ManageConfirmPage],
-    ['reserva/:appointmentId/cancelar', ManageCancelPage],
-    ['reserva/:appointmentId/editar', ManageEditPage],
-    ['reserva/:appointmentId/confirmar-todas', ManageGroupActionPage],
-    ['reserva/:appointmentId/cancelar-todas', ManageGroupActionPage],
+    ['survey/:appointmentId', SurveyPage],
+    ['booking/:appointmentId', ManageDetailPage],
+    ['booking/:appointmentId/confirm', ManageConfirmPage],
+    ['booking/:appointmentId/cancel', ManageCancelPage],
+    ['booking/:appointmentId/reschedule', ManageEditPage],
+    ['booking/:appointmentId/confirm-all', ManageGroupActionPage],
+    ['booking/:appointmentId/cancel-all', ManageGroupActionPage],
     ['**', NotFoundPage],
   ])('«%s» carga su pantalla de forma diferida', async (path, component) => {
     expect(await loaded(path)).toBe(component);
   });
 
-  it('los enlaces viejos pasan por su guard y las rutas «-todas» fijan su acción', () => {
+  it('/ y el perfil traducen los enlaces viejos antes de pintar, y las rutas «-all» fijan su acción', () => {
     expect(route('').canActivate).toEqual([legacyBarberLinkGuard]);
-    expect(route('reserva/:appointmentId').canActivate).toEqual([legacyManageLinkGuard]);
-    expect(route('reserva/:appointmentId/confirmar-todas').data).toEqual({ action: 'confirm' });
-    expect(route('reserva/:appointmentId/cancelar-todas').data).toEqual({ action: 'cancel' });
+    expect(route('profile/:barberId').canActivate).toEqual([legacyAnchorGuard]);
+    expect(route('booking/:appointmentId').canActivate).toBeUndefined();
+    expect(route('booking/:appointmentId/confirm-all').data).toEqual({ action: 'confirm' });
+    expect(route('booking/:appointmentId/cancel-all').data).toEqual({ action: 'cancel' });
   });
 
   it('el comodín va el último, detrás de /__preview y de /profile', () => {

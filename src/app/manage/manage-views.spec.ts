@@ -1,16 +1,7 @@
-import { Location } from '@angular/common';
-import { SpyLocation, provideLocationMocks } from '@angular/common/testing';
-import { Component, signal, type Type } from '@angular/core';
+import { signal, type Type } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
-import {
-  RedirectCommand,
-  Router,
-  provideRouter,
-  type ActivatedRouteSnapshot,
-  type RouterStateSnapshot,
-} from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { By } from '@angular/platform-browser';
-import { RouterTestingHarness } from '@angular/router/testing';
 import { MessageService } from 'primeng/api';
 import { Subject, firstValueFrom } from 'rxjs';
 import { BarberSelect } from '../booking/barber-select';
@@ -29,14 +20,13 @@ import type {
   PublicService,
 } from '../data/public-api.models';
 import { SettingsService } from '../data/settings.service';
-import { legacyManageLinkGuard } from './legacy-links';
 import { ManageCancelPage } from './manage-cancel-page';
 import { ManageConfirmPage } from './manage-confirm-page';
 import { ManageDetailPage } from './manage-detail-page';
 import { ManageEditPage } from './manage-edit-page';
 import { ManageGroupActionPage } from './manage-group-action-page';
 
-// Una pantalla por acción en `/reserva/:id` (M-08 RN-DISPO-57 a RN-DISPO-61, ADR-0060): detalle de solo
+// Una pantalla por acción en `/booking/:id` (M-08 RN-DISPO-57 a RN-DISPO-61, ADR-0060): detalle de solo
 // lectura, confirmar, cancelar, editar, confirmar todas y cancelar todas. Ninguna acción sale sin un
 // clic, y los enlaces viejos con `?confirmar=1` redirigen sin llamar a la API.
 
@@ -289,9 +279,9 @@ describe('Gestión de la cita desde el correo', () => {
       expect(all(host, 'cob-appointment-card dt')[0]).toBe('Barbero');
       expect(text(host, 'cob-appointment-card')).toContain('jueves, 1 de octubre de 2026 · 09:00 – 09:30');
       expect(links(host)).toEqual({
-        Confirmar: '/reserva/appt-2/confirmar',
-        Editar: '/reserva/appt-2/editar',
-        Cancelar: '/reserva/appt-2/cancelar',
+        Confirmar: '/booking/appt-2/confirm',
+        Editar: '/booking/appt-2/reschedule',
+        Cancelar: '/booking/appt-2/cancel',
       });
       expect(host.querySelector('cob-other-appointments section')).toBeNull();
     });
@@ -322,9 +312,9 @@ describe('Gestión de la cita desde el correo', () => {
       expect(all(host, 'cob-other-appointments .tag')).toEqual(['Confirmada', 'Pendiente de confirmar', 'Cancelada']);
       expect(
         Array.from(host.querySelectorAll<HTMLAnchorElement>('cob-other-appointments a')).map((a) => a.getAttribute('href')),
-      ).toEqual(['/reserva/appt-1', '/reserva/appt-3', '/reserva/appt-4']);
-      expect(links(host)['Confirmar todas']).toBe('/reserva/appt-2/confirmar-todas');
-      expect(links(host)['Cancelar todas']).toBe('/reserva/appt-2/cancelar-todas');
+      ).toEqual(['/booking/appt-1', '/booking/appt-3', '/booking/appt-4']);
+      expect(links(host)['Confirmar todas']).toBe('/booking/appt-2/confirm-all');
+      expect(links(host)['Cancelar todas']).toBe('/booking/appt-2/cancel-all');
     });
 
     it('sin nada que confirmar en el grupo no ofrece Confirmar todas', async () => {
@@ -382,7 +372,7 @@ describe('Gestión de la cita desde el correo', () => {
       expect(host.querySelector<HTMLAnchorElement>('cob-action-not-allowed a.btn')?.getAttribute('href')).toBe(
         'https://wa.me/573000000000',
       );
-      expect(host.querySelector<HTMLAnchorElement>('a.back')?.getAttribute('href')).toBe('/reserva/appt-2');
+      expect(host.querySelector<HTMLAnchorElement>('a.back')?.getAttribute('href')).toBe('/booking/appt-2');
       expect(host.querySelector('button')).toBeNull();
     });
 
@@ -422,7 +412,7 @@ describe('Gestión de la cita desde el correo', () => {
       expect(text(host, 'cob-other-appointments h3')).toBe('Tus otras citas siguen activas');
       // La cancelada de antes no está entre las activas.
       expect(all(host, 'cob-other-appointments .mini strong')).toEqual(['Corte', 'Barba']);
-      expect(links(host)['Cancelar todas']).toBe('/reserva/appt-2/cancelar-todas');
+      expect(links(host)['Cancelar todas']).toBe('/booking/appt-2/cancel-all');
     });
 
     it('no cancelable: el motivo del servidor y ningún botón destructivo', async () => {
@@ -481,10 +471,10 @@ describe('Gestión de la cita desde el correo', () => {
       const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
 
       await render(ManageGroupActionPage, BASE, { action: 'confirm' });
-      expect(navigate).toHaveBeenLastCalledWith(['/reserva', 'appt-2', 'confirmar'], { replaceUrl: true });
+      expect(navigate).toHaveBeenLastCalledWith(['/booking', 'appt-2', 'confirm'], { replaceUrl: true });
 
       await render(ManageGroupActionPage, BASE, { action: 'cancel' });
-      expect(navigate).toHaveBeenLastCalledWith(['/reserva', 'appt-2', 'cancelar'], { replaceUrl: true });
+      expect(navigate).toHaveBeenLastCalledWith(['/booking', 'appt-2', 'cancel'], { replaceUrl: true });
       expect(manage.confirmAll).not.toHaveBeenCalled();
       expect(manage.cancelAll).not.toHaveBeenCalled();
     });
@@ -519,7 +509,7 @@ describe('Gestión de la cita desde el correo', () => {
     /** El contenedor de «Ver mi reserva», y lo que hay dentro, en orden. */
     function backContainer(host: HTMLElement): { container: HTMLElement; items: string[] } {
       const back = host.querySelector<HTMLAnchorElement>('a.back')!;
-      expect(back.getAttribute('href')).toBe('/reserva/appt-2');
+      expect(back.getAttribute('href')).toBe('/booking/appt-2');
       const container = back.parentElement!;
       return { container, items: Array.from(container.children).map((child) => clean(child.textContent)) };
     }
@@ -587,7 +577,7 @@ describe('Gestión de la cita desde el correo', () => {
   });
 
   // CB-07 RN-CBBAS-04: el favicon lo pone el componente raíz con los ajustes públicos; las vistas de
-  // `/reserva` solo ponen su título.
+  // `/booking` solo ponen su título.
   describe('favicon', () => {
     let icon: HTMLLinkElement;
 
@@ -699,7 +689,7 @@ describe('Gestión de la cita desde el correo', () => {
       const { host } = await render(ManageEditPage, BASE);
 
       const back = host.querySelector<HTMLAnchorElement>('a.back')!;
-      expect(back.getAttribute('href')).toBe('/reserva/appt-2');
+      expect(back.getAttribute('href')).toBe('/booking/appt-2');
       const container = back.parentElement!;
       expect(container.classList).toContain('actions');
       expect(container.classList).toContain('actions--with-back');
@@ -959,7 +949,7 @@ describe('Gestión de la cita desde el correo', () => {
     it('solo editable: un único enlace, Editar', async () => {
       const { host } = await render(ManageDetailPage, { ...BASE, confirmable: false, cancelable: false });
 
-      expect(links(host)).toEqual({ Editar: '/reserva/appt-2/editar' });
+      expect(links(host)).toEqual({ Editar: '/booking/appt-2/reschedule' });
     });
 
     it('cita cancelada: «Reservar otra cita» y, sin nombre de barbería, el título de la pestaña no cambia', async () => {
@@ -1406,85 +1396,4 @@ describe('Gestión de la cita desde el correo', () => {
     });
   });
 
-});
-
-@Component({ selector: 'cob-detail-stub', template: 'detalle' })
-class DetailStub {}
-
-@Component({ selector: 'cob-confirm-stub', template: 'confirmar' })
-class ConfirmStub {}
-
-@Component({ selector: 'cob-cancel-stub', template: 'cancelar' })
-class CancelStub {}
-
-describe('enlaces viejos del correo (M-08 RN-DISPO-61)', () => {
-  const getAppointment = vi.fn();
-
-  beforeEach(() => {
-    getAppointment.mockReset();
-    TestBed.configureTestingModule({
-      providers: [
-        provideLocationMocks(),
-        provideRouter([
-          { path: 'reserva/:appointmentId', canActivate: [legacyManageLinkGuard], component: DetailStub },
-          { path: 'reserva/:appointmentId/confirmar', component: ConfirmStub },
-          { path: 'reserva/:appointmentId/cancelar', component: CancelStub },
-        ]),
-        { provide: ManageBookingService, useValue: { getAppointment } },
-      ],
-    });
-  });
-
-  it('?confirmar=1 lleva a /confirmar sin pintar el detalle ni llamar a la API', async () => {
-    const harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl('/reserva/appt-2?confirmar=1');
-
-    expect(TestBed.inject(Router).url).toBe('/reserva/appt-2/confirmar');
-    expect(harness.routeNativeElement?.textContent).toBe('confirmar');
-    expect(getAppointment).not.toHaveBeenCalled();
-  });
-
-  it('?cancelar=1 lleva a /cancelar; si llegan los dos, gana confirmar', async () => {
-    const harness = await RouterTestingHarness.create();
-
-    await harness.navigateByUrl('/reserva/appt-2?cancelar=1');
-    expect(TestBed.inject(Router).url).toBe('/reserva/appt-2/cancelar');
-
-    await harness.navigateByUrl('/reserva/appt-2?cancelar=1&confirmar=1');
-    expect(TestBed.inject(Router).url).toBe('/reserva/appt-2/confirmar');
-  });
-
-  // CB-05 RN-CBGES-07: la redirección sustituye la entrada del historial; Atrás no vuelve al enlace viejo.
-  it('la redirección reemplaza el enlace viejo en el historial', async () => {
-    const location = TestBed.inject(Location) as SpyLocation;
-    const harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl('/reserva/appt-1');
-
-    await harness.navigateByUrl('/reserva/appt-2?confirmar=1');
-
-    expect(location.urlChanges.at(-1)).toBe('replace: /reserva/appt-2/confirmar');
-    expect(location.urlChanges).not.toContain('/reserva/appt-2/confirmar');
-  });
-
-  it('el guard devuelve un RedirectCommand con replaceUrl', () => {
-    const route = {
-      paramMap: new Map([['appointmentId', 'appt-2']]),
-      queryParamMap: new Map([['cancelar', '1']]),
-    } as unknown as ActivatedRouteSnapshot;
-
-    const result = TestBed.runInInjectionContext(() => legacyManageLinkGuard(route, {} as RouterStateSnapshot));
-
-    expect(result).toBeInstanceOf(RedirectCommand);
-    const command = result as RedirectCommand;
-    expect(TestBed.inject(Router).serializeUrl(command.redirectTo)).toBe('/reserva/appt-2/cancelar');
-    expect(command.navigationBehaviorOptions?.replaceUrl).toBe(true);
-  });
-
-  it('sin parámetros viejos se queda en el detalle', async () => {
-    const harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl('/reserva/appt-2');
-
-    expect(TestBed.inject(Router).url).toBe('/reserva/appt-2');
-    expect(harness.routeNativeElement?.textContent).toBe('detalle');
-  });
 });

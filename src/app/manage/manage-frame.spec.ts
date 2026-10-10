@@ -3,7 +3,7 @@ import { provideRouter } from '@angular/router';
 import type { ManageAppointment } from '../data/public-api.models';
 import { ManageFrame } from './manage-frame';
 
-// El marco de `/reserva/:id` (M-08 RN-DISPO-61): la cabecera con la barbería solo con la cita cargada.
+// El marco de `/booking/:id` (M-08 RN-DISPO-61): la cabecera con la barbería solo con la cita cargada.
 
 describe('ManageFrame', () => {
   beforeEach(() => TestBed.configureTestingModule({ providers: [provideRouter([])] }));

@@ -10,7 +10,7 @@ import { DEFAULTS, type PublicSettingsBundle, type StoredPublicSnapshot } from '
 import { SettingsService } from './settings.service';
 
 // CB-07 RN-CBBAS-03 y RN-CBBAS-04: los ajustes se cargan una vez por carga de la aplicación, en toda
-// ruta, y la zona que pide `/reserva` sale de esa misma carga si está en vuelo: nunca dos peticiones.
+// ruta, y la zona que pide `/booking` sale de esa misma carga si está en vuelo: nunca dos peticiones.
 
 const LOCALE: TenantLocale = {
   time_zone: 'America/Bogota',

@@ -27,7 +27,7 @@ describe('HeroSection: enlace a los servicios', () => {
     fixture.detectChanges();
 
     const link = (fixture.nativeElement as HTMLElement).querySelector('.hero__link');
-    expect(link?.getAttribute('href')).toBe('/profile/abc#servicios');
+    expect(link?.getAttribute('href')).toBe('/profile/abc#services');
   });
 });
 

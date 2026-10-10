@@ -24,7 +24,7 @@ import { isLive, shortWhen, statusLabel } from './manage-appointment';
                 </span>
               }
               @if (links()) {
-                <a [routerLink]="['/reserva', line.id]" [attr.aria-label]="'Ver la cita de ' + line.serviceName">Ver</a>
+                <a [routerLink]="['/booking', line.id]" [attr.aria-label]="'Ver la cita de ' + line.serviceName">Ver</a>
               }
             </li>
           }

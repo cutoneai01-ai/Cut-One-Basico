@@ -1,4 +1,4 @@
-<section class="cob-section" id="tu-barbero" aria-labelledby="tu-barbero-nombre">
+<section class="cob-section" id="member" aria-labelledby="member-name">
   <div class="cob-container">
     <p-card>
       <div class="mybarber">
@@ -7,7 +7,7 @@
 
         <div class="mybarber__info">
           <span class="cob-eyebrow">Tu {{ 'staff' | term }}</span>
-          <h2 class="mybarber__name" id="tu-barbero-nombre">{{ name() }}</h2>
+          <h2 class="mybarber__name" id="member-name">{{ name() }}</h2>
 
           @if (barber().specialty) {
             <span class="mybarber__specialty">{{ barber().specialty }}</span>
@@ -30,7 +30,7 @@
               (onClick)="book.emit()"
             />
             @if (serviceCount() > 0) {
-              <a class="mybarber__link" cobSectionLink="servicios">Ver sus servicios</a>
+              <a class="mybarber__link" cobSectionLink="services">Ver sus servicios</a>
             }
           </div>
 

@@ -22,7 +22,7 @@ import { SettingsService } from '../data/settings.service';
 import { TestimonialsService } from '../data/testimonials.service';
 import { BarbersSection } from './barbers-section';
 import { LandingPage, pageTitle } from './landing-page';
-import { legacyBarberLinkGuard } from './legacy-barber-link';
+import { legacyBarberLinkGuard } from '../legacy/legacy-barber-link';
 import { PopularSection } from './popular-section';
 import { ServicesSection } from './services-section';
 import { TestimonialsSection } from './testimonials-section';
@@ -540,8 +540,8 @@ describe('LandingPage: perfil del barbero', () => {
     it('las anclas del perfil son del perfil: no saltan a la landing', async () => {
       await harness.navigateByUrl(`/profile/${FELIPE_ID}`);
 
-      expect(page().querySelector('.hero__link')?.getAttribute('href')).toBe(`/profile/${FELIPE_ID}#servicios`);
-      expect(page().querySelector('.nav a')?.getAttribute('href')).toBe(`/profile/${FELIPE_ID}#servicios`);
+      expect(page().querySelector('.hero__link')?.getAttribute('href')).toBe(`/profile/${FELIPE_ID}#services`);
+      expect(page().querySelector('.nav a')?.getAttribute('href')).toBe(`/profile/${FELIPE_ID}#services`);
     });
   });
 
@@ -616,15 +616,15 @@ describe('LandingPage: perfil del barbero', () => {
     expect(texts('.mybarber__count')).toEqual(['2 servicios disponibles con Felipe Zapata']);
   });
 
-  // CB-02 RN-CBPER-04: `/profile/{id}#reservar` abre el asistente en Servicio con el barbero fijo, una vez.
-  describe('#reservar', () => {
+  // CB-02 RN-CBPER-04: `/profile/{id}#book` abre el asistente en Servicio con el barbero fijo, una vez.
+  describe('#book', () => {
     const wizardOpen = (): boolean => document.body.querySelector('.cob-referral-banner') !== null;
 
     it('pegado o en otra pestaña: abre en Servicio con el barbero fijo y quita el fragmento sin entrada nueva', async () => {
       const open = vi.spyOn(BookingWizard.prototype, 'open');
       const navigate = vi.spyOn(router, 'navigate');
 
-      await harness.navigateByUrl(`/profile/${FELIPE_ID}?utm_source=whatsapp#reservar`);
+      await harness.navigateByUrl(`/profile/${FELIPE_ID}?utm_source=whatsapp#book`);
       await settle();
       await settle();
 
@@ -645,7 +645,7 @@ describe('LandingPage: perfil del barbero', () => {
       await harness.navigateByUrl('/');
       const open = vi.spyOn(BookingWizard.prototype, 'open');
 
-      await router.navigateByUrl(`/profile/${FELIPE_ID}#reservar`);
+      await router.navigateByUrl(`/profile/${FELIPE_ID}#book`);
       await settle();
       await settle();
 
@@ -672,7 +672,7 @@ describe('LandingPage: perfil del barbero', () => {
       catalog.services.set([]);
       const open = vi.spyOn(BookingWizard.prototype, 'open');
 
-      await harness.navigateByUrl(`/profile/${FELIPE_ID}#reservar`);
+      await harness.navigateByUrl(`/profile/${FELIPE_ID}#book`);
       await settle();
       expect(open).not.toHaveBeenCalled();
       expect(router.url).toBe(`/profile/${FELIPE_ID}`);
@@ -691,7 +691,7 @@ describe('LandingPage: perfil del barbero', () => {
     it('un perfil que no es público no abre nada: se va a /', async () => {
       const open = vi.spyOn(BookingWizard.prototype, 'open');
 
-      await harness.navigateByUrl(`/profile/${NOBODY_ID}#reservar`);
+      await harness.navigateByUrl(`/profile/${NOBODY_ID}#book`);
       await settle();
       await settle();
 

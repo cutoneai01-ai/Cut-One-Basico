@@ -186,7 +186,7 @@ export class SettingsService {
    * La zona y la moneda de la barbería, esperándolas si todavía no llegaron (M-02 RN-TEN-20).
    *
    * Si no hay ninguna vigente se piden **otra vez**, con `keys=locale` a secas. Es lo que llaman el
-   * asistente de reserva y `/reserva/:id` antes de pintar una hora: sin zona no hay forma correcta de
+   * asistente de reserva y `/booking/:id` antes de pintar una hora: sin zona no hay forma correcta de
    * pintarla, y la incorrecta —la del navegador o la de Bogotá— es exactamente el defecto que ADR-0040
    * elimina. Rechaza si la petición falla o vuelve sin `locale`; el llamador lo trata como un fallo de
    * carga y el siguiente intento vuelve a pedir.

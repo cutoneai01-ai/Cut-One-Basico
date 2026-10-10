@@ -38,7 +38,7 @@ function serviceOf(booking: ManageAppointment): PublicService {
 }
 
 /**
- * `/reserva/:id/editar`: cambiar el servicio, el barbero, el día o la hora de **esta** cita, sin tocar
+ * `/booking/:id/reschedule`: cambiar el servicio, el barbero, el día o la hora de **esta** cita, sin tocar
  * las demás del grupo (M-08 RN-DISPO-59). El barbero es siempre concreto, como en la edición de una
  * cita suelta: no se ofrece «cualquier profesional».
  *

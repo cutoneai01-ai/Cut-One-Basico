@@ -10,9 +10,7 @@ import { SectionLink } from './section-link';
 /**
  * Cabecera del landing. Marca del tenant + anclas + CTA.
  *
- * Las anclas son `#servicios`, `#barberos`, `#nosotros` y `#contacto` — las del mockup, no las de
- * `pz-personalizado` (que usaba `#equipo`): son dos aplicaciones distintas y ningún link externo
- * depende de ellas.
+ * Las anclas son `#services`, `#team`, `#about` y `#contact`: en inglés y sin oficio (M-08 RN-DISPO-75).
  */
 @Component({
   selector: 'cob-site-header',

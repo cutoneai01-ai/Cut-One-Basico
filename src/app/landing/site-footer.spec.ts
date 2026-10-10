@@ -29,14 +29,14 @@ describe('SiteFooter: navegación', () => {
 
   it('en la landing con todo pintado, las tres', () => {
     expect(links(render(navLinks({ services: true, team: true, about: true })))).toEqual([
-      'Servicios /#servicios',
-      'Barberos /#barberos',
-      'Sobre Nosotros /#nosotros',
+      'Servicios /#services',
+      'Barberos /#team',
+      'Sobre Nosotros /#about',
     ]);
   });
 
   it('en el perfil, sin «Barberos»; y sin «Nosotros», sin «Sobre Nosotros»', () => {
-    expect(links(render(navLinks({ services: true, team: false, about: false })))).toEqual(['Servicios /#servicios']);
+    expect(links(render(navLinks({ services: true, team: false, about: false })))).toEqual(['Servicios /#services']);
   });
 
   it('sin ninguna sección que enlazar, no pinta el bloque de navegación', () => {
@@ -44,7 +44,7 @@ describe('SiteFooter: navegación', () => {
 
     expect(host.querySelector('.footer__nav')).toBeNull();
     // El contacto sigue: es el pie.
-    expect(host.querySelector('#contacto')).not.toBeNull();
+    expect(host.querySelector('#contact')).not.toBeNull();
   });
 });
 

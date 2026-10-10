@@ -1,9 +1,10 @@
 import { Routes } from '@angular/router';
 import { BookingPolicyService } from './data/booking-policy.service';
 import { BookingService } from './data/booking.service';
-import { legacyManageLinkGuard } from './manage/legacy-links';
 import { CatalogService } from './data/catalog.service';
-import { legacyBarberLinkGuard } from './landing/legacy-barber-link';
+import { legacyAnchorGuard } from './legacy/legacy-anchors';
+import { legacyBarberLinkGuard } from './legacy/legacy-barber-link';
+import { LEGACY_ROUTES } from './legacy/legacy-routes';
 import { PopularServicesService } from './data/popular.service';
 import { SettingsService } from './data/settings.service';
 import { TestimonialsService } from './data/testimonials.service';
@@ -14,13 +15,13 @@ import { PreviewSettingsService } from './preview/preview-settings.service';
 import { PreviewTestimonialsService } from './preview/preview-testimonials.service';
 
 /**
- * RF-G01 §7. Sin prefijo de ruta: esta aplicación es la dueña de la raíz del host — el prefijo
- * `/admin/` es del panel y no se sirve desde este repo.
+ * Sin prefijo de ruta: esta aplicación es la dueña de la raíz del host — el prefijo `/admin/` es del
+ * panel y no se sirve desde este repo (ARQ-020 §5). Rutas en inglés y sin oficio (M-02 RN-TEN-76).
  */
 export const routes: Routes = [
   {
     path: '',
-    // M-08 RN-DISPO-68: el enlace viejo `/?barbero={id}` redirige al perfil antes de pintar nada.
+    // `/?barbero={id}` y las anclas viejas se traducen antes de pintar nada (CB-07 RN-CBBAS-11).
     canActivate: [legacyBarberLinkGuard],
     loadComponent: () => import('./landing/landing-page').then((m) => m.LandingPage),
   },
@@ -29,6 +30,8 @@ export const routes: Routes = [
     // página aparte; `LandingPage` lee `barberId` de la ruta. Sin slug: el id es el GUID del barbero.
     // Va antes del comodín `**`.
     path: 'profile/:barberId',
+    // Las anclas viejas se traducen antes de pintar nada (CB-07 RN-CBBAS-11).
+    canActivate: [legacyAnchorGuard],
     loadComponent: () => import('./landing/landing-page').then((m) => m.LandingPage),
   },
   {
@@ -71,43 +74,44 @@ export const routes: Routes = [
     loadComponent: () => import('./preview/preview-page').then((m) => m.PreviewPage),
   },
   {
-    // Decisión 5 de la serie: el backend compone este link a mano y lo manda por correo
-    // (`TransactionalEmails.cs:317`). Quien sirve `/` para un tenant es dueño de esta ruta.
-    path: 'encuesta/:appointmentId',
+    // El backend compone este link a mano y lo manda por correo (M-24): quien sirve `/` para un tenant
+    // es dueño de esta ruta (M-08 RN-DISPO-75).
+    path: 'survey/:appointmentId',
     loadComponent: () => import('./survey/survey-page').then((m) => m.SurveyPage),
   },
-  // M-08 RN-DISPO-61: una pantalla por acción, cada una en su chunk. Mismo argumento que la ruta de
-  // encuesta: el backend compone `https://{subdomain}.{domain}/reserva/{id}` en el correo
-  // (`TransactionalEmails.RenderManageButtonHtml`), así que quien sirve `/` es dueño de estas rutas.
+  // M-08 RN-DISPO-61: una pantalla por acción, cada una en su chunk. El backend compone
+  // `https://{subdomain}.{domain}/booking/{id}` en el correo, así que quien sirve `/` es dueño de estas
+  // rutas (M-08 RN-DISPO-75).
   {
-    path: 'reserva/:appointmentId',
-    canActivate: [legacyManageLinkGuard],
+    path: 'booking/:appointmentId',
     loadComponent: () => import('./manage/manage-detail-page').then((m) => m.ManageDetailPage),
   },
   {
-    path: 'reserva/:appointmentId/confirmar',
+    path: 'booking/:appointmentId/confirm',
     loadComponent: () => import('./manage/manage-confirm-page').then((m) => m.ManageConfirmPage),
   },
   {
-    path: 'reserva/:appointmentId/cancelar',
+    path: 'booking/:appointmentId/cancel',
     loadComponent: () => import('./manage/manage-cancel-page').then((m) => m.ManageCancelPage),
   },
   {
-    path: 'reserva/:appointmentId/editar',
+    path: 'booking/:appointmentId/reschedule',
     loadComponent: () => import('./manage/manage-edit-page').then((m) => m.ManageEditPage),
   },
   {
-    path: 'reserva/:appointmentId/confirmar-todas',
+    path: 'booking/:appointmentId/confirm-all',
     data: { action: 'confirm' },
     loadComponent: () =>
       import('./manage/manage-group-action-page').then((m) => m.ManageGroupActionPage),
   },
   {
-    path: 'reserva/:appointmentId/cancelar-todas',
+    path: 'booking/:appointmentId/cancel-all',
     data: { action: 'cancel' },
     loadComponent: () =>
       import('./manage/manage-group-action-page').then((m) => m.ManageGroupActionPage),
   },
+  // Las rutas viejas de los correos ya enviados, hasta el 2027-04-10 (CB-07 RN-CBBAS-11, R-44).
+  ...LEGACY_ROUTES,
   {
     path: '**',
     loadComponent: () => import('./not-found/not-found-page').then((m) => m.NotFoundPage),

@@ -7,7 +7,7 @@ describe('isPreviewPath', () => {
     expect(isPreviewPath(PREVIEW_PATH)).toBe(true);
     expect(isPreviewPath('/__preview')).toBe(true);
     expect(isPreviewPath('/')).toBe(false);
-    expect(isPreviewPath('/reserva/a1')).toBe(false);
+    expect(isPreviewPath('/booking/a1')).toBe(false);
     expect(isPreviewPath('/__preview/x')).toBe(false);
   });
 });

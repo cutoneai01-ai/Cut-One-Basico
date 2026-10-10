@@ -4,12 +4,12 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { SectionLink } from './section-link';
 
-// Con `<base href="/">`, un `href="#servicios"` suelto en `/profile/{id}` apunta a `/#servicios` y
+// Con `<base href="/">`, un `href="#services"` suelto en `/profile/{id}` apunta a `/#services` y
 // recarga la landing normal. El enlace de sección lleva la página actual delante del fragmento.
 
 @Component({
   imports: [SectionLink],
-  template: '<a cobSectionLink="servicios">Servicios</a>',
+  template: '<a cobSectionLink="services">Servicios</a>',
 })
 class Host {}
 
@@ -36,16 +36,16 @@ describe('SectionLink: ancla a una sección de la página actual', () => {
 
   it('en la landing, la raíz con el fragmento', () => {
     location.go('/');
-    expect(href()).toBe('/#servicios');
+    expect(href()).toBe('/#services');
   });
 
   it('en el perfil, la ruta del perfil: un salto dentro del mismo documento', () => {
     location.go('/profile/3f2b8c1e-5d4a-4c3b-9a8e-7f6d5c4b3a21');
-    expect(href()).toBe('/profile/3f2b8c1e-5d4a-4c3b-9a8e-7f6d5c4b3a21#servicios');
+    expect(href()).toBe('/profile/3f2b8c1e-5d4a-4c3b-9a8e-7f6d5c4b3a21#services');
   });
 
   it('conserva los parámetros de la página', () => {
     location.go('/', 'utm_source=whatsapp');
-    expect(href()).toBe('/?utm_source=whatsapp#servicios');
+    expect(href()).toBe('/?utm_source=whatsapp#services');
   });
 });

@@ -9,7 +9,7 @@ import { ManageFrame } from './manage-frame';
 import { OtherAppointments } from './other-appointments';
 
 /**
- * `/reserva/:id/cancelar`: cancelar **esta** cita, con un motivo opcional (M-08 RN-DISPO-57,
+ * `/booking/:id/cancel`: cancelar **esta** cita, con un motivo opcional (M-08 RN-DISPO-57,
  * RN-DISPO-61). Solo se cancela esta: las demás del grupo siguen en pie.
  *
  * **El POST sale únicamente del clic en el botón destructivo.** Cancelar es irreversible y no hay
@@ -36,7 +36,7 @@ import { OtherAppointments } from './other-appointments';
               />
               @if (booking.group?.anyCancelable) {
                 <div class="actions">
-                  <a class="btn" [routerLink]="['/reserva', booking.appointmentId, 'cancelar-todas']">Cancelar todas</a>
+                  <a class="btn" [routerLink]="['/booking', booking.appointmentId, 'cancel-all']">Cancelar todas</a>
                 </div>
               }
             } @else {
@@ -83,7 +83,7 @@ import { OtherAppointments } from './other-appointments';
                 <button type="button" class="btn btn--danger" [disabled]="busy()" (click)="cancel()">
                   {{ busy() ? 'Cancelando…' : 'Cancelar esta cita' }}
                 </button>
-                <a class="back" [routerLink]="['/reserva', booking.appointmentId]">Ver mi reserva</a>
+                <a class="back" [routerLink]="['/booking', booking.appointmentId]">Ver mi reserva</a>
               </div>
             </cob-appointment-card>
             @if (failure(); as message) {

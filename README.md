@@ -126,12 +126,19 @@ operativo **del visitante**, y el tema es del tenant. Aquí apunta a la clase `c
 
 | Ruta | Nota |
 |---|---|
-| `/` | el landing |
-| `/encuesta/:appointmentId` | **no es opcional**: el backend compone ese link a mano (`TransactionalEmails.cs:317`) y lo manda por correo. Quien sirve `/` para un tenant es dueño de esta ruta |
+| `/` | el landing; anclas `#services`, `#team`, `#about`, `#contact` |
+| `/profile/:barberId` | la misma landing en modo perfil; `#book` abre el asistente |
+| `/survey/:appointmentId` | **no es opcional**: el backend compone ese link a mano y lo manda por correo. Quien sirve `/` para un tenant es dueño de esta ruta |
+| `/booking/:appointmentId` y `/confirm`, `/cancel`, `/reschedule`, `/confirm-all`, `/cancel-all` | gestión de la cita desde el correo; mismo argumento que la encuesta |
+| `/__preview` | vista previa de GestionCutOne |
 | `**` | no encontrado |
 
+Rutas y anclas en inglés y sin oficio (M-08 `RN-DISPO-75`, ADR-0070). Las viejas en español
+(`/encuesta`, `/reserva`, `#servicios`…) redirigen **hasta el 2027-04-10** desde `src/app/legacy/`
+(CB-07 `RN-CBBAS-11`, R-44): ese día se borra la carpeta y su enganche en `app.routes.ts`.
+
 `public/_redirects` reescribe `/*` a `/index.html` con status 200. **Sin él, recargar en
-`/encuesta/{id}` da 404** — y ese link, que llega por correo días después de la cita, es la única forma
+`/survey/{id}` da 404** — y ese link, que llega por correo días después de la cita, es la única forma
 de entrar a esa ruta.
 
 ## Estructura
@@ -145,7 +152,9 @@ src/
     ├── data/              un servicio singleton por recurso del API
     ├── landing/           las seis secciones de /  + derivación de chips
     ├── booking/           wizard de 4 pasos + aplanado de slots + mapeo de errores
-    ├── survey/            /encuesta/:appointmentId
+    ├── survey/            /survey/:appointmentId
+    ├── manage/            /booking/:appointmentId y sus acciones
+    ├── legacy/            redirecciones de las URLs viejas (caducan el 2027-04-10)
     └── not-found/
 ```
 

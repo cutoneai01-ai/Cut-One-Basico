@@ -17,14 +17,14 @@ type SurveyState = 'loading' | 'form' | 'thanks' | 'error';
 const COMMENT_MAX = 600;
 
 /**
- * `/encuesta/:appointmentId` (RF-G05).
+ * `/survey/:appointmentId` (CB-06, M-08 RN-DISPO-75).
  *
  * Esta ruta **no es una sección más del producto: es una obligación que impone el backend**.
- * `TransactionalEmails` compone el link como `https://{subdomain}.{domain}/encuesta/{id}`
- * (`TransactionalEmails.cs:317`) y no hay configuración que lo redirija a otro sitio, así que quien
+ * `TransactionalEmails` compone el link como `https://{subdomain}.{domain}/survey/{id}`
+ * y no hay configuración que lo redirija a otro sitio, así que quien
  * sirve `/` para un tenant es dueño de esta ruta. Si no existiera, el link no daría un 404 honesto:
  * devolvería el `index.html` del landing con status 200 y el router caería en "no encontrado", el mismo
- * modo de fallo silencioso que documenta RF-S01 §4.
+ * modo de fallo silencioso que documenta ARQ-020 §5.
  *
  * Es también la ruta más fácil de olvidar y la más difícil de detectar cuando falta: no hay ningún link
  * hacia ella dentro de la aplicación, se llega desde un correo días después de la cita, y quien se
